@@ -20,17 +20,15 @@ var syncCmd = &cobra.Command{
 	Use:   "sync",
 	Short: "Pull new workouts from the API",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		backfill, _ := cmd.Flags().GetBool("backfill-strokes")
-		return runSync(cmd.Context(), backfill)
+		return runSync(cmd.Context())
 	},
 }
 
 func init() {
-	syncCmd.Flags().Bool("backfill-strokes", false, "fetch stroke data for all workouts missing it")
 	rootCmd.AddCommand(syncCmd)
 }
 
-func runSync(ctx context.Context, backfillStrokes bool) error {
+func runSync(ctx context.Context) error {
 	cfg, err := config.Load()
 	if err != nil {
 		return err
@@ -64,20 +62,6 @@ func runSync(ctx context.Context, backfillStrokes bool) error {
 	strokeCount := syncStrokes(ctx, client, workouts)
 	if strokeCount > 0 {
 		fmt.Printf("Fetched stroke data for %d workouts.\n", strokeCount)
-	}
-
-	// Backfill stroke data for all previously synced workouts
-	if backfillStrokes {
-		allWorkouts, err := storage.ReadWorkouts()
-		if err != nil {
-			return fmt.Errorf("read workouts for backfill: %w", err)
-		}
-		backfilled := syncStrokes(ctx, client, allWorkouts)
-		if backfilled > 0 {
-			fmt.Printf("Backfilled stroke data for %d workouts.\n", backfilled)
-		} else {
-			fmt.Println("No missing stroke data to backfill.")
-		}
 	}
 
 	cfg.Sync.LastSync = time.Now().UTC().Format("2006-01-02T15:04:05Z")
