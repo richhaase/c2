@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Rich Haase. All rights reserved.
+// Use of this source code is governed by the MIT license.
+
 package display
 
 import (
@@ -57,12 +60,6 @@ func FormatWorkoutLine(w *models.Workout, dateFormat string) string {
 		dateStr, distance, w.TimeFormatted, pace, spm, hr, df)
 }
 
-func orDash(s string) string {
-	if s == "" {
-		return "-"
-	}
-	return s
-}
 
 func intFieldSuffix(v int, suffix string) string {
 	if v == 0 {

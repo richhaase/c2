@@ -1,15 +1,34 @@
+// Copyright (c) 2026 Rich Haase. All rights reserved.
+// Use of this source code is governed by the MIT license.
+
 package cmd
 
 import (
 	"fmt"
 	"sort"
 
+	"github.com/spf13/cobra"
+
 	"github.com/richhaase/c2cli/internal/config"
 	"github.com/richhaase/c2cli/internal/display"
 	"github.com/richhaase/c2cli/internal/storage"
 )
 
-func RunLog(n int) error {
+func newLogCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "log",
+		Short: "Show recent workouts",
+		Long:  "Show the last N workouts in compact format (default: 10).",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			n, _ := cmd.Flags().GetInt("count")
+			return runLog(n)
+		},
+	}
+	cmd.Flags().IntP("count", "n", 10, "number of workouts to display")
+	return cmd
+}
+
+func runLog(n int) error {
 	cfg, err := config.Load()
 	if err != nil {
 		return err
@@ -24,7 +43,6 @@ func RunLog(n int) error {
 		return nil
 	}
 
-	// Sort by date descending
 	sort.Slice(workouts, func(i, j int) bool {
 		return workouts[i].Date > workouts[j].Date
 	})

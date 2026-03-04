@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Rich Haase. All rights reserved.
+// Use of this source code is governed by the MIT license.
+
 package storage
 
 import (
@@ -41,7 +44,7 @@ func ReadWorkouts() ([]models.Workout, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open %s: %w", path, err)
 	}
-	defer f.Close()
+	defer f.Close() //nolint:errcheck // read-only or best-effort close
 
 	var workouts []models.Workout
 	scanner := bufio.NewScanner(f)
@@ -81,7 +84,7 @@ func AppendWorkouts(newWorkouts []models.Workout) (int, error) {
 	if err != nil {
 		return 0, fmt.Errorf("failed to open %s for appending: %w", path, err)
 	}
-	defer f.Close()
+	defer f.Close() //nolint:errcheck // read-only or best-effort close
 
 	count := 0
 	for _, w := range newWorkouts {
@@ -121,14 +124,16 @@ func WriteStrokeData(workoutID int64, strokes []models.StrokeData) error {
 	if err != nil {
 		return fmt.Errorf("failed to create %s: %w", path, err)
 	}
-	defer f.Close()
+	defer f.Close() //nolint:errcheck // read-only or best-effort close
 
 	for _, s := range strokes {
 		data, err := json.Marshal(s)
 		if err != nil {
 			return fmt.Errorf("failed to serialize stroke: %w", err)
 		}
-		fmt.Fprintf(f, "%s\n", data)
+		if _, err := fmt.Fprintf(f, "%s\n", data); err != nil {
+			return fmt.Errorf("write stroke: %w", err)
+		}
 	}
 	return nil
 }
@@ -147,7 +152,7 @@ func WorkoutCount() (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	defer f.Close()
+	defer f.Close() //nolint:errcheck // read-only or best-effort close
 
 	count := 0
 	scanner := bufio.NewScanner(f)

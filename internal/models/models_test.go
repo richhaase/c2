@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Rich Haase. All rights reserved.
+// Use of this source code is governed by the MIT license.
+
 package models
 
 import (

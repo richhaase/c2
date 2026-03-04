@@ -1,15 +1,30 @@
+// Copyright (c) 2026 Rich Haase. All rights reserved.
+// Use of this source code is governed by the MIT license.
+
 package cmd
 
 import (
 	"fmt"
 	"time"
 
+	"github.com/spf13/cobra"
+
 	"github.com/richhaase/c2cli/internal/config"
 	"github.com/richhaase/c2cli/internal/display"
 	"github.com/richhaase/c2cli/internal/storage"
 )
 
-func RunStatus() error {
+func newStatusCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "status",
+		Short: "Show progress toward million-meter goal",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runStatus()
+		},
+	}
+}
+
+func runStatus() error {
 	cfg, err := config.Load()
 	if err != nil {
 		return err
@@ -31,7 +46,6 @@ func RunStatus() error {
 	}
 	today := time.Now()
 
-	// Total meters in the goal period
 	var totalMeters int64
 	for _, w := range workouts {
 		t, err := w.ParsedDate()
@@ -46,6 +60,7 @@ func RunStatus() error {
 	progress := float64(totalMeters) / float64(target)
 	totalDays := end.Sub(start).Hours() / 24
 	totalWeeks := int64(totalDays/7 + 0.99)
+
 	var weeksElapsed int64
 	if today.After(start) {
 		weeksElapsed = int64(today.Sub(start).Hours() / 24 / 7)
@@ -71,12 +86,10 @@ func RunStatus() error {
 	fmt.Printf("Required pace: %s\n", display.FormatMetersPerWeek(requiredPace))
 	fmt.Println()
 
-	// Last 4 weeks breakdown
 	fmt.Println("Last 4 weeks:")
 	for i := 0; i < 4; i++ {
 		weekEnd := today.AddDate(0, 0, -i*7)
 		weekStart := weekEnd.AddDate(0, 0, -6)
-		// Align to Monday
 		daysSinceMonday := int(weekStart.Weekday()+6) % 7
 		weekStartAligned := weekStart.AddDate(0, 0, -daysSinceMonday)
 		weekEndAligned := weekStartAligned.AddDate(0, 0, 7)
@@ -101,7 +114,6 @@ func RunStatus() error {
 	}
 	fmt.Println()
 
-	// Weekly average and on-pace check
 	if weeksElapsed > 0 {
 		avg := totalMeters / weeksElapsed
 		targetWeekly := float64(target) / float64(totalWeeks)

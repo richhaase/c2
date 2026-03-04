@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Rich Haase. All rights reserved.
+// Use of this source code is governed by the MIT license.
+
 package config
 
 import (
@@ -36,11 +39,29 @@ type DisplayConfig struct {
 	DateFormat string `toml:"date_format"`
 }
 
+// Default returns a Config with sensible defaults.
+func Default() *Config {
+	return &Config{
+		API: APIConfig{
+			BaseURL: "https://log.concept2.com",
+		},
+		Sync: SyncConfig{
+			MachineType: "rower",
+		},
+		Goal: GoalConfig{
+			TargetMeters: 1_000_000,
+		},
+		Display: DisplayConfig{
+			DateFormat: "01/02",
+		},
+	}
+}
+
 // Dir returns the config directory: ~/.config/c2cli/
 func Dir() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return "", fmt.Errorf("could not determine home directory: %w", err)
+		return "", fmt.Errorf("determine home directory: %w", err)
 	}
 	return filepath.Join(home, ".config", "c2cli"), nil
 }
@@ -64,7 +85,7 @@ func EnsureDirs() error {
 	return os.MkdirAll(strokesDir, 0o755)
 }
 
-// Load reads config from ~/.config/c2cli/config.toml
+// Load reads config from ~/.config/c2cli/config.toml.
 func Load() (*Config, error) {
 	dir, err := Dir()
 	if err != nil {
@@ -72,29 +93,15 @@ func Load() (*Config, error) {
 	}
 	path := filepath.Join(dir, "config.toml")
 
-	cfg := &Config{
-		API: APIConfig{
-			BaseURL: "https://log.concept2.com",
-		},
-		Sync: SyncConfig{
-			MachineType: "rower",
-		},
-		Goal: GoalConfig{
-			TargetMeters: 1_000_000,
-		},
-		Display: DisplayConfig{
-			DateFormat: "01/02",
-		},
-	}
-
+	cfg := Default()
 	if _, err := toml.DecodeFile(path, cfg); err != nil {
-		return nil, fmt.Errorf("failed to read config at %s: %w", path, err)
+		return nil, fmt.Errorf("read config at %s: %w", path, err)
 	}
 
 	return cfg, nil
 }
 
-// Save writes config to ~/.config/c2cli/config.toml
+// Save writes config to ~/.config/c2cli/config.toml.
 func Save(cfg *Config) error {
 	dir, err := Dir()
 	if err != nil {
@@ -104,9 +111,9 @@ func Save(cfg *Config) error {
 
 	f, err := os.Create(path)
 	if err != nil {
-		return fmt.Errorf("failed to write config: %w", err)
+		return fmt.Errorf("write config: %w", err)
 	}
-	defer f.Close()
+	defer f.Close() //nolint:errcheck // error checked via encoder return
 
 	return toml.NewEncoder(f).Encode(cfg)
 }

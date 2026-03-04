@@ -1,40 +1,47 @@
+// Copyright (c) 2026 Rich Haase. All rights reserved.
+// Use of this source code is governed by the MIT license.
+
 package cmd
 
 import (
+	"context"
 	"fmt"
+
+	"github.com/spf13/cobra"
 
 	"github.com/richhaase/c2cli/internal/api"
 	"github.com/richhaase/c2cli/internal/config"
 )
 
-func RunAuth(token string) error {
+func newAuthCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "auth <token>",
+		Short: "Save access token and verify",
+		Long:  "Save your Concept2 personal access token (from log.concept2.com) and verify it works.",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runAuth(cmd.Context(), args[0])
+		},
+	}
+}
+
+func runAuth(ctx context.Context, token string) error {
 	cfg, err := config.Load()
 	if err != nil {
-		// Config might not exist yet — create a default one
-		cfg = &config.Config{
-			API: config.APIConfig{
-				BaseURL: "https://log.concept2.com",
-				Token:   token,
-			},
-			Sync: config.SyncConfig{MachineType: "rower"},
-			Goal: config.GoalConfig{TargetMeters: 1_000_000},
-			Display: config.DisplayConfig{DateFormat: "01/02"},
-		}
-	} else {
-		cfg.API.Token = token
+		cfg = config.Default()
 	}
+	cfg.API.Token = token
 
 	if err := config.EnsureDirs(); err != nil {
 		return err
 	}
 	if err := config.Save(cfg); err != nil {
-		return fmt.Errorf("failed to save config: %w", err)
+		return fmt.Errorf("save config: %w", err)
 	}
 	fmt.Println("Token saved.")
 
-	// Verify by fetching user profile
 	client := api.FromConfig(cfg)
-	user, err := client.GetUser()
+	user, err := client.GetUser(ctx)
 	if err != nil {
 		return fmt.Errorf("token verification failed: %w", err)
 	}
