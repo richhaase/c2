@@ -16,12 +16,12 @@ var versionInfo struct {
 }
 
 var rootCmd = &cobra.Command{
-	Use:   "c2cli",
+	Use:   "c2",
 	Short: "Concept2 Logbook CLI",
 	Long:  "CLI tool for Concept2 Logbook data sync and analysis.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if v, _ := cmd.Flags().GetBool("version"); v {
-			fmt.Printf("c2cli %s\n", formatVersion())
+			fmt.Printf("c2 %s\n", formatVersion())
 			return nil
 		}
 		return cmd.Help()
@@ -34,7 +34,7 @@ var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print version information",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("c2cli %s (commit: %s, built: %s)\n",
+		fmt.Printf("c2 %s (commit: %s, built: %s)\n",
 			versionInfo.Version, versionInfo.Commit, versionInfo.Date)
 	},
 }

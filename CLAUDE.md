@@ -20,8 +20,8 @@ go test ./...        # run tests only
 ## Source Layout
 
 ```
-cmd/c2cli/
-└── main.go              # CLI entry point
+cmd/c2/
+└── main.go              # CLI entry point (binary: c2)
 internal/
 ├── api/                 # Concept2 API client
 │   └── client.go

@@ -42,7 +42,7 @@ func (c *Client) get(ctx context.Context, path string) ([]byte, error) {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
 	req.Header.Set("Authorization", "Bearer "+c.token)
-	req.Header.Set("User-Agent", "c2cli/0.1.0")
+	req.Header.Set("User-Agent", "c2/0.1.0")
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {

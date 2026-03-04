@@ -6,7 +6,7 @@ LDFLAGS  = -ldflags "-s -w -X main.version=$(VERSION) -X main.commit=$(COMMIT) -
 .PHONY: build test lint vet fmt check clean
 
 build:
-	go build $(LDFLAGS) -o c2cli ./cmd/c2cli
+	go build $(LDFLAGS) -o c2 ./cmd/c2
 
 test:
 	go test ./...
@@ -24,4 +24,4 @@ check: fmt vet lint test
 	@echo "All checks passed."
 
 clean:
-	rm -f c2cli
+	rm -f c2

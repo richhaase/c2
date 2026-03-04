@@ -40,7 +40,7 @@ func runLog(n int) error {
 		return err
 	}
 	if len(workouts) == 0 {
-		fmt.Println("No workouts found. Run `c2cli sync` first.")
+		fmt.Println("No workouts found. Run `c2 sync` first.")
 		return nil
 	}
 

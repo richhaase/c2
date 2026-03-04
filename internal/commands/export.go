@@ -42,7 +42,7 @@ func runExport(format, from, to string) error {
 		return err
 	}
 	if len(workouts) == 0 {
-		return fmt.Errorf("no workouts found — run `c2cli sync` first")
+		return fmt.Errorf("no workouts found — run `c2 sync` first")
 	}
 
 	// Apply date filters
