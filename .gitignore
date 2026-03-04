@@ -1,5 +1,4 @@
-/c2cli
+/bin/
 *.swp
 *.swo
 .DS_Store
-c2

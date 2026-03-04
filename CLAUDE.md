@@ -5,9 +5,12 @@ Concept2 Logbook CLI — personal tool for rowing data sync and analysis.
 ## Build & Test
 
 ```bash
-make build           # compile with ldflags
+make help            # list available targets
+make build           # build to bin/ with version ldflags
+make install         # install to GOPATH/bin
 make check           # fmt, vet, lint, test
-go test ./...        # run tests only
+make test            # run tests only
+make clean           # remove bin/ and test cache
 ```
 
 ## Architecture
