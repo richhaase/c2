@@ -45,7 +45,7 @@ func FormatWorkoutLine(w *models.Workout, dateFormat string) string {
 	}
 
 	distance := fmt.Sprintf("%sm", FormatMeters(w.Distance))
-	pace := orDash(w.Pace500m)
+	pace := w.Pace500m()
 	spm := intFieldSuffix(w.StrokeRate, "spm")
 	hr := "-"
 	if w.HeartRate != nil && w.HeartRate.Average > 0 {

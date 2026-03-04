@@ -59,14 +59,14 @@ func (c *Client) GetUser() (*models.UserProfile, error) {
 	if err != nil {
 		return nil, err
 	}
-	var user models.UserProfile
-	if err := json.Unmarshal(body, &user); err != nil {
+	var resp models.UserResponse
+	if err := json.Unmarshal(body, &resp); err != nil {
 		return nil, fmt.Errorf("failed to parse user profile: %w", err)
 	}
-	return &user, nil
+	return &resp.Data, nil
 }
 
-func (c *Client) GetResults(from, to string, page int) (*models.PaginatedResponse, error) {
+func (c *Client) GetResults(from, to string, page int) (*models.ResultsResponse, error) {
 	path := fmt.Sprintf("/api/users/me/results?type=rower&page=%d", page)
 	if from != "" {
 		path += "&from=" + from
@@ -80,7 +80,7 @@ func (c *Client) GetResults(from, to string, page int) (*models.PaginatedRespons
 		return nil, err
 	}
 
-	var resp models.PaginatedResponse
+	var resp models.ResultsResponse
 	if err := json.Unmarshal(body, &resp); err != nil {
 		return nil, fmt.Errorf("failed to parse results: %w", err)
 	}
@@ -98,7 +98,11 @@ func (c *Client) GetAllResults(from, to string) ([]models.Workout, error) {
 		}
 		all = append(all, resp.Data...)
 
-		if resp.Meta == nil || resp.Meta.CurrentPage >= resp.Meta.LastPage || len(resp.Data) == 0 {
+		hasMore := resp.Meta != nil &&
+			resp.Meta.Pagination != nil &&
+			resp.Meta.Pagination.CurrentPage < resp.Meta.Pagination.TotalPages
+
+		if !hasMore || len(resp.Data) == 0 {
 			break
 		}
 		page++

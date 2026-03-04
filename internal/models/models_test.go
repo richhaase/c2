@@ -17,7 +17,6 @@ func TestWorkoutRoundtrip(t *testing.T) {
 		StrokeRate:    26,
 		DragFactor:    83,
 		HeartRate:     &HeartRate{Average: 118},
-		Pace500m:      "2:53.8",
 	}
 
 	data, err := json.Marshal(w)
@@ -49,5 +48,20 @@ func TestParsedDate(t *testing.T) {
 	}
 	if dt.Year() != 2026 || dt.Month() != 3 || dt.Day() != 2 {
 		t.Errorf("ParsedDate = %v, want 2026-03-02", dt)
+	}
+}
+
+func TestPace500m(t *testing.T) {
+	w := Workout{Time: 19122, Distance: 5500}
+	pace := w.Pace500m()
+	if pace != "2:53.8" {
+		t.Errorf("Pace500m() = %q, want %q", pace, "2:53.8")
+	}
+}
+
+func TestPace500mZero(t *testing.T) {
+	w := Workout{Time: 0, Distance: 0}
+	if w.Pace500m() != "-" {
+		t.Errorf("Pace500m() with zero values should return '-'")
 	}
 }
