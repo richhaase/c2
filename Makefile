@@ -6,7 +6,7 @@ LDFLAGS  = -ldflags "-s -w -X main.version=$(VERSION) -X main.commit=$(COMMIT) -
 .PHONY: build test lint vet fmt check clean
 
 build:
-	go build $(LDFLAGS) -o c2cli .
+	go build $(LDFLAGS) -o c2cli ./cmd/c2cli
 
 test:
 	go test ./...

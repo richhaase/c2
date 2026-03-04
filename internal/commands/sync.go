@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Rich Haase. All rights reserved.
 // Use of this source code is governed by the MIT license.
 
-package cmd
+package commands
 
 import (
 	"context"
@@ -16,17 +16,18 @@ import (
 	"github.com/richhaase/c2cli/internal/storage"
 )
 
-func newSyncCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "sync",
-		Short: "Pull new workouts from the API",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			backfill, _ := cmd.Flags().GetBool("backfill-strokes")
-			return runSync(cmd.Context(), backfill)
-		},
-	}
-	cmd.Flags().Bool("backfill-strokes", false, "fetch stroke data for all workouts missing it")
-	return cmd
+var syncCmd = &cobra.Command{
+	Use:   "sync",
+	Short: "Pull new workouts from the API",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		backfill, _ := cmd.Flags().GetBool("backfill-strokes")
+		return runSync(cmd.Context(), backfill)
+	},
+}
+
+func init() {
+	syncCmd.Flags().Bool("backfill-strokes", false, "fetch stroke data for all workouts missing it")
+	rootCmd.AddCommand(syncCmd)
 }
 
 func runSync(ctx context.Context, backfillStrokes bool) error {

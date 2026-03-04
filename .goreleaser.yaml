@@ -1,7 +1,7 @@
 version: 2
 
 builds:
-  - main: .
+  - main: ./cmd/c2cli
     binary: c2cli
     env:
       - CGO_ENABLED=0

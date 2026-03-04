@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Rich Haase. All rights reserved.
 // Use of this source code is governed by the MIT license.
 
-package cmd
+package commands
 
 import (
 	"context"
@@ -13,16 +13,18 @@ import (
 	"github.com/richhaase/c2cli/internal/config"
 )
 
-func newAuthCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "auth <token>",
-		Short: "Save access token and verify",
-		Long:  "Save your Concept2 personal access token (from log.concept2.com) and verify it works.",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runAuth(cmd.Context(), args[0])
-		},
-	}
+var authCmd = &cobra.Command{
+	Use:   "auth <token>",
+	Short: "Save access token and verify",
+	Long:  "Save your Concept2 personal access token (from log.concept2.com) and verify it works.",
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return runAuth(cmd.Context(), args[0])
+	},
+}
+
+func init() {
+	rootCmd.AddCommand(authCmd)
 }
 
 func runAuth(ctx context.Context, token string) error {

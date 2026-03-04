@@ -5,9 +5,9 @@ Concept2 Logbook CLI — personal tool for rowing data sync and analysis.
 ## Build & Test
 
 ```bash
-go build ./...       # compile
-go test ./...        # run tests
-go vet ./...         # lint
+make build           # compile with ldflags
+make check           # fmt, vet, lint, test
+go test ./...        # run tests only
 ```
 
 ## Architecture
@@ -20,23 +20,27 @@ go vet ./...         # lint
 ## Source Layout
 
 ```
-main.go              # CLI entry point
+cmd/c2cli/
+└── main.go              # CLI entry point
 internal/
-├── api/             # Concept2 API client
+├── api/                 # Concept2 API client
 │   └── client.go
-├── config/          # Config + token management
+├── commands/            # Cobra command implementations
+│   ├── root.go
+│   ├── auth.go
+│   ├── sync.go
+│   ├── log.go
+│   ├── status.go
+│   ├── trend.go
+│   └── export.go
+├── config/              # Config + token management
 │   └── config.go
-├── display/         # Formatting helpers
+├── display/             # Formatting helpers
 │   └── display.go
-├── models/          # Data types
+├── models/              # Data types
 │   └── models.go
-├── storage/         # JSONL read/write
-│   └── storage.go
-└── cmd/             # Command implementations
-    ├── auth.go
-    ├── sync.go
-    ├── log.go
-    └── status.go
+└── storage/             # JSONL read/write
+    └── storage.go
 ```
 
 ## Key Decisions
@@ -45,3 +49,5 @@ internal/
 - Static personal access token (no OAuth2 flow needed — C2 provides one at log.concept2.com)
 - Custom goal dates independent of C2 season (May 1 – Apr 30)
 - `time` field from API is in tenths of a second
+- Commands use `init()` registration with `rootCmd.AddCommand()` (plonk pattern)
+- `cmd/<binary>/main.go` entry point with `debug.ReadBuildInfo()` fallback for `go install`

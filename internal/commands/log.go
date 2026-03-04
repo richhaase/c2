@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Rich Haase. All rights reserved.
 // Use of this source code is governed by the MIT license.
 
-package cmd
+package commands
 
 import (
 	"fmt"
@@ -14,18 +14,19 @@ import (
 	"github.com/richhaase/c2cli/internal/storage"
 )
 
-func newLogCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "log",
-		Short: "Show recent workouts",
-		Long:  "Show the last N workouts in compact format (default: 10).",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			n, _ := cmd.Flags().GetInt("count")
-			return runLog(n)
-		},
-	}
-	cmd.Flags().IntP("count", "n", 10, "number of workouts to display")
-	return cmd
+var logCmd = &cobra.Command{
+	Use:   "log",
+	Short: "Show recent workouts",
+	Long:  "Show the last N workouts in compact format (default: 10).",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		n, _ := cmd.Flags().GetInt("count")
+		return runLog(n)
+	},
+}
+
+func init() {
+	logCmd.Flags().IntP("count", "n", 10, "number of workouts to display")
+	rootCmd.AddCommand(logCmd)
 }
 
 func runLog(n int) error {

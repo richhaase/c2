@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Rich Haase. All rights reserved.
 // Use of this source code is governed by the MIT license.
 
-package cmd
+package commands
 
 import (
 	"fmt"
@@ -14,14 +14,16 @@ import (
 	"github.com/richhaase/c2cli/internal/storage"
 )
 
-func newStatusCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "status",
-		Short: "Show progress toward million-meter goal",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runStatus()
-		},
-	}
+var statusCmd = &cobra.Command{
+	Use:   "status",
+	Short: "Show progress toward million-meter goal",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return runStatus()
+	},
+}
+
+func init() {
+	rootCmd.AddCommand(statusCmd)
 }
 
 func runStatus() error {

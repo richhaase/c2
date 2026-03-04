@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Rich Haase. All rights reserved.
 // Use of this source code is governed by the MIT license.
 
-package cmd
+package commands
 
 import (
 	"fmt"
@@ -15,18 +15,19 @@ import (
 	"github.com/richhaase/c2cli/internal/storage"
 )
 
-func newTrendCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "trend",
-		Short: "Show training trends over time",
-		Long:  "Show weekly trends for pace, volume, stroke rate, and heart rate.",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			weeks, _ := cmd.Flags().GetInt("weeks")
-			return runTrend(weeks)
-		},
-	}
-	cmd.Flags().IntP("weeks", "w", 8, "number of weeks to display")
-	return cmd
+var trendCmd = &cobra.Command{
+	Use:   "trend",
+	Short: "Show training trends over time",
+	Long:  "Show weekly trends for pace, volume, stroke rate, and heart rate.",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		weeks, _ := cmd.Flags().GetInt("weeks")
+		return runTrend(weeks)
+	},
+}
+
+func init() {
+	trendCmd.Flags().IntP("weeks", "w", 8, "number of weeks to display")
+	rootCmd.AddCommand(trendCmd)
 }
 
 type weekSummary struct {

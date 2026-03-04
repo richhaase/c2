@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Rich Haase. All rights reserved.
 // Use of this source code is governed by the MIT license.
 
-package cmd
+package commands
 
 import (
 	"encoding/csv"
@@ -17,22 +17,23 @@ import (
 	"github.com/richhaase/c2cli/internal/storage"
 )
 
-func newExportCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "export",
-		Short: "Export workouts to CSV or JSON",
-		Long:  "Export all stored workouts to stdout in CSV or JSON format.",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			format, _ := cmd.Flags().GetString("format")
-			from, _ := cmd.Flags().GetString("from")
-			to, _ := cmd.Flags().GetString("to")
-			return runExport(format, from, to)
-		},
-	}
-	cmd.Flags().StringP("format", "f", "csv", "output format: csv, json, or jsonl")
-	cmd.Flags().String("from", "", "filter workouts from date (YYYY-MM-DD)")
-	cmd.Flags().String("to", "", "filter workouts to date (YYYY-MM-DD)")
-	return cmd
+var exportCmd = &cobra.Command{
+	Use:   "export",
+	Short: "Export workouts to CSV or JSON",
+	Long:  "Export all stored workouts to stdout in CSV or JSON format.",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		format, _ := cmd.Flags().GetString("format")
+		from, _ := cmd.Flags().GetString("from")
+		to, _ := cmd.Flags().GetString("to")
+		return runExport(format, from, to)
+	},
+}
+
+func init() {
+	exportCmd.Flags().StringP("format", "f", "csv", "output format: csv, json, or jsonl")
+	exportCmd.Flags().String("from", "", "filter workouts from date (YYYY-MM-DD)")
+	exportCmd.Flags().String("to", "", "filter workouts to date (YYYY-MM-DD)")
+	rootCmd.AddCommand(exportCmd)
 }
 
 func runExport(format, from, to string) error {
