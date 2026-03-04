@@ -67,15 +67,16 @@ func intFieldSuffix(v int, suffix string) string {
 	return fmt.Sprintf("%d%s", v, suffix)
 }
 
+var dateReplacer = strings.NewReplacer(
+	"%m", "01",
+	"%d", "02",
+	"%Y", "2006",
+	"%y", "06",
+	"%H", "15",
+	"%M", "04",
+)
+
 // goDateFormat converts a strftime-style format to Go's reference time format.
 func goDateFormat(f string) string {
-	r := strings.NewReplacer(
-		"%m", "01",
-		"%d", "02",
-		"%Y", "2006",
-		"%y", "06",
-		"%H", "15",
-		"%M", "04",
-	)
-	return r.Replace(f)
+	return dateReplacer.Replace(f)
 }

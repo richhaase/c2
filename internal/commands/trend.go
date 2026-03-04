@@ -5,7 +5,6 @@ package commands
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 	"time"
 
@@ -78,12 +77,10 @@ func buildWeekSummaries(workouts []models.Workout, now time.Time, weeks int) []w
 	thisMonday := mondayOf(now)
 	cutoff := thisMonday.AddDate(0, 0, -(weeks-1)*7)
 
-	// Build a map keyed by Monday date string
-	weekMap := make(map[string]*weekSummary)
-	for i := 0; i < weeks; i++ {
-		monday := thisMonday.AddDate(0, 0, -i*7)
-		key := monday.Format("2006-01-02")
-		weekMap[key] = &weekSummary{weekStart: monday}
+	// Build slice ordered oldest-first; index by week offset for O(1) lookup
+	summaries := make([]weekSummary, weeks)
+	for i := range summaries {
+		summaries[weeks-1-i] = weekSummary{weekStart: thisMonday.AddDate(0, 0, -i*7)}
 	}
 
 	for _, w := range workouts {
@@ -92,11 +89,12 @@ func buildWeekSummaries(workouts []models.Workout, now time.Time, weeks int) []w
 			continue
 		}
 		monday := mondayOf(t)
-		key := monday.Format("2006-01-02")
-		ws, ok := weekMap[key]
-		if !ok {
+		// Calculate index: days from cutoff Monday / 7
+		idx := int(monday.Sub(cutoff).Hours() / 24 / 7)
+		if idx < 0 || idx >= weeks {
 			continue
 		}
+		ws := &summaries[idx]
 		ws.meters += w.Distance
 		ws.sessions++
 
@@ -114,15 +112,7 @@ func buildWeekSummaries(workouts []models.Workout, now time.Time, weeks int) []w
 		}
 	}
 
-	// Sort oldest first
-	result := make([]weekSummary, 0, weeks)
-	for _, ws := range weekMap {
-		result = append(result, *ws)
-	}
-	sort.Slice(result, func(i, j int) bool {
-		return result[i].weekStart.Before(result[j].weekStart)
-	})
-	return result
+	return summaries
 }
 
 const trendThreshold = 0.02
@@ -140,6 +130,14 @@ func trendArrow(prev, curr float64) string {
 	default:
 		return "→"
 	}
+}
+
+// paceArrow returns a trend arrow where lower is better (↑ = improvement).
+func paceArrow(prev, curr float64) string {
+	if prev == 0 {
+		return " "
+	}
+	return trendArrow(curr, prev)
 }
 
 func printVolumeTrend(summaries []weekSummary) {
@@ -167,11 +165,7 @@ func printPaceTrend(summaries []weekSummary) {
 			continue
 		}
 		avgPace := ws.paceSum / float64(ws.paceCount)
-		// For pace, lower is better, so flip the arrow
-		arrow := trendArrow(avgPace, prevPace)
-		if prevPace == 0 {
-			arrow = " "
-		}
+		arrow := paceArrow(prevPace, avgPace)
 		mins := int(avgPace) / 60
 		secs := avgPace - float64(mins*60)
 		fmt.Printf("  %s  %s %d:%04.1f\n",

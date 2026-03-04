@@ -70,9 +70,9 @@ func AppendWorkouts(newWorkouts []models.Workout) (int, error) {
 		return 0, err
 	}
 
-	ids := make(map[int64]bool)
+	seen := make(map[int64]struct{})
 	for _, w := range existing {
-		ids[w.ID] = true
+		seen[w.ID] = struct{}{}
 	}
 
 	path, err := workoutsPath()
@@ -82,13 +82,12 @@ func AppendWorkouts(newWorkouts []models.Workout) (int, error) {
 
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
 	if err != nil {
-		return 0, fmt.Errorf("failed to open %s for appending: %w", path, err)
+		return 0, fmt.Errorf("open %s for append: %w", path, err)
 	}
-	defer f.Close() //nolint:errcheck // read-only or best-effort close
 
 	count := 0
 	for _, w := range newWorkouts {
-		if ids[w.ID] {
+		if _, ok := seen[w.ID]; ok {
 			continue
 		}
 		data, err := json.Marshal(w)
@@ -99,6 +98,9 @@ func AppendWorkouts(newWorkouts []models.Workout) (int, error) {
 			return count, fmt.Errorf("failed to write workout: %w", err)
 		}
 		count++
+	}
+	if err := f.Close(); err != nil {
+		return count, fmt.Errorf("close %s: %w", path, err)
 	}
 	return count, nil
 }
@@ -122,20 +124,21 @@ func WriteStrokeData(workoutID int64, strokes []models.StrokeData) error {
 
 	f, err := os.Create(path)
 	if err != nil {
-		return fmt.Errorf("failed to create %s: %w", path, err)
+		return fmt.Errorf("create %s: %w", path, err)
 	}
-	defer f.Close() //nolint:errcheck // read-only or best-effort close
 
 	for _, s := range strokes {
 		data, err := json.Marshal(s)
 		if err != nil {
-			return fmt.Errorf("failed to serialize stroke: %w", err)
+			f.Close() //nolint:errcheck,gosec // closing on error path
+			return fmt.Errorf("serialize stroke: %w", err)
 		}
 		if _, err := fmt.Fprintf(f, "%s\n", data); err != nil {
+			f.Close() //nolint:errcheck,gosec // closing on error path
 			return fmt.Errorf("write stroke: %w", err)
 		}
 	}
-	return nil
+	return f.Close()
 }
 
 // ReadStrokeData reads stroke data for a specific workout.

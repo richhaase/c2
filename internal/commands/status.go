@@ -5,6 +5,7 @@ package commands
 
 import (
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -61,7 +62,7 @@ func runStatus() error {
 
 	progress := float64(totalMeters) / float64(target)
 	totalDays := end.Sub(start).Hours() / 24
-	totalWeeks := int64(totalDays/7 + 0.99)
+	totalWeeks := int64(math.Ceil(totalDays / 7))
 
 	var weeksElapsed int64
 	if today.After(start) {
@@ -90,10 +91,7 @@ func runStatus() error {
 
 	fmt.Println("Last 4 weeks:")
 	for i := 0; i < 4; i++ {
-		weekEnd := today.AddDate(0, 0, -i*7)
-		weekStart := weekEnd.AddDate(0, 0, -6)
-		daysSinceMonday := int(weekStart.Weekday()+6) % 7
-		weekStartAligned := weekStart.AddDate(0, 0, -daysSinceMonday)
+		weekStartAligned := mondayOf(today).AddDate(0, 0, -i*7)
 		weekEndAligned := weekStartAligned.AddDate(0, 0, 7)
 
 		var meters int64

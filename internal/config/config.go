@@ -111,11 +111,14 @@ func Save(cfg *Config) error {
 
 	f, err := os.Create(path)
 	if err != nil {
-		return fmt.Errorf("write config: %w", err)
+		return fmt.Errorf("create config: %w", err)
 	}
-	defer f.Close() //nolint:errcheck // error checked via encoder return
 
-	return toml.NewEncoder(f).Encode(cfg)
+	if err := toml.NewEncoder(f).Encode(cfg); err != nil {
+		f.Close() //nolint:errcheck,gosec // closing on error path
+		return fmt.Errorf("encode config: %w", err)
+	}
+	return f.Close()
 }
 
 // ParseGoalDate parses a date string in "2006-01-02" format.
