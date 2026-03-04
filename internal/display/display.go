@@ -60,7 +60,6 @@ func FormatWorkoutLine(w *models.Workout, dateFormat string) string {
 		dateStr, distance, w.TimeFormatted, pace, spm, hr, df)
 }
 
-
 func intFieldSuffix(v int, suffix string) string {
 	if v == 0 {
 		return "-"

@@ -138,6 +138,38 @@ func WriteStrokeData(workoutID int64, strokes []models.StrokeData) error {
 	return nil
 }
 
+// ReadStrokeData reads stroke data for a specific workout.
+func ReadStrokeData(workoutID int64) ([]models.StrokeData, error) {
+	path, err := strokesPath(workoutID)
+	if err != nil {
+		return nil, err
+	}
+
+	f, err := os.Open(path)
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to open %s: %w", path, err)
+	}
+	defer f.Close() //nolint:errcheck // read-only or best-effort close
+
+	var strokes []models.StrokeData
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if line == "" {
+			continue
+		}
+		var s models.StrokeData
+		if err := json.Unmarshal([]byte(line), &s); err != nil {
+			return nil, fmt.Errorf("failed to parse stroke data: %w", err)
+		}
+		strokes = append(strokes, s)
+	}
+	return strokes, scanner.Err()
+}
+
 // WorkoutCount returns the number of stored workouts.
 func WorkoutCount() (int, error) {
 	path, err := workoutsPath()

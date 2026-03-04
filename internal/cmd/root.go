@@ -11,9 +11,9 @@ import (
 
 func NewRootCmd(version, commit, date string) *cobra.Command {
 	root := &cobra.Command{
-		Use:   "c2cli",
-		Short: "Concept2 Logbook CLI",
-		Long:  "CLI tool for Concept2 Logbook data sync and analysis.",
+		Use:           "c2cli",
+		Short:         "Concept2 Logbook CLI",
+		Long:          "CLI tool for Concept2 Logbook data sync and analysis.",
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
@@ -22,6 +22,8 @@ func NewRootCmd(version, commit, date string) *cobra.Command {
 	root.AddCommand(newSyncCmd())
 	root.AddCommand(newLogCmd())
 	root.AddCommand(newStatusCmd())
+	root.AddCommand(newTrendCmd())
+	root.AddCommand(newExportCmd())
 	root.AddCommand(newVersionCmd(version, commit, date))
 
 	return root

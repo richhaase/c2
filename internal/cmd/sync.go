@@ -12,20 +12,24 @@ import (
 
 	"github.com/richhaase/c2cli/internal/api"
 	"github.com/richhaase/c2cli/internal/config"
+	"github.com/richhaase/c2cli/internal/models"
 	"github.com/richhaase/c2cli/internal/storage"
 )
 
 func newSyncCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "sync",
 		Short: "Pull new workouts from the API",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runSync(cmd.Context())
+			backfill, _ := cmd.Flags().GetBool("backfill-strokes")
+			return runSync(cmd.Context(), backfill)
 		},
 	}
+	cmd.Flags().Bool("backfill-strokes", false, "fetch stroke data for all workouts missing it")
+	return cmd
 }
 
-func runSync(ctx context.Context) error {
+func runSync(ctx context.Context, backfillStrokes bool) error {
 	cfg, err := config.Load()
 	if err != nil {
 		return err
@@ -55,8 +59,43 @@ func runSync(ctx context.Context) error {
 
 	fmt.Printf("Fetched %d workouts, %d new.\n", len(workouts), written)
 
-	// Fetch stroke data for workouts that have it
-	strokeCount := 0
+	// Fetch stroke data for new workouts that have it
+	strokeCount := syncStrokes(ctx, client, workouts)
+	if strokeCount > 0 {
+		fmt.Printf("Fetched stroke data for %d workouts.\n", strokeCount)
+	}
+
+	// Backfill stroke data for all previously synced workouts
+	if backfillStrokes {
+		allWorkouts, err := storage.ReadWorkouts()
+		if err != nil {
+			return fmt.Errorf("read workouts for backfill: %w", err)
+		}
+		backfilled := syncStrokes(ctx, client, allWorkouts)
+		if backfilled > 0 {
+			fmt.Printf("Backfilled stroke data for %d workouts.\n", backfilled)
+		} else {
+			fmt.Println("No missing stroke data to backfill.")
+		}
+	}
+
+	cfg.Sync.LastSync = time.Now().UTC().Format("2006-01-02T15:04:05Z")
+	if err := config.Save(cfg); err != nil {
+		return fmt.Errorf("update config: %w", err)
+	}
+
+	total, err := storage.WorkoutCount()
+	if err != nil {
+		return fmt.Errorf("count workouts: %w", err)
+	}
+	fmt.Printf("Total workouts: %d\n", total)
+	return nil
+}
+
+// syncStrokes fetches and stores stroke data for workouts that have it available
+// but not yet stored locally. Returns the count of workouts synced.
+func syncStrokes(ctx context.Context, client *api.Client, workouts []models.Workout) int {
+	count := 0
 	for _, w := range workouts {
 		if !w.StrokeDataAvl || storage.HasStrokeData(w.ID) {
 			continue
@@ -71,22 +110,8 @@ func runSync(ctx context.Context) error {
 				fmt.Printf("Warning: failed to write strokes for workout %d: %v\n", w.ID, err)
 				continue
 			}
-			strokeCount++
+			count++
 		}
 	}
-	if strokeCount > 0 {
-		fmt.Printf("Fetched stroke data for %d workouts.\n", strokeCount)
-	}
-
-	cfg.Sync.LastSync = time.Now().UTC().Format("2006-01-02T15:04:05Z")
-	if err := config.Save(cfg); err != nil {
-		return fmt.Errorf("update config: %w", err)
-	}
-
-	total, err := storage.WorkoutCount()
-	if err != nil {
-		return fmt.Errorf("count workouts: %w", err)
-	}
-	fmt.Printf("Total workouts: %d\n", total)
-	return nil
+	return count
 }
