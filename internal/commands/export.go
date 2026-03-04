@@ -42,7 +42,7 @@ func runExport(format, from, to string) error {
 		return err
 	}
 	if len(workouts) == 0 {
-		return fmt.Errorf("no workouts found — run `c2 sync` first")
+		return fmt.Errorf("no workouts found: run c2 sync first")
 	}
 
 	// Apply date filters
@@ -64,7 +64,7 @@ func runExport(format, from, to string) error {
 	case "jsonl":
 		return exportJSONL(workouts)
 	default:
-		return fmt.Errorf("unsupported format %q — use csv, json, or jsonl", format)
+		return fmt.Errorf("unsupported format %q: must be csv, json, or jsonl", format)
 	}
 }
 
@@ -87,8 +87,8 @@ func filterByDate(workouts []models.Workout, from, to string) []models.Workout {
 }
 
 func exportCSV(workouts []models.Workout) error {
-	w := csv.NewWriter(os.Stdout)
-	defer w.Flush()
+	cw := csv.NewWriter(os.Stdout)
+	defer cw.Flush()
 
 	header := []string{
 		"id", "date", "distance", "time_tenths", "time_formatted",
@@ -96,41 +96,41 @@ func exportCSV(workouts []models.Workout) error {
 		"drag_factor", "hr_avg", "hr_min", "hr_max",
 		"workout_type", "machine_type", "comments",
 	}
-	if err := w.Write(header); err != nil {
+	if err := cw.Write(header); err != nil {
 		return fmt.Errorf("write CSV header: %w", err)
 	}
 
-	for _, wo := range workouts {
+	for _, w := range workouts {
 		hrAvg, hrMin, hrMax := "", "", ""
-		if wo.HeartRate != nil {
-			if wo.HeartRate.Average > 0 {
-				hrAvg = strconv.Itoa(wo.HeartRate.Average)
+		if w.HeartRate != nil {
+			if w.HeartRate.Average > 0 {
+				hrAvg = strconv.Itoa(w.HeartRate.Average)
 			}
-			if wo.HeartRate.Min > 0 {
-				hrMin = strconv.Itoa(wo.HeartRate.Min)
+			if w.HeartRate.Min > 0 {
+				hrMin = strconv.Itoa(w.HeartRate.Min)
 			}
-			if wo.HeartRate.Max > 0 {
-				hrMax = strconv.Itoa(wo.HeartRate.Max)
+			if w.HeartRate.Max > 0 {
+				hrMax = strconv.Itoa(w.HeartRate.Max)
 			}
 		}
 
 		record := []string{
-			strconv.FormatInt(wo.ID, 10),
-			wo.Date,
-			strconv.FormatInt(wo.Distance, 10),
-			strconv.FormatInt(wo.Time, 10),
-			wo.TimeFormatted,
-			wo.Pace500m(),
-			strconv.Itoa(wo.StrokeRate),
-			strconv.Itoa(wo.StrokeCount),
-			strconv.Itoa(wo.CaloriesTotal),
-			strconv.Itoa(wo.DragFactor),
+			strconv.FormatInt(w.ID, 10),
+			w.Date,
+			strconv.FormatInt(w.Distance, 10),
+			strconv.FormatInt(w.Time, 10),
+			w.TimeFormatted,
+			w.Pace500m(),
+			strconv.Itoa(w.StrokeRate),
+			strconv.Itoa(w.StrokeCount),
+			strconv.Itoa(w.CaloriesTotal),
+			strconv.Itoa(w.DragFactor),
 			hrAvg, hrMin, hrMax,
-			wo.WorkoutType,
-			wo.MachineType,
-			wo.Comments,
+			w.WorkoutType,
+			w.MachineType,
+			w.Comments,
 		}
-		if err := w.Write(record); err != nil {
+		if err := cw.Write(record); err != nil {
 			return fmt.Errorf("write CSV row: %w", err)
 		}
 	}

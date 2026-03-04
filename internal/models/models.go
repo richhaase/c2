@@ -55,16 +55,28 @@ func (w *Workout) ParsedDate() (time.Time, error) {
 	return time.Parse("2006-01-02 15:04:05", w.Date)
 }
 
+const (
+	tenthsPerSecond = 10.0
+	paceDistance    = 500.0
+)
+
+// Pace500mSeconds returns the /500m pace in seconds, or 0 if distance or time is zero.
+func (w *Workout) Pace500mSeconds() float64 {
+	if w.Distance == 0 || w.Time == 0 {
+		return 0
+	}
+	return float64(w.Time) / tenthsPerSecond * paceDistance / float64(w.Distance)
+}
+
 // Pace500m computes the /500m pace string from time (tenths of seconds) and distance.
 func (w *Workout) Pace500m() string {
-	if w.Distance == 0 || w.Time == 0 {
+	secs := w.Pace500mSeconds()
+	if secs == 0 {
 		return "-"
 	}
-	// Time is in tenths of a second
-	paceSeconds := float64(w.Time) / 10.0 * 500.0 / float64(w.Distance)
-	mins := int(paceSeconds) / 60
-	secs := paceSeconds - float64(mins*60)
-	return fmt.Sprintf("%d:%04.1f", mins, secs)
+	mins := int(secs) / 60
+	rem := secs - float64(mins*60)
+	return fmt.Sprintf("%d:%04.1f", mins, rem)
 }
 
 type StrokeData struct {

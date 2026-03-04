@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"strconv"
 	"time"
 
 	"github.com/richhaase/c2cli/internal/config"
@@ -75,15 +77,18 @@ func (c *Client) GetUser(ctx context.Context) (*models.UserProfile, error) {
 }
 
 func (c *Client) GetResults(ctx context.Context, from, to string, page int) (*models.ResultsResponse, error) {
-	path := fmt.Sprintf("/api/users/me/results?type=rower&page=%d", page)
+	v := url.Values{
+		"type": {"rower"},
+		"page": {strconv.Itoa(page)},
+	}
 	if from != "" {
-		path += "&from=" + from
+		v.Set("from", from)
 	}
 	if to != "" {
-		path += "&to=" + to
+		v.Set("to", to)
 	}
 
-	body, err := c.get(ctx, path)
+	body, err := c.get(ctx, "/api/users/me/results?"+v.Encode())
 	if err != nil {
 		return nil, err
 	}

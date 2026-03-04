@@ -6,6 +6,7 @@ package commands
 import (
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -99,9 +100,8 @@ func buildWeekSummaries(workouts []models.Workout, now time.Time, weeks int) []w
 		ws.meters += w.Distance
 		ws.sessions++
 
-		if w.Distance > 0 && w.Time > 0 {
-			paceSeconds := float64(w.Time) / 10.0 * 500.0 / float64(w.Distance)
-			ws.paceSum += paceSeconds
+		if pace := w.Pace500mSeconds(); pace > 0 {
+			ws.paceSum += pace
 			ws.paceCount++
 		}
 		if w.StrokeRate > 0 {
@@ -125,15 +125,17 @@ func buildWeekSummaries(workouts []models.Workout, now time.Time, weeks int) []w
 	return result
 }
 
+const trendThreshold = 0.02
+
 func trendArrow(prev, curr float64) string {
 	if prev == 0 {
 		return " "
 	}
 	diff := (curr - prev) / prev
 	switch {
-	case diff > 0.02:
+	case diff > trendThreshold:
 		return "↑"
-	case diff < -0.02:
+	case diff < -trendThreshold:
 		return "↓"
 	default:
 		return "→"
@@ -237,13 +239,13 @@ func sparkBar(value, max int64) string {
 	}
 	const barWidth = 20
 	filled := int(float64(value) / float64(max) * barWidth)
-	bar := ""
+	var b strings.Builder
 	for i := 0; i < barWidth; i++ {
 		if i < filled {
-			bar += "█"
+			b.WriteString("█")
 		} else {
-			bar += "░"
+			b.WriteString("░")
 		}
 	}
-	return bar
+	return b.String()
 }
