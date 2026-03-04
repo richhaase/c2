@@ -3,10 +3,13 @@ COMMIT  ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "none")
 DATE    ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 LDFLAGS  = -ldflags "-s -w -X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DATE)"
 
-.PHONY: build test lint vet fmt check clean
+.PHONY: build install test lint vet fmt check clean
 
 build:
 	go build $(LDFLAGS) -o c2 ./cmd/c2
+
+install:
+	go install $(LDFLAGS) ./cmd/c2
 
 test:
 	go test ./...
