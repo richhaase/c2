@@ -16,7 +16,7 @@ import {
 export function registerStatus(program: Command): void {
   program
     .command("status")
-    .description("Show progress toward million-meter goal")
+    .description("Show progress toward your distance goal")
     .action(async () => {
       const cfg = await loadConfig();
       if (!cfg.goal.start_date || !cfg.goal.end_date) {
