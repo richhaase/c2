@@ -1,8 +1,14 @@
 {
   "name": "c2cli",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "CLI tool for syncing and analyzing Concept2 rowing data",
-  "keywords": ["concept2", "rowing", "erg", "fitness", "cli"],
+  "keywords": [
+    "concept2",
+    "rowing",
+    "erg",
+    "fitness",
+    "cli"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
