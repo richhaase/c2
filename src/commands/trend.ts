@@ -106,6 +106,10 @@ export function registerTrend(program: Command): void {
       }
 
       const weeks = parseInt(opts.weeks, 10);
+      if (isNaN(weeks) || weeks < 1) {
+        console.error("Error: --weeks must be a positive integer.");
+        process.exit(1);
+      }
       const summaries = buildWeekSummaries(workouts, new Date(), weeks);
 
       printVolumeTrend(summaries);

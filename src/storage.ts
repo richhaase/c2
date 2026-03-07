@@ -52,8 +52,9 @@ export async function hasStrokeData(workoutId: number): Promise<boolean> {
   try {
     await stat(strokesPath(workoutId));
     return true;
-  } catch {
-    return false;
+  } catch (err: unknown) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return false;
+    throw err;
   }
 }
 
