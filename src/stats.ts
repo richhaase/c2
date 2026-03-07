@@ -1,7 +1,7 @@
 import type { Workout } from "./models.ts";
 import type { Config } from "./config.ts";
 import { parseGoalDate } from "./config.ts";
-import { pace500mSeconds, calendarDay } from "./models.ts";
+import { pace500mSeconds, calendarDay, parsedDate } from "./models.ts";
 
 export interface WeekSummary {
   weekStart: Date;
@@ -41,7 +41,7 @@ export function workoutsInRange(
   to: Date,
 ): Workout[] {
   return workouts.filter((w) => {
-    const t = new Date(w.date.replace(" ", "T"));
+    const t = parsedDate(w);
     return t >= from && t < to;
   });
 }
@@ -123,7 +123,7 @@ export function computeGoalProgress(
 
   let totalMeters = 0;
   for (const w of workouts) {
-    const t = new Date(w.date.replace(" ", "T"));
+    const t = parsedDate(w);
     if (t >= start && t <= end) {
       totalMeters += w.distance;
     }

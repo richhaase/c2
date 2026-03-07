@@ -15,7 +15,7 @@ export function defaultConfig(): Config {
     api: { base_url: "https://log.concept2.com", token: "" },
     sync: { machine_type: "rower" },
     goal: { target_meters: 1_000_000, start_date: "", end_date: "" },
-    display: { date_format: "01/02" },
+    display: { date_format: "%m/%d" },
   };
 }
 
