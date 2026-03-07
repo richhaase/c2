@@ -5,8 +5,10 @@ Concept2 Logbook CLI — personal tool for rowing data sync and analysis.
 ## Build & Test
 
 ```bash
-bun test            # run tests
-bun run check       # typecheck (tsc --noEmit)
+bun run check       # typecheck + lint + test (all-in-one)
+bun test            # tests only
+bun run lint        # lint only (biome)
+bun run fmt         # auto-fix lint + format
 bun src/index.ts    # run directly during dev
 ```
 
