@@ -1,4 +1,5 @@
-/bin/
+node_modules/
+bun.lock
 *.swp
 *.swo
 .DS_Store
