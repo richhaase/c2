@@ -14,6 +14,7 @@ async function syncStrokes(
   workouts: Workout[],
 ): Promise<number> {
   let count = 0;
+  let failures = 0;
   for (const w of workouts) {
     if (!w.stroke_data || (await hasStrokeData(w.id))) continue;
     try {
@@ -23,9 +24,14 @@ async function syncStrokes(
         count++;
       }
     } catch (err) {
+      failures++;
       console.error(
-        `Warning: failed to fetch strokes for workout ${w.id}: ${err}`,
+        `Warning: failed to fetch strokes for workout ${w.id}: ${(err as Error).message}`,
       );
+      if (failures >= 3) {
+        console.error("Too many failures, skipping remaining stroke data.");
+        break;
+      }
     }
   }
   return count;
