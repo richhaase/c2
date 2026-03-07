@@ -118,23 +118,26 @@ c2 export -f jsonl > workouts.jsonl
 
 ## Configuration
 
-Config lives at `~/.config/c2cli/config.toml`. Created automatically on `c2 setup`.
+Config lives at `~/.config/c2cli/config.json`. Created automatically on `c2 setup`.
 
-```toml
-[api]
-base_url = "https://log.concept2.com"
-token = "YOUR_TOKEN"
-
-[sync]
-machine_type = "rower"
-
-[goal]
-target_meters = 1000000
-start_date = "2026-01-01"
-end_date = "2026-12-31"
-
-[display]
-date_format = "%m/%d"
+```json
+{
+  "api": {
+    "base_url": "https://log.concept2.com",
+    "token": "YOUR_TOKEN"
+  },
+  "sync": {
+    "machine_type": "rower"
+  },
+  "goal": {
+    "target_meters": 1000000,
+    "start_date": "2026-01-01",
+    "end_date": "2026-12-31"
+  },
+  "display": {
+    "date_format": "%m/%d"
+  }
+}
 ```
 
 ## Development

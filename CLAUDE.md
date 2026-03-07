@@ -15,8 +15,8 @@ bun src/index.ts    # run directly during dev
 - **Runtime:** Bun (TypeScript)
 - **Storage:** JSONL files at `~/.config/c2cli/data/`
 - **Auth:** Static personal access token from log.concept2.com
-- **Config:** TOML at `~/.config/c2cli/config.toml`
-- **Dependencies:** commander (CLI), smol-toml (config)
+- **Config:** JSON at `~/.config/c2cli/config.json`
+- **Dependencies:** commander (CLI)
 
 ## Source Layout
 
@@ -24,7 +24,7 @@ bun src/index.ts    # run directly during dev
 src/
 ├── index.ts              # CLI entry point (binary: c2)
 ├── models.ts             # Data types + helpers
-├── config.ts             # TOML config load/save
+├── config.ts             # JSON config load/save
 ├── storage.ts            # JSONL read/write
 ├── display.ts            # Formatting helpers
 ├── sessions.ts           # Session grouping (same-day merge)
