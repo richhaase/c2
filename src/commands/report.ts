@@ -667,6 +667,10 @@ export function registerReport(program: Command): void {
     .action(
       async (opts: { output: string; weeks: string; open?: boolean }) => {
         const cfg = await loadConfig();
+        if (!cfg.goal.start_date || !cfg.goal.end_date) {
+          console.error("Goal dates not configured. Run `c2 setup` to set start and end dates.");
+          process.exit(1);
+        }
         const workouts = await readWorkouts();
 
         if (workouts.length === 0) {

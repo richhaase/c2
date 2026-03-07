@@ -37,6 +37,10 @@ export function registerSync(program: Command): void {
     .description("Pull new workouts from the API")
     .action(async () => {
       const cfg = await loadConfig();
+      if (!cfg.api.token) {
+        console.error("No API token configured. Run `c2 setup` first.");
+        process.exit(1);
+      }
       await ensureDirs();
 
       const client = C2Client.fromConfig(cfg);

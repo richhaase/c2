@@ -19,7 +19,15 @@ export function registerStatus(program: Command): void {
     .description("Show progress toward million-meter goal")
     .action(async () => {
       const cfg = await loadConfig();
+      if (!cfg.goal.start_date || !cfg.goal.end_date) {
+        console.error("Goal dates not configured. Run `c2 setup` to set start and end dates.");
+        process.exit(1);
+      }
       const workouts = await readWorkouts();
+      if (workouts.length === 0) {
+        console.log("No workouts found. Run `c2 sync` first.");
+        return;
+      }
       const goal = computeGoalProgress(workouts, cfg);
 
       console.log(`Goal: ${formatMeters(goal.target)}m`);
