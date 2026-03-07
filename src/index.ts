@@ -8,13 +8,12 @@ import { registerStatus } from "./commands/status.ts";
 import { registerTrend } from "./commands/trend.ts";
 import { registerExport } from "./commands/export.ts";
 import { registerReport } from "./commands/report.ts";
-
-const VERSION = "0.1.0";
+import pkg from "../package.json";
 
 const program = new Command()
   .name("c2")
   .description("Concept2 Logbook CLI")
-  .version(VERSION, "-v, --version");
+  .version(pkg.version, "-v, --version");
 
 registerSetup(program);
 registerSync(program);

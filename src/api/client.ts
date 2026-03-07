@@ -7,6 +7,7 @@ import type {
   ResultsResponse,
 } from "../models.ts";
 import type { Config } from "../config.ts";
+import pkg from "../../package.json";
 
 export class C2Client {
   private baseURL: string;
@@ -26,7 +27,7 @@ export class C2Client {
     const resp = await fetch(url, {
       headers: {
         Authorization: `Bearer ${this.token}`,
-        "User-Agent": "c2/0.1.0",
+        "User-Agent": `c2/${pkg.version}`,
       },
       signal: AbortSignal.timeout(30_000),
     });
