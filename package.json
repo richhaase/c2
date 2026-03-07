@@ -16,12 +16,15 @@
   "scripts": {
     "dev": "bun src/index.ts",
     "test": "bun test",
-    "check": "tsc --noEmit"
+    "check": "tsc --noEmit",
+    "lint": "biome check src/",
+    "fmt": "biome check --write src/"
   },
   "dependencies": {
     "commander": "^14.0.0"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.4.6",
     "@types/bun": "^1.3.9"
   },
   "files": [
