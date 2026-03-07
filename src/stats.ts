@@ -115,11 +115,12 @@ export function buildWeekSummaries(
 export function computeGoalProgress(
   workouts: Workout[],
   cfg: Config,
+  now?: Date,
 ): GoalProgress {
   const target = cfg.goal.target_meters;
   const start = parseGoalDate(cfg.goal.start_date);
   const end = parseGoalDate(cfg.goal.end_date);
-  const today = new Date();
+  const today = now ?? new Date();
 
   let totalMeters = 0;
   for (const w of workouts) {
