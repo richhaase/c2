@@ -1,100 +1,12 @@
 import type { Command } from "commander";
 import { readWorkouts } from "../storage.ts";
-import type { Workout } from "../models.ts";
-import { pace500mSeconds, calendarDay } from "../models.ts";
 import {
   formatMeters,
   sparkBar,
   trendArrow,
   paceArrow,
 } from "../display.ts";
-
-interface WeekSummary {
-  weekStart: Date;
-  meters: number;
-  sessions: number;
-  paceSum: number;
-  paceCount: number;
-  spmSum: number;
-  spmCount: number;
-  hrSum: number;
-  hrCount: number;
-}
-
-function mondayOf(t: Date): Date {
-  const d = new Date(t.getFullYear(), t.getMonth(), t.getDate());
-  const offset = (d.getDay() + 6) % 7;
-  d.setDate(d.getDate() - offset);
-  return d;
-}
-
-function buildWeekSummaries(
-  workouts: Workout[],
-  now: Date,
-  weeks: number,
-): WeekSummary[] {
-  const thisMonday = mondayOf(now);
-  const cutoff = new Date(thisMonday);
-  cutoff.setDate(cutoff.getDate() - (weeks - 1) * 7);
-
-  const summaries: WeekSummary[] = [];
-  for (let i = 0; i < weeks; i++) {
-    const ws = new Date(thisMonday);
-    ws.setDate(ws.getDate() - (weeks - 1 - i) * 7);
-    summaries.push({
-      weekStart: ws,
-      meters: 0,
-      sessions: 0,
-      paceSum: 0,
-      paceCount: 0,
-      spmSum: 0,
-      spmCount: 0,
-      hrSum: 0,
-      hrCount: 0,
-    });
-  }
-
-  // Track unique days per week for session counting
-  const daysByWeek = new Map<number, Set<string>>();
-
-  for (const w of workouts) {
-    const t = new Date(w.date.replace(" ", "T"));
-    if (t < cutoff || t > now) continue;
-
-    const monday = mondayOf(t);
-    const idx = Math.floor(
-      (monday.getTime() - cutoff.getTime()) / (1000 * 60 * 60 * 24 * 7),
-    );
-    if (idx < 0 || idx >= weeks) continue;
-
-    const ws = summaries[idx]!;
-    ws.meters += w.distance;
-
-    if (!daysByWeek.has(idx)) daysByWeek.set(idx, new Set());
-    daysByWeek.get(idx)!.add(calendarDay(w));
-
-    const pace = pace500mSeconds(w);
-    if (pace > 0) {
-      ws.paceSum += pace;
-      ws.paceCount++;
-    }
-    if (w.stroke_rate && w.stroke_rate > 0) {
-      ws.spmSum += w.stroke_rate;
-      ws.spmCount++;
-    }
-    if (w.heart_rate?.average && w.heart_rate.average > 0) {
-      ws.hrSum += w.heart_rate.average;
-      ws.hrCount++;
-    }
-  }
-
-  // Set session counts from unique days
-  for (const [idx, days] of daysByWeek) {
-    summaries[idx]!.sessions = days.size;
-  }
-
-  return summaries;
-}
+import { buildWeekSummaries, type WeekSummary } from "../stats.ts";
 
 function fmtDate(d: Date): string {
   const mm = String(d.getMonth() + 1).padStart(2, "0");
