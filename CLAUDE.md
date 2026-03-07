@@ -1,6 +1,6 @@
-# c2cli
+# c2
 
-Concept2 Logbook CLI — personal tool for rowing data sync and analysis.
+Concept2 Logbook CLI — `@richhaase/c2` on npm.
 
 ## Build & Test
 
@@ -19,6 +19,8 @@ bun src/index.ts    # run directly during dev
 - **Auth:** Static personal access token from log.concept2.com
 - **Config:** JSON at `~/.config/c2cli/config.json`
 - **Dependencies:** commander (CLI)
+- **Linting:** biome (lint + format)
+- **CI:** GitHub Actions (typecheck + lint + test)
 
 ## Source Layout
 
