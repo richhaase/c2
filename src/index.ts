@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
 import { Command } from "commander";
-import { registerAuth } from "./commands/auth.ts";
+import { registerSetup } from "./commands/setup.ts";
 import { registerSync } from "./commands/sync.ts";
 import { registerLog } from "./commands/log.ts";
 import { registerStatus } from "./commands/status.ts";
@@ -16,7 +16,7 @@ const program = new Command()
   .description("Concept2 Logbook CLI")
   .version(VERSION, "-v, --version");
 
-registerAuth(program);
+registerSetup(program);
 registerSync(program);
 registerLog(program);
 registerStatus(program);

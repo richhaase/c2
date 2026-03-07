@@ -31,7 +31,7 @@ src/
 ├── api/
 │   └── client.ts         # Concept2 API client
 ├── commands/
-│   ├── auth.ts
+│   ├── setup.ts
 │   ├── sync.ts
 │   ├── log.ts
 │   ├── status.ts
