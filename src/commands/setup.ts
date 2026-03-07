@@ -11,14 +11,15 @@ import { formatMeters } from "../display.ts";
 import { C2Client } from "../api/client.ts";
 import { join } from "node:path";
 
-function promptValue(label: string, current: string): string {
-  const display = current ? ` [${current}]` : "";
+function maskToken(token: string): string {
+  if (token.length <= 4) return token;
+  return "·".repeat(token.length - 4) + token.slice(-4);
+}
+
+function promptValue(label: string, current: string, mask = false): string {
+  const display = current ? ` [${mask ? maskToken(current) : current}]` : "";
   const input = prompt(`${label}${display}:`);
-  if (input === null) {
-    console.log("\nSetup cancelled.");
-    process.exit(0);
-  }
-  return input.trim() || current;
+  return (input ?? "").trim() || current;
 }
 
 export function registerSetup(program: Command): void {
@@ -41,6 +42,7 @@ export function registerSetup(program: Command): void {
       const token = promptValue(
         "API token (from log.concept2.com)",
         cfg.api.token,
+        true,
       );
       cfg.api.token = token;
 
@@ -72,7 +74,7 @@ export function registerSetup(program: Command): void {
       // Save
       await ensureDirs();
       await saveConfig(cfg);
-      console.log(`\nConfig written to ${join(configDir(), "config.toml")}`);
+      console.log(`\nConfig written to ${join(configDir(), "config.json")}`);
 
       if (!cfg.goal.start_date || !cfg.goal.end_date) {
         console.log("\nNote: Goal dates not set. Commands like `c2 status` require start/end dates.");
