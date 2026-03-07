@@ -19,7 +19,7 @@ export function defaultConfig(): Config {
 }
 
 export function configDir(): string {
-  return join(homedir(), ".config", "c2cli");
+  return join(homedir(), ".config", "c2");
 }
 
 export function dataDir(): string {

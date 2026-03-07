@@ -15,9 +15,9 @@ bun src/index.ts    # run directly during dev
 ## Architecture
 
 - **Runtime:** Bun (TypeScript)
-- **Storage:** JSONL files at `~/.config/c2cli/data/`
+- **Storage:** JSONL files at `~/.config/c2/data/`
 - **Auth:** Static personal access token from log.concept2.com
-- **Config:** JSON at `~/.config/c2cli/config.json`
+- **Config:** JSON at `~/.config/c2/config.json`
 - **Dependencies:** commander (CLI)
 - **Linting:** biome (lint + format)
 - **CI:** GitHub Actions (typecheck + lint + test)

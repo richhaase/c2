@@ -12,7 +12,7 @@ bun install -g @richhaase/c2
 
 # Or install from source
 git clone https://github.com/richhaase/c2.git
-cd c2cli
+cd c2
 bun install
 bun link
 ```
@@ -118,7 +118,7 @@ c2 export -f jsonl > workouts.jsonl
 
 ## Configuration
 
-Config lives at `~/.config/c2cli/config.json`. Created automatically on `c2 setup`.
+Config lives at `~/.config/c2/config.json`. Created automatically on `c2 setup`.
 
 ```json
 {
