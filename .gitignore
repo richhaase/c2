@@ -3,3 +3,4 @@ bun.lock
 *.swp
 *.swo
 .DS_Store
+report.html
