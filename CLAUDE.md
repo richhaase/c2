@@ -5,52 +5,46 @@ Concept2 Logbook CLI — personal tool for rowing data sync and analysis.
 ## Build & Test
 
 ```bash
-make help            # list available targets
-make build           # build to bin/ with version ldflags
-make install         # install to GOPATH/bin
-make check           # fmt, vet, lint, test
-make test            # run tests only
-make clean           # remove bin/ and test cache
+bun test            # run tests
+bun run check       # typecheck (tsc --noEmit)
+bun src/index.ts    # run directly during dev
 ```
 
 ## Architecture
 
-- **Language:** Go
+- **Runtime:** Bun (TypeScript)
 - **Storage:** JSONL files at `~/.config/c2cli/data/`
 - **Auth:** Static personal access token from log.concept2.com
 - **Config:** TOML at `~/.config/c2cli/config.toml`
+- **Dependencies:** commander (CLI), smol-toml (config)
 
 ## Source Layout
 
 ```
-cmd/c2/
-└── main.go              # CLI entry point (binary: c2)
-internal/
-├── api/                 # Concept2 API client
-│   └── client.go
-├── commands/            # Cobra command implementations
-│   ├── root.go
-│   ├── auth.go
-│   ├── sync.go
-│   ├── log.go
-│   ├── status.go
-│   ├── trend.go
-│   └── export.go
-├── config/              # Config + token management
-│   └── config.go
-├── display/             # Formatting helpers
-│   └── display.go
-├── models/              # Data types
-│   └── models.go
-└── storage/             # JSONL read/write
-    └── storage.go
+src/
+├── index.ts              # CLI entry point (binary: c2)
+├── models.ts             # Data types + helpers
+├── config.ts             # TOML config load/save
+├── storage.ts            # JSONL read/write
+├── display.ts            # Formatting helpers
+├── sessions.ts           # Session grouping (same-day merge)
+├── api/
+│   └── client.ts         # Concept2 API client
+├── commands/
+│   ├── auth.ts
+│   ├── sync.ts
+│   ├── log.ts
+│   ├── status.ts
+│   ├── trend.ts
+│   └── export.ts
+└── *.test.ts             # Colocated tests
 ```
 
 ## Key Decisions
 
 - JSONL for storage (append-friendly, portable, small enough to parse fully)
-- Static personal access token (no OAuth2 flow needed — C2 provides one at log.concept2.com)
+- Static personal access token (no OAuth2 flow — C2 provides one at log.concept2.com)
 - Custom goal dates independent of C2 season (May 1 – Apr 30)
 - `time` field from API is in tenths of a second
-- Commands use `init()` registration with `rootCmd.AddCommand()` (plonk pattern)
-- `cmd/<binary>/main.go` entry point with `debug.ReadBuildInfo()` fallback for `go install`
+- Session grouping: workouts on the same calendar day form one session
+- Stroke data fields use abbreviated names from API (`t`, `d`, `p`, `spm`, `hr`)
