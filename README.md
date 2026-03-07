@@ -8,10 +8,10 @@ Requires [Bun](https://bun.sh) v1.0+.
 
 ```bash
 # Install globally
-bun install -g c2cli
+bun install -g @richhaase/c2
 
 # Or install from source
-git clone https://github.com/richhaase/c2cli.git
+git clone https://github.com/richhaase/c2.git
 cd c2cli
 bun install
 bun link

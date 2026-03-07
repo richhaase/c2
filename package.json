@@ -1,5 +1,5 @@
 {
-  "name": "c2cli",
+  "name": "@richhaase/c2",
   "version": "0.1.1",
   "description": "CLI tool for syncing and analyzing Concept2 rowing data",
   "keywords": [
@@ -12,7 +12,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/richhaase/c2cli.git"
+    "url": "https://github.com/richhaase/c2.git"
   },
   "author": "Rich Haase",
   "type": "module",
