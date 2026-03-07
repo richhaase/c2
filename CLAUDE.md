@@ -28,6 +28,7 @@ src/
 ├── storage.ts            # JSONL read/write
 ├── display.ts            # Formatting helpers
 ├── sessions.ts           # Session grouping (same-day merge)
+├── stats.ts              # Weekly summaries + goal progress
 ├── api/
 │   └── client.ts         # Concept2 API client
 ├── commands/
@@ -36,7 +37,8 @@ src/
 │   ├── log.ts
 │   ├── status.ts
 │   ├── trend.ts
-│   └── export.ts
+│   ├── export.ts
+│   └── report.ts
 └── *.test.ts             # Colocated tests
 ```
 
