@@ -1,7 +1,7 @@
 import type { Command } from "commander";
 import { loadConfig } from "../config.ts";
-import { readWorkouts } from "../storage.ts";
 import { formatWorkoutLine } from "../display.ts";
+import { readWorkouts } from "../storage.ts";
 
 export function registerLog(program: Command): void {
   program
@@ -19,7 +19,7 @@ export function registerLog(program: Command): void {
       workouts.sort((a, b) => b.date.localeCompare(a.date));
 
       const count = parseInt(opts.count, 10);
-      if (isNaN(count) || count < 1) {
+      if (Number.isNaN(count) || count < 1) {
         console.error("Error: --count must be a positive integer.");
         process.exit(1);
       }

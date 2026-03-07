@@ -1,18 +1,10 @@
 import type { Command } from "commander";
-import type { Workout } from "../models.ts";
-import { loadConfig, ensureDirs, saveConfig } from "../config.ts";
 import { C2Client } from "../api/client.ts";
-import {
-  appendWorkouts,
-  workoutCount,
-  hasStrokeData,
-  writeStrokeData,
-} from "../storage.ts";
+import { ensureDirs, loadConfig, saveConfig } from "../config.ts";
+import type { Workout } from "../models.ts";
+import { appendWorkouts, hasStrokeData, workoutCount, writeStrokeData } from "../storage.ts";
 
-async function syncStrokes(
-  client: C2Client,
-  workouts: Workout[],
-): Promise<number> {
+async function syncStrokes(client: C2Client, workouts: Workout[]): Promise<number> {
   let count = 0;
   let failures = 0;
   for (const w of workouts) {

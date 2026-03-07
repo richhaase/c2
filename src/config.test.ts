@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { parseGoalDate, defaultConfig } from "./config.ts";
+import { defaultConfig, parseGoalDate } from "./config.ts";
 
 describe("parseGoalDate", () => {
   test("parses valid date string", () => {

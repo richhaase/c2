@@ -1,15 +1,16 @@
+import { join } from "node:path";
 import type { Command } from "commander";
+import { C2Client } from "../api/client.ts";
 import {
-  loadConfig,
+  type Config,
+  configDir,
   defaultConfig,
   ensureDirs,
-  saveConfig,
-  configDir,
+  loadConfig,
   parseGoalDate,
+  saveConfig,
 } from "../config.ts";
 import { formatMeters } from "../display.ts";
-import { C2Client } from "../api/client.ts";
-import { join } from "node:path";
 
 function maskToken(token: string): string {
   if (token.length <= 4) return token;
@@ -27,7 +28,7 @@ export function registerSetup(program: Command): void {
     .command("setup")
     .description("Configure token, goal, and preferences")
     .action(async () => {
-      let cfg;
+      let cfg: Config;
       try {
         cfg = await loadConfig();
       } catch (err) {
@@ -39,18 +40,14 @@ export function registerSetup(program: Command): void {
       console.log("Concept2 CLI Setup\n");
 
       // Token
-      const token = promptValue(
-        "API token (from log.concept2.com)",
-        cfg.api.token,
-        true,
-      );
+      const token = promptValue("API token (from log.concept2.com)", cfg.api.token, true);
       cfg.api.token = token;
 
       // Goal target
       const targetDisplay = formatMeters(cfg.goal.target_meters);
       const targetInput = promptValue("Goal target meters", targetDisplay);
       const parsed = parseInt(targetInput.replace(/,/g, ""), 10);
-      if (!isNaN(parsed) && parsed > 0) {
+      if (!Number.isNaN(parsed) && parsed > 0) {
         cfg.goal.target_meters = parsed;
       }
 
@@ -77,7 +74,9 @@ export function registerSetup(program: Command): void {
       console.log(`\nConfig written to ${join(configDir(), "config.json")}`);
 
       if (!cfg.goal.start_date || !cfg.goal.end_date) {
-        console.log("\nNote: Goal dates not set. Commands like `c2 status` require start/end dates.");
+        console.log(
+          "\nNote: Goal dates not set. Commands like `c2 status` require start/end dates.",
+        );
       }
 
       // Verify token
@@ -88,9 +87,7 @@ export function registerSetup(program: Command): void {
           const user = await client.getUser();
           console.log(`Authenticated as: ${user.username} (ID: ${user.id})`);
         } catch (err) {
-          console.error(
-            `Warning: could not verify token: ${(err as Error).message}`,
-          );
+          console.error(`Warning: could not verify token: ${(err as Error).message}`);
         }
       }
     });

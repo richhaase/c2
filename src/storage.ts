@@ -1,7 +1,7 @@
-import { readFile, appendFile, writeFile, stat } from "node:fs/promises";
+import { appendFile, readFile, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { dataDir } from "./config.ts";
-import type { Workout, StrokeData } from "./models.ts";
+import type { StrokeData, Workout } from "./models.ts";
 
 function workoutsPath(): string {
   return join(dataDir(), "workouts.jsonl");
@@ -24,16 +24,14 @@ export async function readWorkouts(): Promise<Workout[]> {
   }
 }
 
-export async function appendWorkouts(
-  newWorkouts: Workout[],
-): Promise<number> {
+export async function appendWorkouts(newWorkouts: Workout[]): Promise<number> {
   const existing = await readWorkouts();
   const seen = new Set(existing.map((w) => w.id));
 
   const toWrite = newWorkouts.filter((w) => !seen.has(w.id));
   if (toWrite.length === 0) return 0;
 
-  const lines = toWrite.map((w) => JSON.stringify(w)).join("\n") + "\n";
+  const lines = `${toWrite.map((w) => JSON.stringify(w)).join("\n")}\n`;
   await appendFile(workoutsPath(), lines, "utf-8");
   return toWrite.length;
 }
@@ -58,17 +56,12 @@ export async function hasStrokeData(workoutId: number): Promise<boolean> {
   }
 }
 
-export async function writeStrokeData(
-  workoutId: number,
-  strokes: StrokeData[],
-): Promise<void> {
-  const lines = strokes.map((s) => JSON.stringify(s)).join("\n") + "\n";
+export async function writeStrokeData(workoutId: number, strokes: StrokeData[]): Promise<void> {
+  const lines = `${strokes.map((s) => JSON.stringify(s)).join("\n")}\n`;
   await writeFile(strokesPath(workoutId), lines, "utf-8");
 }
 
-export async function readStrokeData(
-  workoutId: number,
-): Promise<StrokeData[]> {
+export async function readStrokeData(workoutId: number): Promise<StrokeData[]> {
   try {
     const text = await readFile(strokesPath(workoutId), "utf-8");
     return text

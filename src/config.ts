@@ -1,6 +1,6 @@
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
 
 export interface Config {
   api: { base_url: string; token: string };
@@ -54,11 +54,11 @@ export async function saveConfig(cfg: Config): Promise<void> {
   const path = join(configDir(), "config.json");
   await mkdir(configDir(), { recursive: true });
   const text = JSON.stringify(cfg, null, 2);
-  await writeFile(path, text + "\n", "utf-8");
+  await writeFile(path, `${text}\n`, "utf-8");
 }
 
 export function parseGoalDate(s: string): Date {
-  const d = new Date(s + "T00:00:00");
-  if (isNaN(d.getTime())) throw new Error(`Invalid date: ${s}`);
+  const d = new Date(`${s}T00:00:00`);
+  if (Number.isNaN(d.getTime())) throw new Error(`Invalid date: ${s}`);
   return d;
 }

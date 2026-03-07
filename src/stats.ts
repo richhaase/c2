@@ -1,7 +1,7 @@
-import type { Workout } from "./models.ts";
 import type { Config } from "./config.ts";
 import { parseGoalDate } from "./config.ts";
-import { pace500mSeconds, calendarDay, parsedDate } from "./models.ts";
+import type { Workout } from "./models.ts";
+import { calendarDay, pace500mSeconds, parsedDate } from "./models.ts";
 
 export interface WeekSummary {
   weekStart: Date;
@@ -35,22 +35,14 @@ export function mondayOf(t: Date): Date {
   return d;
 }
 
-export function workoutsInRange(
-  workouts: Workout[],
-  from: Date,
-  to: Date,
-): Workout[] {
+export function workoutsInRange(workouts: Workout[], from: Date, to: Date): Workout[] {
   return workouts.filter((w) => {
     const t = parsedDate(w);
     return t >= from && t < to;
   });
 }
 
-export function buildWeekSummaries(
-  workouts: Workout[],
-  now: Date,
-  weeks: number,
-): WeekSummary[] {
+export function buildWeekSummaries(workouts: Workout[], now: Date, weeks: number): WeekSummary[] {
   const thisMonday = mondayOf(now);
   const cutoff = new Date(thisMonday);
   cutoff.setDate(cutoff.getDate() - (weeks - 1) * 7);
@@ -79,9 +71,7 @@ export function buildWeekSummaries(
     if (t < cutoff || t > now) continue;
 
     const monday = mondayOf(t);
-    const idx = Math.floor(
-      (monday.getTime() - cutoff.getTime()) / (1000 * 60 * 60 * 24 * 7),
-    );
+    const idx = Math.floor((monday.getTime() - cutoff.getTime()) / (1000 * 60 * 60 * 24 * 7));
     if (idx < 0 || idx >= weeks) continue;
 
     const ws = summaries[idx]!;
@@ -112,11 +102,7 @@ export function buildWeekSummaries(
   return summaries;
 }
 
-export function computeGoalProgress(
-  workouts: Workout[],
-  cfg: Config,
-  now?: Date,
-): GoalProgress {
+export function computeGoalProgress(workouts: Workout[], cfg: Config, now?: Date): GoalProgress {
   const target = cfg.goal.target_meters;
   const start = parseGoalDate(cfg.goal.start_date);
   const end = parseGoalDate(cfg.goal.end_date);
@@ -131,15 +117,12 @@ export function computeGoalProgress(
   }
 
   const progress = totalMeters / target;
-  const totalDays =
-    (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
+  const totalDays = (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
   const totalWeeks = Math.ceil(totalDays / 7);
 
   let weeksElapsed = 0;
   if (today > start) {
-    weeksElapsed = Math.floor(
-      (today.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 7),
-    );
+    weeksElapsed = Math.floor((today.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 7));
   }
 
   let remainingMeters = target - totalMeters;

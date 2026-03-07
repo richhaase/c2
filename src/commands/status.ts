@@ -1,17 +1,9 @@
 import type { Command } from "commander";
 import { loadConfig } from "../config.ts";
-import { readWorkouts } from "../storage.ts";
-import {
-  formatMeters,
-  formatPercent,
-  formatMetersPerWeek,
-} from "../display.ts";
+import { formatMeters, formatMetersPerWeek, formatPercent } from "../display.ts";
 import { calendarDay } from "../models.ts";
-import {
-  mondayOf,
-  workoutsInRange,
-  computeGoalProgress,
-} from "../stats.ts";
+import { computeGoalProgress, mondayOf, workoutsInRange } from "../stats.ts";
+import { readWorkouts } from "../storage.ts";
 
 export function registerStatus(program: Command): void {
   program
@@ -53,17 +45,13 @@ export function registerStatus(program: Command): void {
 
         const mm = String(weekStart.getMonth() + 1).padStart(2, "0");
         const dd = String(weekStart.getDate()).padStart(2, "0");
-        console.log(
-          `  Week of ${mm}/${dd}: ${formatMeters(meters)} (${sessions} sessions)`,
-        );
+        console.log(`  Week of ${mm}/${dd}: ${formatMeters(meters)} (${sessions} sessions)`);
       }
       console.log();
 
       if (goal.weeksElapsed > 0) {
         const indicator = goal.onPace ? "on pace \u2713" : "behind pace \u2717";
-        console.log(
-          `Current avg: ${formatMetersPerWeek(goal.currentAvgPace)} \u2014 ${indicator}`,
-        );
+        console.log(`Current avg: ${formatMetersPerWeek(goal.currentAvgPace)} \u2014 ${indicator}`);
       }
     });
 }

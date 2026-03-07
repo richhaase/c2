@@ -1,13 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import type { Workout } from "./models.ts";
 import type { Config } from "./config.ts";
 import { defaultConfig } from "./config.ts";
-import {
-  mondayOf,
-  workoutsInRange,
-  buildWeekSummaries,
-  computeGoalProgress,
-} from "./stats.ts";
+import type { Workout } from "./models.ts";
+import { buildWeekSummaries, computeGoalProgress, mondayOf, workoutsInRange } from "./stats.ts";
 
 function makeWorkout(id: number, date: string, distance: number, time?: number): Workout {
   return {
@@ -23,7 +18,13 @@ function makeWorkout(id: number, date: string, distance: number, time?: number):
 
 function makeGoalConfig(overrides: Partial<Config["goal"]> = {}): Config {
   const cfg = defaultConfig();
-  cfg.goal = { ...cfg.goal, start_date: "2026-01-01", end_date: "2026-12-31", target_meters: 1_000_000, ...overrides };
+  cfg.goal = {
+    ...cfg.goal,
+    start_date: "2026-01-01",
+    end_date: "2026-12-31",
+    target_meters: 1_000_000,
+    ...overrides,
+  };
   return cfg;
 }
 
@@ -108,7 +109,7 @@ describe("buildWeekSummaries", () => {
     const now = new Date(2026, 2, 7);
     const summaries = buildWeekSummaries([], now, 4);
     expect(summaries).toHaveLength(4);
-    expect(summaries.every(s => s.meters === 0)).toBe(true);
+    expect(summaries.every((s) => s.meters === 0)).toBe(true);
   });
 });
 
