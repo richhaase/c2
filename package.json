@@ -1,6 +1,14 @@
 {
   "name": "c2cli",
   "version": "0.1.0",
+  "description": "CLI tool for syncing and analyzing Concept2 rowing data",
+  "keywords": ["concept2", "rowing", "erg", "fitness", "cli"],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/richhaase/c2cli.git"
+  },
+  "author": "Rich Haase",
   "type": "module",
   "bin": {
     "c2": "src/index.ts"
@@ -19,5 +27,8 @@
   },
   "files": [
     "src"
-  ]
+  ],
+  "engines": {
+    "bun": ">=1.0.0"
+  }
 }
