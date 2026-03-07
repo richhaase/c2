@@ -3,7 +3,7 @@ import type { Workout } from "../models.ts";
 import { pace500m } from "../models.ts";
 import { readWorkouts } from "../storage.ts";
 
-function filterByDate(
+export function filterByDate(
   workouts: Workout[],
   from: string,
   to: string,
@@ -17,7 +17,7 @@ function filterByDate(
   });
 }
 
-function escapeCSV(s: string): string {
+export function escapeCSV(s: string): string {
   if (s.includes(",") || s.includes('"') || s.includes("\n")) {
     return `"${s.replace(/"/g, '""')}"`;
   }
