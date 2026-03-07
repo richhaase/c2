@@ -18,7 +18,8 @@
     "test": "bun test",
     "check": "tsc --noEmit && biome check src/ && bun test",
     "lint": "biome check src/",
-    "fmt": "biome check --write src/"
+    "fmt": "biome check --write src/",
+    "release": "bun run check && npm version"
   },
   "dependencies": {
     "commander": "^14.0.0"
