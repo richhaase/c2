@@ -13,7 +13,11 @@ import { join } from "node:path";
 
 function promptValue(label: string, current: string): string {
   const display = current ? ` [${current}]` : "";
-  const input = prompt(`${label}${display}:`) ?? "";
+  const input = prompt(`${label}${display}:`);
+  if (input === null) {
+    console.log("\nSetup cancelled.");
+    process.exit(0);
+  }
   return input.trim() || current;
 }
 
@@ -25,7 +29,9 @@ export function registerSetup(program: Command): void {
       let cfg;
       try {
         cfg = await loadConfig();
-      } catch {
+      } catch (err) {
+        console.error(`Warning: could not load existing config: ${(err as Error).message}`);
+        console.error("Starting from defaults.");
         cfg = defaultConfig();
       }
 
@@ -67,6 +73,10 @@ export function registerSetup(program: Command): void {
       await ensureDirs();
       await saveConfig(cfg);
       console.log(`\nConfig written to ${join(configDir(), "config.toml")}`);
+
+      if (!cfg.goal.start_date || !cfg.goal.end_date) {
+        console.log("\nNote: Goal dates not set. Commands like `c2 status` require start/end dates.");
+      }
 
       // Verify token
       if (cfg.api.token) {
