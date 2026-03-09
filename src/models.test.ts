@@ -1,11 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import {
-  parsedDate,
-  calendarDay,
-  pace500mSeconds,
-  pace500m,
-} from "./models.ts";
 import type { Workout } from "./models.ts";
+import { calendarDay, pace500m, pace500mSeconds, parsedDate } from "./models.ts";
 
 function makeWorkout(overrides: Partial<Workout> = {}): Workout {
   return {

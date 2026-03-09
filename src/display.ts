@@ -1,5 +1,5 @@
 import type { Workout } from "./models.ts";
-import { parsedDate, pace500m } from "./models.ts";
+import { pace500m, parsedDate } from "./models.ts";
 
 export function formatMeters(m: number): string {
   return m.toLocaleString("en-US");
@@ -38,10 +38,7 @@ export function formatWorkoutLine(w: Workout, dateFormat: string): string {
   const distance = `${formatMeters(w.distance)}m`;
   const pace = pace500m(w);
   const spm = w.stroke_rate ? `${w.stroke_rate}spm` : "-";
-  const hr =
-    w.heart_rate?.average && w.heart_rate.average > 0
-      ? `${w.heart_rate.average}bpm`
-      : "-";
+  const hr = w.heart_rate?.average && w.heart_rate.average > 0 ? `${w.heart_rate.average}bpm` : "-";
   const df = w.drag_factor ? `${w.drag_factor}df` : "-";
 
   return `${dateStr}  ${distance.padStart(7)}  ${w.time_formatted.padStart(8)}  ${pace.padStart(7)}/500m  ${spm.padStart(5)}  ${hr.padStart(6)}  ${df.padStart(4)}`;

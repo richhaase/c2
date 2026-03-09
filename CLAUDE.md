@@ -1,22 +1,26 @@
-# c2cli
+# c2
 
-Concept2 Logbook CLI — personal tool for rowing data sync and analysis.
+Concept2 Logbook CLI — `@richhaase/c2` on npm.
 
 ## Build & Test
 
 ```bash
-bun test            # run tests
-bun run check       # typecheck (tsc --noEmit)
+bun run check       # typecheck + lint + test (all-in-one)
+bun test            # tests only
+bun run lint        # lint only (biome)
+bun run fmt         # auto-fix lint + format
 bun src/index.ts    # run directly during dev
 ```
 
 ## Architecture
 
 - **Runtime:** Bun (TypeScript)
-- **Storage:** JSONL files at `~/.config/c2cli/data/`
+- **Storage:** JSONL files at `~/.config/c2/data/`
 - **Auth:** Static personal access token from log.concept2.com
-- **Config:** TOML at `~/.config/c2cli/config.toml`
-- **Dependencies:** commander (CLI), smol-toml (config)
+- **Config:** JSON at `~/.config/c2/config.json`
+- **Dependencies:** commander (CLI)
+- **Linting:** biome (lint + format)
+- **CI:** GitHub Actions (typecheck + lint + test)
 
 ## Source Layout
 
@@ -24,19 +28,21 @@ bun src/index.ts    # run directly during dev
 src/
 ├── index.ts              # CLI entry point (binary: c2)
 ├── models.ts             # Data types + helpers
-├── config.ts             # TOML config load/save
+├── config.ts             # JSON config load/save
 ├── storage.ts            # JSONL read/write
 ├── display.ts            # Formatting helpers
 ├── sessions.ts           # Session grouping (same-day merge)
+├── stats.ts              # Weekly summaries + goal progress
 ├── api/
 │   └── client.ts         # Concept2 API client
 ├── commands/
-│   ├── auth.ts
+│   ├── setup.ts
 │   ├── sync.ts
 │   ├── log.ts
 │   ├── status.ts
 │   ├── trend.ts
-│   └── export.ts
+│   ├── export.ts
+│   └── report.ts
 └── *.test.ts             # Colocated tests
 ```
 

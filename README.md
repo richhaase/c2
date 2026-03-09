@@ -2,16 +2,26 @@
 
 A CLI tool for syncing and analyzing rowing data from your [Concept2 Logbook](https://log.concept2.com). Built with [Bun](https://bun.sh).
 
+## Install
+
+Requires [Bun](https://bun.sh) v1.0+.
+
+```bash
+# Install globally
+bun install -g @richhaase/c2
+
+# Or install from source
+git clone https://github.com/richhaase/c2.git
+cd c2
+bun install
+bun link
+```
+
 ## Quick Start
 
 ```bash
-# Clone and install deps
-git clone https://github.com/richhaase/c2cli.git
-cd c2cli
-bun install
-
-# Authenticate (get your token from log.concept2.com → Settings → Developer)
-bun src/index.ts auth YOUR_TOKEN
+# Configure token and goals
+bun src/index.ts setup
 
 # Sync workouts
 bun src/index.ts sync
@@ -22,13 +32,15 @@ bun src/index.ts status
 
 ## Usage
 
-### Authentication
+### Setup
 
-Get a personal access token from [log.concept2.com](https://log.concept2.com) under Settings → Developer, then save it:
+Configure your token and goal settings:
 
 ```bash
-c2 auth YOUR_TOKEN
+c2 setup
 ```
+
+Get your personal access token from [log.concept2.com](https://log.concept2.com) under Settings → Developer. The setup wizard will prompt for your token, goal target, and date range.
 
 ### Sync Workouts
 
@@ -50,7 +62,7 @@ c2 log -n 25
 
 ### Goal Progress
 
-Track progress toward a million-meter annual goal:
+Track progress toward your distance goal:
 
 ```bash
 c2 status
@@ -106,23 +118,26 @@ c2 export -f jsonl > workouts.jsonl
 
 ## Configuration
 
-Config lives at `~/.config/c2cli/config.toml`. Created automatically on `c2 auth`.
+Config lives at `~/.config/c2/config.json`. Created automatically on `c2 setup`.
 
-```toml
-[api]
-base_url = "https://log.concept2.com"
-token = "YOUR_TOKEN"
-
-[sync]
-machine_type = "rower"
-
-[goal]
-target_meters = 1000000
-start_date = "2026-01-01"
-end_date = "2026-12-31"
-
-[display]
-date_format = "%m/%d"
+```json
+{
+  "api": {
+    "base_url": "https://log.concept2.com",
+    "token": "YOUR_TOKEN"
+  },
+  "sync": {
+    "machine_type": "rower"
+  },
+  "goal": {
+    "target_meters": 1000000,
+    "start_date": "2026-01-01",
+    "end_date": "2026-12-31"
+  },
+  "display": {
+    "date_format": "%m/%d"
+  }
+}
 ```
 
 ## Development

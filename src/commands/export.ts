@@ -3,11 +3,7 @@ import type { Workout } from "../models.ts";
 import { pace500m } from "../models.ts";
 import { readWorkouts } from "../storage.ts";
 
-function filterByDate(
-  workouts: Workout[],
-  from: string,
-  to: string,
-): Workout[] {
+export function filterByDate(workouts: Workout[], from: string, to: string): Workout[] {
   if (!from && !to) return workouts;
   return workouts.filter((w) => {
     const date = w.date.slice(0, 10);
@@ -17,7 +13,7 @@ function filterByDate(
   });
 }
 
-function escapeCSV(s: string): string {
+export function escapeCSV(s: string): string {
   if (s.includes(",") || s.includes('"') || s.includes("\n")) {
     return `"${s.replace(/"/g, '""')}"`;
   }
@@ -26,10 +22,22 @@ function escapeCSV(s: string): string {
 
 function exportCSV(workouts: Workout[]): void {
   const header = [
-    "id", "date", "distance", "time_tenths", "time_formatted",
-    "pace_500m", "stroke_rate", "stroke_count", "calories",
-    "drag_factor", "hr_avg", "hr_min", "hr_max",
-    "workout_type", "machine_type", "comments",
+    "id",
+    "date",
+    "distance",
+    "time_tenths",
+    "time_formatted",
+    "pace_500m",
+    "stroke_rate",
+    "stroke_count",
+    "calories",
+    "drag_factor",
+    "hr_avg",
+    "hr_min",
+    "hr_max",
+    "workout_type",
+    "machine_type",
+    "comments",
   ];
   console.log(header.join(","));
 
@@ -100,9 +108,7 @@ export function registerExport(program: Command): void {
           exportJSONL(workouts);
           break;
         default:
-          console.error(
-            `Unsupported format "${opts.format}": must be csv, json, or jsonl`,
-          );
+          console.error(`Unsupported format "${opts.format}": must be csv, json, or jsonl`);
           process.exit(1);
       }
     });

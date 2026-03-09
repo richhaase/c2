@@ -1,22 +1,32 @@
-import type { Command } from "commander";
 import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import type { Command } from "commander";
 import { loadConfig } from "../config.ts";
-import { readWorkouts } from "../storage.ts";
-import { formatMeters, formatPercent } from "../display.ts";
-import { pace500mSeconds, pace500m, calendarDay } from "../models.ts";
+import { formatMeters } from "../display.ts";
 import type { Workout } from "../models.ts";
+import { calendarDay, pace500m, pace500mSeconds } from "../models.ts";
 import { sessionCount } from "../sessions.ts";
 import {
   buildWeekSummaries,
   computeGoalProgress,
-  type WeekSummary,
   type GoalProgress,
+  type WeekSummary,
 } from "../stats.ts";
+import { readWorkouts } from "../storage.ts";
 
 const MONTH_NAMES = [
-  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
 ];
 
 function shortDate(d: Date): string {
@@ -98,6 +108,14 @@ function buildStatsCards(
 </div>`;
 }
 
+function fmtShortNum(n: number): string {
+  if (n === 0) return "0";
+  if (n >= 1_000_000 && n % 1_000_000 === 0) return `${n / 1_000_000}M`;
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1000) return `${Math.round(n / 1000)}K`;
+  return String(n);
+}
+
 function buildGoalProgress(goal: GoalProgress): string {
   const pct = (goal.progress * 100).toFixed(1);
   const onPacePct = ((goal.weeksElapsed / goal.totalWeeks) * 100).toFixed(1);
@@ -107,6 +125,8 @@ function buildGoalProgress(goal: GoalProgress): string {
       ? `${diff}% ahead of pace`
       : `${Math.abs(parseFloat(diff)).toFixed(1)}% behind pace`;
   const diffClass = parseFloat(diff) >= 0 ? "green" : "red";
+
+  const q = goal.target / 4;
 
   return `<div class="section">
   <h2>Goal Progress</h2>
@@ -121,11 +141,11 @@ function buildGoalProgress(goal: GoalProgress): string {
     </div>
   </div>
   <div class="progress-label-row">
-    <span>0</span>
-    <span>250K</span>
-    <span>500K</span>
-    <span>750K</span>
-    <span>1M</span>
+    <span>${fmtShortNum(0)}</span>
+    <span>${fmtShortNum(q)}</span>
+    <span>${fmtShortNum(q * 2)}</span>
+    <span>${fmtShortNum(q * 3)}</span>
+    <span>${fmtShortNum(goal.target)}</span>
   </div>
   <div style="margin-top: 12px; font-size: 13px;">
     <span class="${diffClass}">&#9632;</span> Actual &nbsp;&nbsp;
@@ -135,10 +155,7 @@ function buildGoalProgress(goal: GoalProgress): string {
 </div>`;
 }
 
-function buildWeeklyVolume(
-  summaries: WeekSummary[],
-  requiredPace: number,
-): string {
+function buildWeeklyVolume(summaries: WeekSummary[], requiredPace: number): string {
   const maxM = Math.max(...summaries.map((w) => w.meters), requiredPace * 1.25);
   const scale = maxM > 0 ? maxM : 1;
   const targetPct = ((requiredPace / scale) * 100).toFixed(1);
@@ -149,12 +166,8 @@ function buildWeeklyVolume(
       const pct = ((ws.meters / scale) * 100).toFixed(1);
       const barClass = ws.meters >= requiredPace ? "on-pace" : "behind";
       const isLast = i === lastIdx;
-      const labelStyle = isLast
-        ? ' style="color:#c9d1d9; font-weight:600;"'
-        : "";
-      const nowTag = isLast
-        ? ' <span style="color:#58a6ff; font-size:10px;">(now)</span>'
-        : "";
+      const labelStyle = isLast ? ' style="color:#c9d1d9; font-weight:600;"' : "";
+      const nowTag = isLast ? ' <span style="color:#58a6ff; font-size:10px;">(now)</span>' : "";
       return `  <div class="week-row">
     <div class="week-label"${labelStyle}>${shortDate(ws.weekStart)}</div>
     <div class="week-bar-container">
@@ -191,21 +204,12 @@ function buildWeeklyTrends(summaries: WeekSummary[]): string {
 
   const rows = summaries
     .map((ws) => {
-      const avgPace =
-        ws.paceCount > 0 ? ws.paceSum / ws.paceCount : 0;
-      const avgSPM =
-        ws.spmCount > 0 ? (ws.spmSum / ws.spmCount).toFixed(1) : "-";
-      const avgHR =
-        ws.hrCount > 0 ? Math.round(ws.hrSum / ws.hrCount).toString() : "-";
+      const avgPace = ws.paceCount > 0 ? ws.paceSum / ws.paceCount : 0;
+      const avgSPM = ws.spmCount > 0 ? (ws.spmSum / ws.spmCount).toFixed(1) : "-";
+      const avgHR = ws.hrCount > 0 ? Math.round(ws.hrSum / ws.hrCount).toString() : "-";
 
-      const volStyle =
-        ws.meters === bestVolume && ws.meters > 0
-          ? ' style="color:#3fb950;"'
-          : "";
-      const paceStyle =
-        avgPace === bestPace && avgPace > 0
-          ? ' style="color:#3fb950;"'
-          : "";
+      const volStyle = ws.meters === bestVolume && ws.meters > 0 ? ' style="color:#3fb950;"' : "";
+      const paceStyle = avgPace === bestPace && avgPace > 0 ? ' style="color:#3fb950;"' : "";
 
       return `      <tr>
         <td>${shortDate(ws.weekStart)}</td>
@@ -218,11 +222,8 @@ function buildWeeklyTrends(summaries: WeekSummary[]): string {
     .join("\n");
 
   // Pace trend summary
-  const firstPace =
-    summaries.find((w) => w.paceCount > 0);
-  const lastPace = [...summaries]
-    .reverse()
-    .find((w) => w.paceCount > 0);
+  const firstPace = summaries.find((w) => w.paceCount > 0);
+  const lastPace = [...summaries].reverse().find((w) => w.paceCount > 0);
   let trendNote = "";
   if (firstPace && lastPace && firstPace !== lastPace) {
     const fp = firstPace.paceSum / firstPace.paceCount;
@@ -345,19 +346,19 @@ ${rows}
 </div>`;
 }
 
-function buildProjection(goal: GoalProgress): string {
-  const projectedAtCurrent =
-    goal.currentAvgPace * goal.remainingWeeks + goal.totalMeters;
+function buildProjection(goal: GoalProgress, workouts: Workout[]): string {
+  const projectedAtCurrent = goal.currentAvgPace * goal.remainingWeeks + goal.totalMeters;
   const projectedPct = ((projectedAtCurrent / goal.target) * 100).toFixed(1);
   const shortfall = goal.target - projectedAtCurrent;
+  const avgSessionDist =
+    workouts.length > 0
+      ? Math.round(workouts.reduce((s, w) => s + w.distance, 0) / workouts.length)
+      : 5000;
   const sessionsPerWeek =
-    goal.requiredPace > 0 ? (goal.requiredPace / 5500).toFixed(1) : "-";
+    avgSessionDist > 0 ? (goal.requiredPace / avgSessionDist).toFixed(1) : "-";
   const increaseNeeded =
     goal.currentAvgPace > 0
-      ? (
-          ((goal.requiredPace - goal.currentAvgPace) / goal.currentAvgPace) *
-          100
-        ).toFixed(0)
+      ? (((goal.requiredPace - goal.currentAvgPace) / goal.currentAvgPace) * 100).toFixed(0)
       : "-";
 
   const currentClass = projectedAtCurrent >= goal.target ? "green" : "red";
@@ -379,14 +380,14 @@ function buildProjection(goal: GoalProgress): string {
       <div class="big-num green">${formatMeters(goal.requiredPace)} <span style="font-size:16px; font-weight:400;">m/wk</span></div>
       <div class="detail">
         ${formatMeters(goal.remainingMeters)}m remaining over ${goal.remainingWeeks} weeks<br>
-        ~${sessionsPerWeek} sessions of 5,500m per week<br>
+        ~${sessionsPerWeek} sessions of ${formatMeters(avgSessionDist)}m per week<br>
         <span class="green" style="font-weight:600;">${Number(increaseNeeded) > 0 ? `+${increaseNeeded}% increase needed` : "Pace is sufficient"}</span>
       </div>
     </div>
   </div>
   <div style="margin-top: 16px; padding: 12px; background: #21262d; border-radius: 6px; font-size: 13px; line-height: 1.8;">
     <strong style="color: #f0f6fc;">The path forward:</strong>
-    4 sessions/week at 5,500m = 22,000m/week. That covers the gap with margin.
+    ${sessionsPerWeek} sessions/week at ${formatMeters(avgSessionDist)}m avg = ${formatMeters(Math.round(parseFloat(sessionsPerWeek as string) * avgSessionDist))}m/week.
   </div>
 </div>`;
 }
@@ -647,10 +648,10 @@ ${buildWeeklyTrends(summaries)}
 
 ${buildRecentWorkouts(allWorkouts, recentCount)}
 
-${buildProjection(goal)}
+${buildProjection(goal, allWorkouts)}
 
 <div style="text-align: center; color: #484f58; font-size: 12px; margin-top: 32px; padding-bottom: 16px;">
-  Generated by c2cli &middot; Data from Concept2 Logbook &middot; ${fullDate(today)}
+  Generated by c2 &middot; Data from Concept2 Logbook &middot; ${fullDate(today)}
 </div>
 
 </body>
@@ -664,29 +665,45 @@ export function registerReport(program: Command): void {
     .option("-o, --output <file>", "output file path", "report.html")
     .option("-w, --weeks <n>", "weeks of history to show", "12")
     .option("--open", "open report in default browser")
-    .action(
-      async (opts: { output: string; weeks: string; open?: boolean }) => {
-        const cfg = await loadConfig();
-        const workouts = await readWorkouts();
+    .action(async (opts: { output: string; weeks: string; open?: boolean }) => {
+      const cfg = await loadConfig();
+      if (!cfg.goal.start_date || !cfg.goal.end_date) {
+        console.error("Goal dates not configured. Run `c2 setup` to set start and end dates.");
+        process.exit(1);
+      }
+      const workouts = await readWorkouts();
 
-        if (workouts.length === 0) {
-          console.log("No workouts found. Run `c2 sync` first.");
-          return;
-        }
+      if (workouts.length === 0) {
+        console.log("No workouts found. Run `c2 sync` first.");
+        return;
+      }
 
-        const goal = computeGoalProgress(workouts, cfg);
-        const weeks = parseInt(opts.weeks, 10);
-        const summaries = buildWeekSummaries(workouts, new Date(), weeks);
-        const html = buildHTML(goal, summaries, workouts, 10);
+      const goal = computeGoalProgress(workouts, cfg);
+      const weeks = parseInt(opts.weeks, 10);
+      if (Number.isNaN(weeks) || weeks < 1) {
+        console.error("Error: --weeks must be a positive integer.");
+        process.exit(1);
+      }
+      const summaries = buildWeekSummaries(workouts, new Date(), weeks);
+      const html = buildHTML(goal, summaries, workouts, 10);
 
-        const outPath = resolve(opts.output);
-        await writeFile(outPath, html, "utf-8");
-        console.log(`Report written to: ${outPath}`);
+      const outPath = resolve(opts.output);
+      await writeFile(outPath, html, "utf-8");
+      console.log(`Report written to: ${outPath}`);
 
-        if (opts.open) {
-          const { exec } = await import("node:child_process");
-          exec(`open "${outPath}"`);
-        }
-      },
-    );
+      if (opts.open) {
+        const { spawn } = await import("node:child_process");
+        const cmd =
+          process.platform === "darwin"
+            ? "open"
+            : process.platform === "win32"
+              ? "start"
+              : "xdg-open";
+        const child = spawn(cmd, [outPath], { stdio: "ignore", detached: true });
+        child.on("error", (err) => {
+          console.error(`Could not open report: ${err.message}`);
+        });
+        child.unref();
+      }
+    });
 }

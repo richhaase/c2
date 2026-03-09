@@ -1,19 +1,12 @@
 import type { Command } from "commander";
-import type { Workout } from "../models.ts";
-import { loadConfig, ensureDirs, saveConfig } from "../config.ts";
 import { C2Client } from "../api/client.ts";
-import {
-  appendWorkouts,
-  workoutCount,
-  hasStrokeData,
-  writeStrokeData,
-} from "../storage.ts";
+import { ensureDirs, loadConfig, saveConfig } from "../config.ts";
+import type { Workout } from "../models.ts";
+import { appendWorkouts, hasStrokeData, workoutCount, writeStrokeData } from "../storage.ts";
 
-async function syncStrokes(
-  client: C2Client,
-  workouts: Workout[],
-): Promise<number> {
+async function syncStrokes(client: C2Client, workouts: Workout[]): Promise<number> {
   let count = 0;
+  let failures = 0;
   for (const w of workouts) {
     if (!w.stroke_data || (await hasStrokeData(w.id))) continue;
     try {
@@ -23,9 +16,14 @@ async function syncStrokes(
         count++;
       }
     } catch (err) {
+      failures++;
       console.error(
-        `Warning: failed to fetch strokes for workout ${w.id}: ${err}`,
+        `Warning: failed to fetch strokes for workout ${w.id}: ${(err as Error).message}`,
       );
+      if (failures >= 3) {
+        console.error("Too many failures, skipping remaining stroke data.");
+        break;
+      }
     }
   }
   return count;
@@ -37,6 +35,10 @@ export function registerSync(program: Command): void {
     .description("Pull new workouts from the API")
     .action(async () => {
       const cfg = await loadConfig();
+      if (!cfg.api.token) {
+        console.error("No API token configured. Run `c2 setup` first.");
+        process.exit(1);
+      }
       await ensureDirs();
 
       const client = C2Client.fromConfig(cfg);

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { groupIntoSessions, sessionCount } from "./sessions.ts";
 import type { Workout } from "./models.ts";
+import { groupIntoSessions, sessionCount } from "./sessions.ts";
 
 function makeWorkout(id: number, date: string, distance: number): Workout {
   return {

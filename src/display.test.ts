@@ -1,11 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import {
   formatMeters,
-  formatPercent,
   formatMetersPerWeek,
+  formatPercent,
+  paceArrow,
   sparkBar,
   trendArrow,
-  paceArrow,
 } from "./display.ts";
 
 describe("formatMeters", () => {

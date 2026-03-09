@@ -1,12 +1,13 @@
+import pkg from "../../package.json";
+import type { Config } from "../config.ts";
 import type {
+  ResultsResponse,
+  StrokeData,
+  StrokeDataResponse,
   UserProfile,
   UserResponse,
   Workout,
-  StrokeData,
-  StrokeDataResponse,
-  ResultsResponse,
 } from "../models.ts";
-import type { Config } from "../config.ts";
 
 export class C2Client {
   private baseURL: string;
@@ -26,7 +27,7 @@ export class C2Client {
     const resp = await fetch(url, {
       headers: {
         Authorization: `Bearer ${this.token}`,
-        "User-Agent": "c2/0.1.0",
+        "User-Agent": `c2/${pkg.version}`,
       },
       signal: AbortSignal.timeout(30_000),
     });
@@ -43,17 +44,11 @@ export class C2Client {
     return resp.data;
   }
 
-  async getResults(
-    from: string,
-    to: string,
-    page: number,
-  ): Promise<ResultsResponse> {
+  async getResults(from: string, to: string, page: number): Promise<ResultsResponse> {
     const params = new URLSearchParams({ type: "rower", page: String(page) });
     if (from) params.set("from", from);
     if (to) params.set("to", to);
-    return (await this.get(
-      `/api/users/me/results?${params}`,
-    )) as ResultsResponse;
+    return (await this.get(`/api/users/me/results?${params}`)) as ResultsResponse;
   }
 
   async getAllResults(from: string, to: string): Promise<Workout[]> {
