@@ -79,9 +79,10 @@ export function buildWeekSummaries(
     if (t < cutoff || t > now) continue;
 
     const monday = mondayOf(t);
-    const idx = Math.floor(
-      (monday.getTime() - cutoff.getTime()) / (1000 * 60 * 60 * 24 * 7),
+    const diffDays = Math.round(
+      (monday.getTime() - cutoff.getTime()) / (1000 * 60 * 60 * 24),
     );
+    const idx = Math.floor(diffDays / 7);
     if (idx < 0 || idx >= weeks) continue;
 
     const ws = summaries[idx]!;
