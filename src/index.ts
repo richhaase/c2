@@ -23,6 +23,15 @@ registerTrend(program);
 registerExport(program);
 registerReport(program);
 
+// Default to `report` when run with no subcommand
+const args = process.argv.slice(2);
+const knownCommands = program.commands.map((c) => c.name());
+const hasSubcommand = args.some((a) => knownCommands.includes(a));
+const hasHelpOrVersion = args.some((a) => ["-h", "--help", "-v", "--version"].includes(a));
+if (args.length === 0 || (!hasSubcommand && !hasHelpOrVersion)) {
+  process.argv.splice(2, 0, "report");
+}
+
 program.parseAsync(process.argv).catch((err: Error) => {
   console.error(`Error: ${err.message}`);
   process.exit(1);

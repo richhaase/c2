@@ -1,5 +1,6 @@
-import { writeFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import type { Command } from "commander";
 import { loadConfig } from "../config.ts";
 import { formatMeters } from "../display.ts";
@@ -661,11 +662,11 @@ ${buildProjection(goal, allWorkouts)}
 export function registerReport(program: Command): void {
   program
     .command("report")
-    .description("Generate HTML progress report")
-    .option("-o, --output <file>", "output file path", "report.html")
+    .description("Generate HTML progress report and open in browser")
+    .option("-o, --output <file>", "save to a specific file instead of a temp file")
     .option("-w, --weeks <n>", "weeks of history to show", "12")
-    .option("--open", "open report in default browser")
-    .action(async (opts: { output: string; weeks: string; open?: boolean }) => {
+    .option("--no-open", "don't open in browser")
+    .action(async (opts: { output?: string; weeks: string; open: boolean }) => {
       const cfg = await loadConfig();
       if (!cfg.goal.start_date || !cfg.goal.end_date) {
         console.error("Goal dates not configured. Run `c2 setup` to set start and end dates.");
@@ -687,9 +688,14 @@ export function registerReport(program: Command): void {
       const summaries = buildWeekSummaries(workouts, new Date(), weeks);
       const html = buildHTML(goal, summaries, workouts, 10);
 
-      const outPath = resolve(opts.output);
+      let outPath: string;
+      if (opts.output) {
+        outPath = resolve(opts.output);
+      } else {
+        const dir = await mkdtemp(join(tmpdir(), "c2-report-"));
+        outPath = join(dir, "report.html");
+      }
       await writeFile(outPath, html, "utf-8");
-      console.log(`Report written to: ${outPath}`);
 
       if (opts.open) {
         const { spawn } = await import("node:child_process");
@@ -704,6 +710,8 @@ export function registerReport(program: Command): void {
           console.error(`Could not open report: ${err.message}`);
         });
         child.unref();
+      } else {
+        console.log(`Report written to: ${outPath}`);
       }
     });
 }
