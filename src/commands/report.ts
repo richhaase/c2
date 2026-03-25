@@ -386,10 +386,6 @@ function buildProjection(goal: GoalProgress, workouts: Workout[]): string {
       </div>
     </div>
   </div>
-  <div style="margin-top: 16px; padding: 12px; background: #21262d; border-radius: 6px; font-size: 13px; line-height: 1.8;">
-    <strong style="color: #f0f6fc;">The path forward:</strong>
-    ${sessionsPerWeek} sessions/week at ${formatMeters(avgSessionDist)}m avg = ${formatMeters(Math.round(parseFloat(sessionsPerWeek as string) * avgSessionDist))}m/week.
-  </div>
 </div>`;
 }
 
