@@ -8,9 +8,9 @@ import { calendarDay, pace500m, pace500mSeconds } from "../models.ts";
 import { sessionCount } from "../sessions.ts";
 import {
   buildWeekSummaries,
+  type CatchUpProjection,
   computeCatchUp,
   computeGoalProgress,
-  type CatchUpProjection,
   type GoalProgress,
   type WeekSummary,
 } from "../stats.ts";
@@ -348,10 +348,11 @@ ${rows}
 </div>`;
 }
 
-function buildProjection(goal: GoalProgress, workouts: Workout[], catchUp: CatchUpProjection): string {
-  const projectedAtCurrent = goal.currentAvgPace * goal.remainingWeeks + goal.totalMeters;
-  const projectedPct = ((projectedAtCurrent / goal.target) * 100).toFixed(1);
-  const shortfall = goal.target - projectedAtCurrent;
+function buildProjection(
+  goal: GoalProgress,
+  workouts: Workout[],
+  catchUp: CatchUpProjection,
+): string {
   const avgSessionDist =
     workouts.length > 0
       ? Math.round(workouts.reduce((s, w) => s + w.distance, 0) / workouts.length)
@@ -362,8 +363,6 @@ function buildProjection(goal: GoalProgress, workouts: Workout[], catchUp: Catch
     goal.currentAvgPace > 0
       ? (((goal.requiredPace - goal.currentAvgPace) / goal.currentAvgPace) * 100).toFixed(0)
       : "-";
-
-  const currentClass = projectedAtCurrent >= goal.target ? "green" : "red";
 
   // Projected at recent pace (rolling 4-week avg)
   const projectedAtRecent = catchUp.recentPace * goal.remainingWeeks + goal.totalMeters;

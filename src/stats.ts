@@ -115,10 +115,8 @@ export function computeCatchUp(
   goal: GoalProgress,
   summaries: WeekSummary[],
   cfg: Config,
-  now?: Date,
+  _now?: Date,
 ): CatchUpProjection {
-  const today = now ?? new Date();
-
   // Rolling 4-week average from completed weeks (exclude current partial week)
   const completed = summaries.length > 1 ? summaries.slice(0, -1) : summaries;
   const recentWeeks = completed.slice(-4).filter((w) => w.meters > 0);
@@ -128,7 +126,13 @@ export function computeCatchUp(
       : goal.currentAvgPace;
 
   if (goal.onPace) {
-    return { recentPace, catchUpWeek: null, catchUpDate: null, alreadyOnPace: true, weeksToGreen: null };
+    return {
+      recentPace,
+      catchUpWeek: null,
+      catchUpDate: null,
+      alreadyOnPace: true,
+      weeksToGreen: null,
+    };
   }
 
   const start = parseGoalDate(cfg.goal.start_date);
@@ -143,12 +147,24 @@ export function computeCatchUp(
     if (projectedTotal >= targetAtWeek) {
       const catchUpDate = new Date(start);
       catchUpDate.setDate(catchUpDate.getDate() + weekNum * 7);
-      return { recentPace, catchUpWeek: weekNum, catchUpDate, alreadyOnPace: false, weeksToGreen: w };
+      return {
+        recentPace,
+        catchUpWeek: weekNum,
+        catchUpDate,
+        alreadyOnPace: false,
+        weeksToGreen: w,
+      };
     }
   }
 
   // Never catches up at recent pace
-  return { recentPace, catchUpWeek: null, catchUpDate: null, alreadyOnPace: false, weeksToGreen: null };
+  return {
+    recentPace,
+    catchUpWeek: null,
+    catchUpDate: null,
+    alreadyOnPace: false,
+    weeksToGreen: null,
+  };
 }
 
 export function computeGoalProgress(workouts: Workout[], cfg: Config, now?: Date): GoalProgress {
