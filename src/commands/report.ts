@@ -9,8 +9,6 @@ import { calendarDay, pace500m, pace500mSeconds } from "../models.ts";
 import { sessionCount } from "../sessions.ts";
 import {
   buildWeekSummaries,
-  type CatchUpProjection,
-  computeCatchUp,
   computeGoalProgress,
   type GoalProgress,
   type WeekSummary,
@@ -349,11 +347,10 @@ ${rows}
 </div>`;
 }
 
-function buildProjection(
-  goal: GoalProgress,
-  workouts: Workout[],
-  catchUp: CatchUpProjection,
-): string {
+function buildProjection(goal: GoalProgress, workouts: Workout[]): string {
+  const projectedAtCurrent = goal.currentAvgPace * goal.remainingWeeks + goal.totalMeters;
+  const projectedPct = ((projectedAtCurrent / goal.target) * 100).toFixed(1);
+  const shortfall = goal.target - projectedAtCurrent;
   const avgSessionDist =
     workouts.length > 0
       ? Math.round(workouts.reduce((s, w) => s + w.distance, 0) / workouts.length)
@@ -365,42 +362,18 @@ function buildProjection(
       ? (((goal.requiredPace - goal.currentAvgPace) / goal.currentAvgPace) * 100).toFixed(0)
       : "-";
 
-  // Projected at recent pace (rolling 4-week avg)
-  const projectedAtRecent = catchUp.recentPace * goal.remainingWeeks + goal.totalMeters;
-  const recentPct = ((projectedAtRecent / goal.target) * 100).toFixed(1);
-  const recentClass = projectedAtRecent >= goal.target ? "green" : "red";
-
-  // Catch-up callout
-  let catchUpHTML = "";
-  if (catchUp.alreadyOnPace) {
-    catchUpHTML = `<div style="margin-top: 16px; padding: 12px; background: #0d2818; border: 1px solid #238636; border-radius: 6px; font-size: 13px; line-height: 1.8;">
-    <span class="green" style="font-weight:600;">&#10003; On pace.</span> You're currently ahead of the target line at your recent training volume.
-  </div>`;
-  } else if (catchUp.catchUpDate && catchUp.weeksToGreen) {
-    catchUpHTML = `<div style="margin-top: 16px; padding: 12px; background: #1a1e29; border: 1px solid #58a6ff; border-radius: 6px; font-size: 13px; line-height: 1.8;">
-    <span class="blue" style="font-weight:600;">&#8599; Catch-up projection:</span>
-    At your recent pace of <strong>${formatMeters(catchUp.recentPace)} m/wk</strong>,
-    you'll be back on target by <strong style="color:#f0f6fc;">${fullDate(catchUp.catchUpDate)}</strong>
-    (${catchUp.weeksToGreen} week${catchUp.weeksToGreen === 1 ? "" : "s"} from now, week ${catchUp.catchUpWeek} of ${goal.totalWeeks}).
-  </div>`;
-  } else {
-    catchUpHTML = `<div style="margin-top: 16px; padding: 12px; background: #2d1a1a; border: 1px solid #f85149; border-radius: 6px; font-size: 13px; line-height: 1.8;">
-    <span class="red" style="font-weight:600;">&#9888; Won't catch up at recent pace.</span>
-    Your rolling 4-week average of <strong>${formatMeters(catchUp.recentPace)} m/wk</strong>
-    isn't enough to close the gap. You need <strong>${formatMeters(goal.requiredPace)} m/wk</strong> to hit the goal.
-  </div>`;
-  }
+  const currentClass = projectedAtCurrent >= goal.target ? "green" : "red";
 
   return `<div class="section">
   <h2>Year-End Projection</h2>
   <div class="projection-grid">
     <div class="projection-card">
-      <h3 class="${recentClass}">At Recent Pace</h3>
-      <div class="big-num ${recentClass}">~${formatMeters(Math.round(projectedAtRecent / 1000) * 1000)}m</div>
+      <h3 class="${currentClass}">At Current Pace</h3>
+      <div class="big-num ${currentClass}">~${formatMeters(Math.round(projectedAtCurrent / 1000) * 1000)}m</div>
       <div class="detail">
-        ${formatMeters(catchUp.recentPace)} m/wk (4-wk avg) &times; ${goal.remainingWeeks} remaining + ${formatMeters(goal.totalMeters)}<br>
-        ${projectedAtRecent < goal.target ? `${formatMeters(Math.round(goal.target - projectedAtRecent))}m short of goal` : "On track to exceed goal"}<br>
-        <span class="${recentClass}" style="font-weight:600;">${recentPct}% of target</span>
+        ${formatMeters(goal.currentAvgPace)} m/wk &times; ${goal.remainingWeeks} remaining + ${formatMeters(goal.totalMeters)}<br>
+        ${shortfall > 0 ? `${formatMeters(Math.round(shortfall))}m short of goal` : "On track to exceed goal"}<br>
+        <span class="${currentClass}" style="font-weight:600;">${projectedPct}% of target</span>
       </div>
     </div>
     <div class="projection-card">
@@ -413,11 +386,9 @@ function buildProjection(
       </div>
     </div>
   </div>
-  ${catchUpHTML}
-  <div style="margin-top: 12px; padding: 12px; background: #21262d; border-radius: 6px; font-size: 13px; line-height: 1.8;">
+  <div style="margin-top: 16px; padding: 12px; background: #21262d; border-radius: 6px; font-size: 13px; line-height: 1.8;">
     <strong style="color: #f0f6fc;">The path forward:</strong>
     ${sessionsPerWeek} sessions/week at ${formatMeters(avgSessionDist)}m avg = ${formatMeters(Math.round(parseFloat(sessionsPerWeek as string) * avgSessionDist))}m/week.
-    <span class="muted">(Season avg: ${formatMeters(goal.currentAvgPace)} m/wk · Recent: ${formatMeters(catchUp.recentPace)} m/wk)</span>
   </div>
 </div>`;
 }
@@ -427,7 +398,6 @@ function buildHTML(
   summaries: WeekSummary[],
   allWorkouts: Workout[],
   recentCount: number,
-  catchUp: CatchUpProjection,
 ): string {
   const sessions = sessionCount(allWorkouts);
   const avgPace = avgPaceForWorkouts(allWorkouts);
@@ -679,7 +649,7 @@ ${buildWeeklyTrends(summaries)}
 
 ${buildRecentWorkouts(allWorkouts, recentCount)}
 
-${buildProjection(goal, allWorkouts, catchUp)}
+${buildProjection(goal, allWorkouts)}
 
 <div style="text-align: center; color: #484f58; font-size: 12px; margin-top: 32px; padding-bottom: 16px;">
   Generated by c2 &middot; Data from Concept2 Logbook &middot; ${fullDate(today)}
@@ -716,8 +686,7 @@ export function registerReport(program: Command): void {
         process.exit(1);
       }
       const summaries = buildWeekSummaries(workouts, new Date(), weeks);
-      const catchUp = computeCatchUp(goal, summaries, cfg);
-      const html = buildHTML(goal, summaries, workouts, 10, catchUp);
+      const html = buildHTML(goal, summaries, workouts, 10);
 
       let outPath: string;
       if (opts.output) {
