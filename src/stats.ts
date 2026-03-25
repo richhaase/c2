@@ -104,7 +104,8 @@ export function buildWeekSummaries(workouts: Workout[], now: Date, weeks: number
 }
 
 export interface CatchUpProjection {
-  recentPace: number; // rolling 4-week avg meters/week
+  recentPace: number; // weighted 4-week avg meters/week
+  weeklyTrend: number; // meters/week change per week (positive = ramping up)
   catchUpWeek: number | null; // week number when back on pace (null = never)
   catchUpDate: Date | null; // calendar date of catch-up week
   alreadyOnPace: boolean;
@@ -117,17 +118,42 @@ export function computeCatchUp(
   cfg: Config,
   _now?: Date,
 ): CatchUpProjection {
-  // Rolling 4-week average from completed weeks (exclude current partial week)
+  // Weighted 4-week average from completed weeks (exclude current partial week).
+  // Linear weights [1, 2, 3, 4] (oldest→newest) so recent training matters more.
   const completed = summaries.length > 1 ? summaries.slice(0, -1) : summaries;
   const recentWeeks = completed.slice(-4).filter((w) => w.meters > 0);
-  const recentPace =
-    recentWeeks.length > 0
-      ? Math.round(recentWeeks.reduce((s, w) => s + w.meters, 0) / recentWeeks.length)
-      : goal.currentAvgPace;
+  let recentPace = goal.currentAvgPace;
+  if (recentWeeks.length > 0) {
+    let weightedSum = 0;
+    let totalWeight = 0;
+    for (let i = 0; i < recentWeeks.length; i++) {
+      const weight = i + 1; // 1 for oldest, N for newest
+      weightedSum += recentWeeks[i]!.meters * weight;
+      totalWeight += weight;
+    }
+    recentPace = Math.round(weightedSum / totalWeight);
+  }
+
+  // Compute trend slope via linear regression on completed weeks
+  let weeklyTrend = 0;
+  if (recentWeeks.length >= 2) {
+    const n = recentWeeks.length;
+    const meanX = (n - 1) / 2;
+    const meanY = recentWeeks.reduce((s, w) => s + w.meters, 0) / n;
+    let num = 0;
+    let den = 0;
+    for (let i = 0; i < n; i++) {
+      const dx = i - meanX;
+      num += dx * (recentWeeks[i]!.meters - meanY);
+      den += dx * dx;
+    }
+    weeklyTrend = den > 0 ? Math.round(num / den) : 0;
+  }
 
   if (goal.onPace) {
     return {
       recentPace,
+      weeklyTrend,
       catchUpWeek: null,
       catchUpDate: null,
       alreadyOnPace: true,
@@ -138,17 +164,22 @@ export function computeCatchUp(
   const start = parseGoalDate(cfg.goal.start_date);
   const targetWeekly = goal.target / goal.totalWeeks;
 
-  // Simulate week by week: will projected total catch the linear target?
+  // Simulate week by week, accounting for upward trend if positive.
+  // Each future week is projected as: recentPace + trend * w (clamped at 0).
+  const useTrend = weeklyTrend > 0 ? weeklyTrend : 0;
+  let cumulativeMeters = goal.totalMeters;
   for (let w = 1; w <= goal.remainingWeeks; w++) {
-    const projectedTotal = goal.totalMeters + recentPace * w;
+    const projectedWeek = Math.max(recentPace + useTrend * w, 0);
+    cumulativeMeters += projectedWeek;
     const weekNum = goal.weeksElapsed + w;
     const targetAtWeek = targetWeekly * weekNum;
 
-    if (projectedTotal >= targetAtWeek) {
+    if (cumulativeMeters >= targetAtWeek) {
       const catchUpDate = new Date(start);
       catchUpDate.setDate(catchUpDate.getDate() + weekNum * 7);
       return {
         recentPace,
+        weeklyTrend,
         catchUpWeek: weekNum,
         catchUpDate,
         alreadyOnPace: false,
@@ -157,9 +188,10 @@ export function computeCatchUp(
     }
   }
 
-  // Never catches up at recent pace
+  // Never catches up even with trend
   return {
     recentPace,
+    weeklyTrend,
     catchUpWeek: null,
     catchUpDate: null,
     alreadyOnPace: false,

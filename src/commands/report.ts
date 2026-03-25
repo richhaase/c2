@@ -377,17 +377,21 @@ function buildProjection(
     <span class="green" style="font-weight:600;">&#10003; On pace.</span> You're currently ahead of the target line at your recent training volume.
   </div>`;
   } else if (catchUp.catchUpDate && catchUp.weeksToGreen) {
+    const trendNote =
+      catchUp.weeklyTrend > 0
+        ? ` Volume trending up <span class="green">+${formatMeters(catchUp.weeklyTrend)} m/wk²</span>.`
+        : "";
     catchUpHTML = `<div style="margin-top: 16px; padding: 12px; background: #1a1e29; border: 1px solid #58a6ff; border-radius: 6px; font-size: 13px; line-height: 1.8;">
     <span class="blue" style="font-weight:600;">&#8599; Catch-up projection:</span>
     At your recent pace of <strong>${formatMeters(catchUp.recentPace)} m/wk</strong>,
     you'll be back on target by <strong style="color:#f0f6fc;">${fullDate(catchUp.catchUpDate)}</strong>
-    (${catchUp.weeksToGreen} week${catchUp.weeksToGreen === 1 ? "" : "s"} from now, week ${catchUp.catchUpWeek} of ${goal.totalWeeks}).
+    (${catchUp.weeksToGreen} week${catchUp.weeksToGreen === 1 ? "" : "s"} from now, week ${catchUp.catchUpWeek} of ${goal.totalWeeks}).${trendNote}
   </div>`;
   } else {
     catchUpHTML = `<div style="margin-top: 16px; padding: 12px; background: #2d1a1a; border: 1px solid #f85149; border-radius: 6px; font-size: 13px; line-height: 1.8;">
     <span class="red" style="font-weight:600;">&#9888; Won't catch up at recent pace.</span>
-    Your rolling 4-week average of <strong>${formatMeters(catchUp.recentPace)} m/wk</strong>
-    isn't enough to close the gap. You need <strong>${formatMeters(goal.requiredPace)} m/wk</strong> to hit the goal.
+    Your weighted 4-week average of <strong>${formatMeters(catchUp.recentPace)} m/wk</strong>
+    ${catchUp.weeklyTrend > 0 ? "(trending up, but not fast enough) " : ""}isn't enough to close the gap. You need <strong>${formatMeters(goal.requiredPace)} m/wk</strong> to hit the goal.
   </div>`;
   }
 
