@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { escapeCSV, filterByDate } from "./commands/export.ts";
+import { buildCSVRow, CSV_HEADER, escapeCSV, filterByDate } from "./commands/export.ts";
 import type { Workout } from "./models.ts";
 
 function makeWorkout(id: number, date: string, distance: number): Workout {
@@ -66,5 +66,83 @@ describe("filterByDate", () => {
   test("returns all when no bounds", () => {
     const result = filterByDate(workouts, "", "");
     expect(result).toHaveLength(3);
+  });
+});
+
+describe("CSV_HEADER", () => {
+  test("includes rest_time_tenths and rest_distance columns", () => {
+    expect(CSV_HEADER).toContain("rest_time_tenths");
+    expect(CSV_HEADER).toContain("rest_distance");
+  });
+
+  test("includes workout_type column", () => {
+    expect(CSV_HEADER).toContain("workout_type");
+  });
+});
+
+describe("buildCSVRow", () => {
+  test("row length matches header length", () => {
+    const w = makeWorkout(1, "2026-01-15 10:00:00", 5000);
+    const row = buildCSVRow(w);
+    expect(row).toHaveLength(CSV_HEADER.length);
+  });
+
+  test("leaves rest columns empty for a continuous piece", () => {
+    const w: Workout = {
+      id: 1,
+      user_id: 1,
+      date: "2026-04-09 07:00:00",
+      distance: 5000,
+      type: "rower",
+      time: 17155,
+      time_formatted: "28:35.4",
+      workout_type: "FixedDistanceSplits",
+    };
+    const row = buildCSVRow(w);
+    const restTimeIdx = CSV_HEADER.indexOf("rest_time_tenths");
+    const restDistanceIdx = CSV_HEADER.indexOf("rest_distance");
+    expect(row[restTimeIdx]).toBe("");
+    expect(row[restDistanceIdx]).toBe("");
+  });
+
+  test("populates rest columns for an interval workout", () => {
+    const w: Workout = {
+      id: 2,
+      user_id: 1,
+      date: "2026-04-11 09:14:00",
+      distance: 3000,
+      type: "rower",
+      time: 8626,
+      time_formatted: "20:22.6",
+      workout_type: "FixedDistanceInterval",
+      rest_time: 3600,
+      rest_distance: 660,
+    };
+    const row = buildCSVRow(w);
+    const workoutTypeIdx = CSV_HEADER.indexOf("workout_type");
+    const restTimeIdx = CSV_HEADER.indexOf("rest_time_tenths");
+    const restDistanceIdx = CSV_HEADER.indexOf("rest_distance");
+    expect(row[workoutTypeIdx]).toBe("FixedDistanceInterval");
+    expect(row[restTimeIdx]).toBe("3600");
+    expect(row[restDistanceIdx]).toBe("660");
+  });
+
+  test("preserves explicit zero rest_time", () => {
+    const w: Workout = {
+      id: 3,
+      user_id: 1,
+      date: "2026-04-09 07:00:00",
+      distance: 5000,
+      type: "rower",
+      time: 17155,
+      time_formatted: "28:35.4",
+      rest_time: 0,
+      rest_distance: 0,
+    };
+    const row = buildCSVRow(w);
+    const restTimeIdx = CSV_HEADER.indexOf("rest_time_tenths");
+    const restDistanceIdx = CSV_HEADER.indexOf("rest_distance");
+    expect(row[restTimeIdx]).toBe("0");
+    expect(row[restDistanceIdx]).toBe("0");
   });
 });

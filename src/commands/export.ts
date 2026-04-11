@@ -20,47 +20,54 @@ export function escapeCSV(s: string): string {
   return s;
 }
 
-function exportCSV(workouts: Workout[]): void {
-  const header = [
-    "id",
-    "date",
-    "distance",
-    "time_tenths",
-    "time_formatted",
-    "pace_500m",
-    "stroke_rate",
-    "stroke_count",
-    "calories",
-    "drag_factor",
-    "hr_avg",
-    "hr_min",
-    "hr_max",
-    "workout_type",
-    "machine_type",
-    "comments",
-  ];
-  console.log(header.join(","));
+export const CSV_HEADER = [
+  "id",
+  "date",
+  "distance",
+  "time_tenths",
+  "time_formatted",
+  "pace_500m",
+  "stroke_rate",
+  "stroke_count",
+  "calories",
+  "drag_factor",
+  "hr_avg",
+  "hr_min",
+  "hr_max",
+  "workout_type",
+  "rest_time_tenths",
+  "rest_distance",
+  "machine_type",
+  "comments",
+] as const;
 
+export function buildCSVRow(w: Workout): string[] {
+  return [
+    String(w.id),
+    w.date,
+    String(w.distance),
+    String(w.time),
+    w.time_formatted,
+    pace500m(w),
+    String(w.stroke_rate ?? ""),
+    String(w.stroke_count ?? ""),
+    String(w.calories_total ?? ""),
+    String(w.drag_factor ?? ""),
+    w.heart_rate?.average ? String(w.heart_rate.average) : "",
+    w.heart_rate?.min ? String(w.heart_rate.min) : "",
+    w.heart_rate?.max ? String(w.heart_rate.max) : "",
+    w.workout_type ?? "",
+    w.rest_time != null ? String(w.rest_time) : "",
+    w.rest_distance != null ? String(w.rest_distance) : "",
+    w.type ?? "",
+    escapeCSV(w.comments ?? ""),
+  ];
+}
+
+function exportCSV(workouts: Workout[]): void {
+  console.log(CSV_HEADER.join(","));
   for (const w of workouts) {
-    const row = [
-      String(w.id),
-      w.date,
-      String(w.distance),
-      String(w.time),
-      w.time_formatted,
-      pace500m(w),
-      String(w.stroke_rate ?? ""),
-      String(w.stroke_count ?? ""),
-      String(w.calories_total ?? ""),
-      String(w.drag_factor ?? ""),
-      w.heart_rate?.average ? String(w.heart_rate.average) : "",
-      w.heart_rate?.min ? String(w.heart_rate.min) : "",
-      w.heart_rate?.max ? String(w.heart_rate.max) : "",
-      w.workout_type ?? "",
-      w.type ?? "",
-      escapeCSV(w.comments ?? ""),
-    ];
-    console.log(row.join(","));
+    console.log(buildCSVRow(w).join(","));
   }
 }
 
