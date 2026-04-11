@@ -1,5 +1,5 @@
 import type { Workout } from "./models.ts";
-import { pace500m, parsedDate } from "./models.ts";
+import { formatSeconds, isIntervalWorkout, pace500m, parsedDate, restSeconds } from "./models.ts";
 
 export function formatMeters(m: number): string {
   return m.toLocaleString("en-US");
@@ -32,6 +32,22 @@ export function formatDate(d: Date, fmt: string): string {
   return `${mm}/${dd}`;
 }
 
+/**
+ * Format an interval-workout marker suffix for `formatWorkoutLine`.
+ *
+ * For interval workouts, appends a compact `[IVL rest M:SS.S]` tag that
+ * flags the workout as intervals and reports the total rest duration so
+ * the reader can reconcile `time_formatted` (elapsed including rest)
+ * against `pace500m` (work-only pace). For non-interval workouts, returns
+ * an empty string.
+ */
+export function formatIntervalTag(w: Workout): string {
+  if (!isIntervalWorkout(w)) return "";
+  const rest = restSeconds(w);
+  if (rest > 0) return `[IVL rest ${formatSeconds(rest)}]`;
+  return "[IVL]";
+}
+
 export function formatWorkoutLine(w: Workout, dateFormat: string): string {
   const d = parsedDate(w);
   const dateStr = formatDate(d, dateFormat);
@@ -40,8 +56,10 @@ export function formatWorkoutLine(w: Workout, dateFormat: string): string {
   const spm = w.stroke_rate ? `${w.stroke_rate}spm` : "-";
   const hr = w.heart_rate?.average && w.heart_rate.average > 0 ? `${w.heart_rate.average}bpm` : "-";
   const df = w.drag_factor ? `${w.drag_factor}df` : "-";
+  const tag = formatIntervalTag(w);
+  const tagSuffix = tag ? `  ${tag}` : "";
 
-  return `${dateStr}  ${distance.padStart(7)}  ${w.time_formatted.padStart(8)}  ${pace.padStart(7)}/500m  ${spm.padStart(5)}  ${hr.padStart(6)}  ${df.padStart(4)}`;
+  return `${dateStr}  ${distance.padStart(7)}  ${w.time_formatted.padStart(8)}  ${pace.padStart(7)}/500m  ${spm.padStart(5)}  ${hr.padStart(6)}  ${df.padStart(4)}${tagSuffix}`;
 }
 
 export function sparkBar(value: number, max: number): string {

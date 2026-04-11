@@ -60,6 +60,20 @@ c2 log
 c2 log -n 25
 ```
 
+Interval workouts are tagged with `[IVL rest M:SS.S]` so they're visually
+distinct from continuous pieces. The rest duration is surfaced because, for
+interval workouts, the displayed time (`time_formatted`) is elapsed time
+including rest, while the displayed pace is correctly computed from work
+time only. For example:
+
+```
+04/11   5,000m   28:35.4   2:51.5/500m  24spm  112bpm  107df
+04/11   3,000m   20:22.6   2:23.8/500m  30spm  152bpm  108df  [IVL rest 6:00.0]
+```
+
+The second row is 6x500m with ~1 min rest between reps: 20:22.6 elapsed =
+14:22.6 work + 6:00 rest. The `2:23.8/500m` pace is the work pace.
+
 ### Goal Progress
 
 Track progress toward your distance goal:
@@ -115,6 +129,10 @@ c2 export --from 2026-01-01 --to 2026-03-01
 # Pipe to file
 c2 export -f jsonl > workouts.jsonl
 ```
+
+The CSV export includes `workout_type`, `rest_time_tenths`, and
+`rest_distance` columns so interval workouts are fully distinguishable from
+continuous pieces without having to consult the full JSON export.
 
 ## Configuration
 
