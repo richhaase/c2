@@ -24,9 +24,11 @@ export interface GoalProgress {
   remainingMeters: number;
   remainingWeeks: number;
   requiredPace: number; // meters/week needed going forward
-  currentAvgPace: number; // meters/week so far
+  currentAvgPace: number; // meters/week over the recent window
   onPace: boolean;
 }
+
+const RECENT_WEEKS = 4;
 
 export function mondayOf(t: Date): Date {
   const d = new Date(t.getFullYear(), t.getMonth(), t.getDate());
@@ -132,7 +134,22 @@ export function computeGoalProgress(workouts: Workout[], cfg: Config, now?: Date
   if (remainingWeeks < 1) remainingWeeks = 1;
   const requiredPace = Math.floor(remainingMeters / remainingWeeks);
 
-  const currentAvgPace = weeksElapsed > 0 ? Math.floor(totalMeters / weeksElapsed) : 0;
+  let currentAvgPace = 0;
+  if (weeksElapsed > 0) {
+    const thisMonday = mondayOf(today);
+    const recentStart = new Date(thisMonday);
+    recentStart.setDate(recentStart.getDate() - (RECENT_WEEKS - 1) * 7);
+    const windowStart = recentStart < start ? start : recentStart;
+    let recentMeters = 0;
+    for (const w of workouts) {
+      const t = parsedDate(w);
+      if (t >= windowStart && t <= today) {
+        recentMeters += w.distance;
+      }
+    }
+    const weeksInWindow = Math.min(RECENT_WEEKS, Math.max(1, weeksElapsed));
+    currentAvgPace = Math.floor(recentMeters / weeksInWindow);
+  }
   const targetWeekly = target / totalWeeks;
   const onPace = currentAvgPace >= targetWeekly;
 
