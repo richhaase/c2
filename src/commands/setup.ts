@@ -39,11 +39,9 @@ export function registerSetup(program: Command): void {
 
       console.log("Concept2 CLI Setup\n");
 
-      // Token
       const token = promptValue("API token (from log.concept2.com)", cfg.api.token, true);
       cfg.api.token = token;
 
-      // Goal target
       const targetDisplay = formatMeters(cfg.goal.target_meters);
       const targetInput = promptValue("Goal target meters", targetDisplay);
       const parsed = parseInt(targetInput.replace(/,/g, ""), 10);
@@ -51,7 +49,6 @@ export function registerSetup(program: Command): void {
         cfg.goal.target_meters = parsed;
       }
 
-      // Goal dates
       const startInput = promptValue("Goal start date (YYYY-MM-DD)", cfg.goal.start_date);
       try {
         parseGoalDate(startInput);
@@ -68,7 +65,6 @@ export function registerSetup(program: Command): void {
         console.log(`Invalid date "${endInput}", keeping previous value.`);
       }
 
-      // Save
       await ensureDirs();
       await saveConfig(cfg);
       console.log(`\nConfig written to ${join(configDir(), "config.json")}`);
@@ -79,7 +75,6 @@ export function registerSetup(program: Command): void {
         );
       }
 
-      // Verify token
       if (cfg.api.token) {
         console.log("Verifying token...");
         try {

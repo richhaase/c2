@@ -23,7 +23,6 @@ registerTrend(program);
 registerExport(program);
 registerReport(program);
 
-// Default to `report` when run with no subcommand
 const args = process.argv.slice(2);
 const knownCommands = program.commands.map((c) => c.name());
 const hasSubcommand = args.some((a) => knownCommands.includes(a));
