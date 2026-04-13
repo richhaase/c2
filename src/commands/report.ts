@@ -11,7 +11,9 @@ import {
   buildWeekSummaries,
   computeGoalProgress,
   type GoalProgress,
+  mondayOf,
   type WeekSummary,
+  workoutsInRange,
 } from "../stats.ts";
 import { readWorkouts } from "../storage.ts";
 
@@ -393,11 +395,12 @@ function buildHTML(
   goal: GoalProgress,
   summaries: WeekSummary[],
   allWorkouts: Workout[],
+  windowedWorkouts: Workout[],
   recentCount: number,
 ): string {
-  const sessions = sessionCount(allWorkouts);
-  const avgPace = avgPaceForWorkouts(allWorkouts);
-  const avgHR = avgHRForWorkouts(allWorkouts);
+  const sessions = sessionCount(windowedWorkouts);
+  const avgPace = avgPaceForWorkouts(windowedWorkouts);
+  const avgHR = avgHRForWorkouts(windowedWorkouts);
   const today = new Date();
 
   return `<!DOCTYPE html>
@@ -681,8 +684,13 @@ export function registerReport(program: Command): void {
         console.error("Error: --weeks must be a positive integer.");
         process.exit(1);
       }
-      const summaries = buildWeekSummaries(workouts, new Date(), weeks);
-      const html = buildHTML(goal, summaries, workouts, 10);
+      const now = new Date();
+      const summaries = buildWeekSummaries(workouts, now, weeks);
+      const thisMonday = mondayOf(now);
+      const cutoff = new Date(thisMonday);
+      cutoff.setDate(cutoff.getDate() - (weeks - 1) * 7);
+      const windowedWorkouts = workoutsInRange(workouts, cutoff, now);
+      const html = buildHTML(goal, summaries, workouts, windowedWorkouts, 10);
 
       let outPath: string;
       if (opts.output) {
