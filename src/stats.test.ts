@@ -158,4 +158,32 @@ describe("computeGoalProgress", () => {
     expect(goal.weeksElapsed).toBe(0);
     expect(goal.currentAvgPace).toBe(0);
   });
+
+  test("currentAvgPace uses recent 4-week window, not lifetime", () => {
+    const cfg = makeGoalConfig();
+    const workouts = [
+      makeWorkout(1, "2026-01-05 10:00:00", 5_000),
+      makeWorkout(2, "2026-01-12 10:00:00", 8_000),
+      makeWorkout(3, "2026-01-19 10:00:00", 11_000),
+      makeWorkout(4, "2026-03-09 10:00:00", 20_000),
+      makeWorkout(5, "2026-03-16 10:00:00", 20_000),
+      makeWorkout(6, "2026-03-23 10:00:00", 20_000),
+      makeWorkout(7, "2026-03-30 10:00:00", 20_000),
+    ];
+    const now = new Date(2026, 2, 30, 18);
+    const goal = computeGoalProgress(workouts, cfg, now);
+    expect(goal.currentAvgPace).toBe(20_000);
+  });
+
+  test("currentAvgPace ignores workouts before the recent window", () => {
+    const cfg = makeGoalConfig();
+    const workouts = [
+      makeWorkout(1, "2026-01-05 10:00:00", 100_000),
+      makeWorkout(2, "2026-03-23 10:00:00", 15_000),
+      makeWorkout(3, "2026-03-30 10:00:00", 15_000),
+    ];
+    const now = new Date(2026, 2, 30, 18);
+    const goal = computeGoalProgress(workouts, cfg, now);
+    expect(goal.currentAvgPace).toBe(7_500);
+  });
 });
