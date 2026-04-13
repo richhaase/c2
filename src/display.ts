@@ -14,7 +14,6 @@ export function formatMetersPerWeek(m: number): string {
 }
 
 export function formatDate(d: Date, fmt: string): string {
-  // Go-style reference time: "01/02" means month/day
   if (fmt === "01/02" || fmt === "%m/%d") {
     const mm = String(d.getMonth() + 1).padStart(2, "0");
     const dd = String(d.getDate()).padStart(2, "0");
@@ -26,21 +25,11 @@ export function formatDate(d: Date, fmt: string): string {
     const dd = String(d.getDate()).padStart(2, "0");
     return `${y}-${mm}-${dd}`;
   }
-  // Fallback: MM/DD
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const dd = String(d.getDate()).padStart(2, "0");
   return `${mm}/${dd}`;
 }
 
-/**
- * Format an interval-workout marker suffix for `formatWorkoutLine`.
- *
- * For interval workouts, appends a compact `[IVL rest M:SS.S]` tag that
- * flags the workout as intervals and reports the total rest duration so
- * the reader can reconcile `time_formatted` (elapsed including rest)
- * against `pace500m` (work-only pace). For non-interval workouts, returns
- * an empty string.
- */
 export function formatIntervalTag(w: Workout): string {
   if (!isIntervalWorkout(w)) return "";
   const rest = restSeconds(w);

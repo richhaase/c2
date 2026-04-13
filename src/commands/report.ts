@@ -194,7 +194,6 @@ ${rows}
 }
 
 function buildWeeklyTrends(summaries: WeekSummary[]): string {
-  // Find best volume week and best pace week for highlighting
   let bestVolume = 0;
   let bestPace = Infinity;
   for (const ws of summaries) {
@@ -224,7 +223,6 @@ function buildWeeklyTrends(summaries: WeekSummary[]): string {
     })
     .join("\n");
 
-  // Pace trend summary
   const firstPace = summaries.find((w) => w.paceCount > 0);
   const lastPace = [...summaries].reverse().find((w) => w.paceCount > 0);
   let trendNote = "";
@@ -261,7 +259,6 @@ function buildRecentWorkouts(workouts: Workout[], count: number): string {
   const sorted = [...workouts].sort((a, b) => b.date.localeCompare(a.date));
   const recent = sorted.slice(0, count).reverse();
 
-  // Detect same-day groups for session-aware formatting
   const dayCounts = new Map<string, number>();
   for (const w of recent) {
     const day = calendarDay(w);
@@ -278,7 +275,6 @@ function buildRecentWorkouts(workouts: Workout[], count: number): string {
       const spm = w.stroke_rate ?? "-";
       const hr = w.heart_rate?.average ?? "-";
 
-      // If multiple workouts on same day, annotate
       const multiDay = (dayCounts.get(day) || 0) > 1;
       if (!multiDay) {
         return `      <tr>
@@ -290,16 +286,14 @@ function buildRecentWorkouts(workouts: Workout[], count: number): string {
       </tr>`;
       }
 
-      // Session-aware: short warmup/cooldown get muted style
       const isShort = w.distance <= 1500;
-      const isHard = paceS > 0 && paceS < 160; // sub-2:40 is hard
+      const isHard = paceS > 0 && paceS < 160; // sub-2:40
       let annotation = "";
       let rowStyle = "";
       let paceStyle = "";
       let hrStyle = "";
 
       if (isShort && !isHard) {
-        // Likely warmup or cooldown — check position
         const dayWorkouts = recent
           .filter((r) => calendarDay(r) === day)
           .sort((a, b) => a.date.localeCompare(b.date));

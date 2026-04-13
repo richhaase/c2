@@ -101,7 +101,6 @@ export function registerExport(program: Command): void {
         process.exit(1);
       }
 
-      // Sort oldest first for export
       workouts.sort((a, b) => a.date.localeCompare(b.date));
 
       switch (opts.format) {

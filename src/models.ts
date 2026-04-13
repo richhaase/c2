@@ -4,20 +4,6 @@ export interface HeartRate {
   max?: number;
 }
 
-/**
- * A single result from the Concept2 Logbook API.
- *
- * Time fields are in tenths of a second. For interval workouts (those with
- * `rest_time > 0` or a `workout_type` containing "Interval"):
- * - `time` is **work time only** (total across all reps, excluding rest)
- * - `time_formatted` is **elapsed time including rest**
- * - `distance` is total work meters (excluding rest rowing)
- *
- * This means pace (`time / distance`) is correctly work pace, but
- * `time_formatted` cannot be used for pace math on interval workouts.
- * Use `isIntervalWorkout()` to classify and `restSeconds()` to recover
- * elapsed vs work time when needed.
- */
 export interface Workout {
   id: number;
   user_id: number;
@@ -107,16 +93,6 @@ export function pace500m(w: Workout): string {
   return formatSeconds(secs);
 }
 
-/**
- * Returns true if this workout is an interval workout — i.e., multiple
- * work reps separated by rest. Interval workouts have `time` as work time
- * only and `time_formatted` as elapsed time including rest.
- *
- * Detection is inclusive: any of the following is sufficient.
- * - `workout_type` contains "Interval" (the Concept2 API's own classification)
- * - `rest_time` is > 0
- * - `rest_distance` is > 0
- */
 export function isIntervalWorkout(w: Workout): boolean {
   if (w.workout_type?.includes("Interval")) return true;
   if (w.rest_time != null && w.rest_time > 0) return true;
@@ -134,10 +110,6 @@ export function workSeconds(w: Workout): number {
   return w.time / TENTHS_PER_SECOND;
 }
 
-/**
- * Format a duration in seconds as `M:SS.S` (matching the Concept2 API's
- * `time_formatted` style). Returns `"0:00.0"` for zero.
- */
 export function formatSeconds(totalSeconds: number): string {
   if (totalSeconds <= 0) return "0:00.0";
   const mins = Math.floor(totalSeconds / 60);
