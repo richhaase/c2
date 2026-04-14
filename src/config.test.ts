@@ -5,7 +5,7 @@ describe("parseGoalDate", () => {
   test("parses valid date string", () => {
     const d = parseGoalDate("2026-03-07");
     expect(d.getFullYear()).toBe(2026);
-    expect(d.getMonth()).toBe(2); // March = 2
+    expect(d.getMonth()).toBe(2);
     expect(d.getDate()).toBe(7);
   });
 

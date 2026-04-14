@@ -7,13 +7,13 @@ export interface HeartRate {
 export interface Workout {
   id: number;
   user_id: number;
-  date: string; // "2026-03-02 17:41:00"
+  date: string;
   timezone?: string;
-  distance: number; // meters of work (rest rowing NOT included)
-  type: string; // "rower"
-  time: number; // tenths of a second of work time (rest NOT included)
-  time_formatted: string; // elapsed time including rest for interval workouts
-  workout_type?: string; // e.g., "FixedDistanceSplits", "FixedDistanceInterval"
+  distance: number;
+  type: string;
+  time: number;
+  time_formatted: string;
+  workout_type?: string;
   source?: string;
   weight_class?: string;
   stroke_rate?: number;
@@ -22,19 +22,17 @@ export interface Workout {
   drag_factor?: number;
   heart_rate?: HeartRate;
   stroke_data?: boolean;
-  /** Total rest time across all rest intervals, in tenths of a second. */
   rest_time?: number;
-  /** Total meters rowed during rest intervals (easy rowing between reps). */
   rest_distance?: number;
   comments?: string;
 }
 
 export interface StrokeData {
-  t?: number; // cumulative time
-  d?: number; // cumulative distance
-  p?: number; // pace
-  spm?: number; // strokes per minute
-  hr?: number; // heart rate
+  t?: number;
+  d?: number;
+  p?: number;
+  spm?: number;
+  hr?: number;
 }
 
 export interface UserProfile {
@@ -66,7 +64,6 @@ export interface ResultsResponse {
   meta?: ResultsMeta;
 }
 
-/** API wraps stroke data in {"data": [...]} */
 export interface StrokeDataResponse {
   data: StrokeData[];
 }
@@ -100,12 +97,10 @@ export function isIntervalWorkout(w: Workout): boolean {
   return false;
 }
 
-/** Total rest time in seconds (0 when not an interval workout). */
 export function restSeconds(w: Workout): number {
   return (w.rest_time ?? 0) / TENTHS_PER_SECOND;
 }
 
-/** Total work time (excluding rest) in seconds. */
 export function workSeconds(w: Workout): number {
   return w.time / TENTHS_PER_SECOND;
 }

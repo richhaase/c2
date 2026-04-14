@@ -155,7 +155,6 @@ describe("formatWorkoutLine", () => {
   });
 
   test("appends [IVL rest M:SS.S] tag for interval workouts", () => {
-    // Real 2026-04-11 session: 6x500m, 14:22.6 work, 6:00 rest.
     const w = makeWorkout({
       date: "2026-04-11 09:14:00",
       distance: 3000,
@@ -170,7 +169,6 @@ describe("formatWorkoutLine", () => {
     });
     const line = formatWorkoutLine(w, "01/02");
     expect(line).toContain("[IVL rest 6:00.0]");
-    // Pace comes from work time, not elapsed — must be 2:23.8, not 3:23.8.
     expect(line).toContain("2:23.8/500m");
   });
 
