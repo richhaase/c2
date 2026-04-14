@@ -2,10 +2,10 @@ import type { Workout } from "./models.ts";
 import { calendarDay } from "./models.ts";
 
 export interface Session {
-  date: string; // "2026-03-07"
+  date: string;
   workouts: Workout[];
   totalDistance: number;
-  totalTime: number; // tenths of seconds
+  totalTime: number;
 }
 
 export function groupIntoSessions(workouts: Workout[]): Session[] {
@@ -31,7 +31,6 @@ export function groupIntoSessions(workouts: Workout[]): Session[] {
     .sort((a, b) => a.date.localeCompare(b.date));
 }
 
-/** Count unique calendar days (sessions) in a list of workouts. */
 export function sessionCount(workouts: Workout[]): number {
   const days = new Set(workouts.map(calendarDay));
   return days.size;

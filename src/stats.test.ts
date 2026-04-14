@@ -30,28 +30,28 @@ function makeGoalConfig(overrides: Partial<Config["goal"]> = {}): Config {
 
 describe("mondayOf", () => {
   test("monday returns same date", () => {
-    const d = new Date(2026, 2, 2); // Mon Mar 2
+    const d = new Date(2026, 2, 2);
     const m = mondayOf(d);
-    expect(m.getDay()).toBe(1); // Monday
+    expect(m.getDay()).toBe(1);
     expect(m.getDate()).toBe(2);
   });
 
   test("wednesday returns previous monday", () => {
-    const d = new Date(2026, 2, 4); // Wed Mar 4
+    const d = new Date(2026, 2, 4);
     const m = mondayOf(d);
     expect(m.getDay()).toBe(1);
     expect(m.getDate()).toBe(2);
   });
 
   test("sunday returns previous monday", () => {
-    const d = new Date(2026, 2, 8); // Sun Mar 8
+    const d = new Date(2026, 2, 8);
     const m = mondayOf(d);
     expect(m.getDay()).toBe(1);
     expect(m.getDate()).toBe(2);
   });
 
   test("handles month boundary", () => {
-    const d = new Date(2026, 2, 1); // Mar 1
+    const d = new Date(2026, 2, 1);
     const m = mondayOf(d);
     expect(m.getDay()).toBe(1);
     expect(m.getTime()).toBeLessThanOrEqual(d.getTime());
@@ -65,8 +65,8 @@ describe("workoutsInRange", () => {
       makeWorkout(2, "2026-02-15 10:00:00", 5000),
       makeWorkout(3, "2026-03-15 10:00:00", 5000),
     ];
-    const from = new Date(2026, 1, 1); // Feb 1
-    const to = new Date(2026, 2, 1); // Mar 1
+    const from = new Date(2026, 1, 1);
+    const to = new Date(2026, 2, 1);
     const result = workoutsInRange(workouts, from, to);
     expect(result).toHaveLength(1);
     expect(result[0]!.id).toBe(2);
@@ -82,10 +82,10 @@ describe("workoutsInRange", () => {
 
 describe("buildWeekSummaries", () => {
   test("buckets workouts into correct weeks", () => {
-    const now = new Date(2026, 2, 7); // Sat Mar 7
+    const now = new Date(2026, 2, 7);
     const workouts = [
-      makeWorkout(1, "2026-03-02 10:00:00", 5000), // Mon of current week
-      makeWorkout(2, "2026-02-23 10:00:00", 6000), // Previous week
+      makeWorkout(1, "2026-03-02 10:00:00", 5000),
+      makeWorkout(2, "2026-02-23 10:00:00", 6000),
     ];
     const summaries = buildWeekSummaries(workouts, now, 2);
     expect(summaries).toHaveLength(2);
@@ -97,12 +97,12 @@ describe("buildWeekSummaries", () => {
     const now = new Date(2026, 2, 7);
     const workouts = [
       makeWorkout(1, "2026-03-02 09:00:00", 1000),
-      makeWorkout(2, "2026-03-02 10:00:00", 2000), // same day
-      makeWorkout(3, "2026-03-04 10:00:00", 3000), // different day
+      makeWorkout(2, "2026-03-02 10:00:00", 2000),
+      makeWorkout(3, "2026-03-04 10:00:00", 3000),
     ];
     const summaries = buildWeekSummaries(workouts, now, 1);
     expect(summaries[0]!.meters).toBe(6000);
-    expect(summaries[0]!.sessions).toBe(2); // 2 unique days
+    expect(summaries[0]!.sessions).toBe(2);
   });
 
   test("returns empty summaries for no workouts", () => {
@@ -120,7 +120,7 @@ describe("computeGoalProgress", () => {
       makeWorkout(1, "2026-03-01 10:00:00", 100_000),
       makeWorkout(2, "2026-02-01 10:00:00", 100_000),
     ];
-    const now = new Date(2026, 2, 7); // Mar 7
+    const now = new Date(2026, 2, 7);
     const goal = computeGoalProgress(workouts, cfg, now);
     expect(goal.totalMeters).toBe(200_000);
     expect(goal.target).toBe(1_000_000);
@@ -141,9 +141,9 @@ describe("computeGoalProgress", () => {
   test("excludes workouts outside goal date range", () => {
     const cfg = makeGoalConfig();
     const workouts = [
-      makeWorkout(1, "2025-12-01 10:00:00", 50_000), // before start
-      makeWorkout(2, "2026-03-01 10:00:00", 100_000), // in range
-      makeWorkout(3, "2027-02-01 10:00:00", 50_000), // after end
+      makeWorkout(1, "2025-12-01 10:00:00", 50_000),
+      makeWorkout(2, "2026-03-01 10:00:00", 100_000),
+      makeWorkout(3, "2027-02-01 10:00:00", 50_000),
     ];
     const now = new Date(2026, 2, 7);
     const goal = computeGoalProgress(workouts, cfg, now);
@@ -153,7 +153,7 @@ describe("computeGoalProgress", () => {
   test("before start date: weeksElapsed is 0", () => {
     const cfg = makeGoalConfig({ start_date: "2026-06-01" });
     const workouts: Workout[] = [];
-    const now = new Date(2026, 2, 7); // before start
+    const now = new Date(2026, 2, 7);
     const goal = computeGoalProgress(workouts, cfg, now);
     expect(goal.weeksElapsed).toBe(0);
     expect(goal.currentAvgPace).toBe(0);
@@ -170,7 +170,7 @@ describe("computeGoalProgress", () => {
       makeWorkout(6, "2026-03-23 10:00:00", 20_000),
       makeWorkout(7, "2026-03-30 10:00:00", 20_000),
     ];
-    const now = new Date(2026, 2, 30, 18);
+    const now = new Date(2026, 3, 6, 18);
     const goal = computeGoalProgress(workouts, cfg, now);
     expect(goal.currentAvgPace).toBe(20_000);
   });
@@ -182,8 +182,19 @@ describe("computeGoalProgress", () => {
       makeWorkout(2, "2026-03-23 10:00:00", 15_000),
       makeWorkout(3, "2026-03-30 10:00:00", 15_000),
     ];
-    const now = new Date(2026, 2, 30, 18);
+    const now = new Date(2026, 3, 6, 18);
     const goal = computeGoalProgress(workouts, cfg, now);
     expect(goal.currentAvgPace).toBe(7_500);
+  });
+
+  test("currentAvgPace excludes the current in-progress week", () => {
+    const cfg = makeGoalConfig();
+    const workouts = [
+      makeWorkout(1, "2026-04-06 10:00:00", 20_000),
+      makeWorkout(2, "2026-04-13 06:55:00", 5_500),
+    ];
+    const now = new Date(2026, 3, 13, 18);
+    const goal = computeGoalProgress(workouts, cfg, now);
+    expect(goal.currentAvgPace).toBe(5_000);
   });
 });

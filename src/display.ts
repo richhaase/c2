@@ -70,5 +70,5 @@ export function trendArrow(prev: number, curr: number): string {
 
 export function paceArrow(prev: number, curr: number): string {
   if (prev === 0) return " ";
-  return trendArrow(curr, prev); // reversed: lower pace is better
+  return trendArrow(curr, prev);
 }

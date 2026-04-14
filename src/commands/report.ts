@@ -287,7 +287,7 @@ function buildRecentWorkouts(workouts: Workout[], count: number): string {
       }
 
       const isShort = w.distance <= 1500;
-      const isHard = paceS > 0 && paceS < 160; // sub-2:40
+      const isHard = paceS > 0 && paceS < 160;
       let annotation = "";
       let rowStyle = "";
       let paceStyle = "";
