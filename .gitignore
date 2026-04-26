@@ -1,4 +1,5 @@
 node_modules/
+.worktrees/
 *.swp
 *.swo
 .DS_Store
