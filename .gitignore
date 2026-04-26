@@ -1,4 +1,9 @@
 node_modules/
+bin/
+dist/
+coverage.out
+coverage.html
+coverage.txt
 .worktrees/
 *.swp
 *.swo
