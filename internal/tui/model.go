@@ -17,10 +17,9 @@ const (
 	dashboardTab tab = iota
 	workoutsTab
 	trendsTab
-	actionsTab
 )
 
-var allTabs = []tab{dashboardTab, workoutsTab, trendsTab, actionsTab}
+var allTabs = []tab{dashboardTab, workoutsTab, trendsTab}
 
 var spinnerFrames = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
 

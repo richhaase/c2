@@ -78,8 +78,6 @@ func tabLabel(t tab) string {
 		return "Workouts"
 	case trendsTab:
 		return "Trends"
-	case actionsTab:
-		return "Actions"
 	default:
 		return "Dashboard"
 	}
@@ -91,8 +89,6 @@ func renderBody(m Model, width, height int) string {
 		return renderWorkouts(m, width, height)
 	case trendsTab:
 		return renderTrends(m, width)
-	case actionsTab:
-		return renderActions(m, width)
 	default:
 		return renderDashboard(m, width)
 	}
@@ -418,32 +414,6 @@ func trendDefaultTarget(weeks []stats.WeekSummary) int {
 		return 20000
 	}
 	return maxMeters
-}
-
-func renderActions(m Model, width int) string {
-	rows := []string{
-		titleStyle.Render("Actions"),
-		"",
-		actionRow("s", "Sync", "Pull new workouts from log.concept2.com"),
-		actionRow("r", "Report", "Generate an HTML progress report in the current directory"),
-		actionRow("e", "Export", "Export all workouts to CSV in the current directory"),
-	}
-	if m.lastReportPath != "" {
-		rows = append(rows, "", mutedStyle.Render("Last report:")+" "+m.lastReportPath)
-	}
-	if m.lastExportPath != "" {
-		rows = append(rows, mutedStyle.Render("Last export:")+" "+m.lastExportPath)
-	}
-	body := strings.Join(rows, "\n")
-	return panelOf(width, body)
-}
-
-func actionRow(key, name, desc string) string {
-	return fmt.Sprintf("%s  %s  %s",
-		accentStyle.Render(fmt.Sprintf(" %s ", key)),
-		emphaticStyle.Render(padRight(name, 8)),
-		mutedStyle.Render(desc),
-	)
 }
 
 func renderFooter(m Model, width int) string {

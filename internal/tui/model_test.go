@@ -58,8 +58,8 @@ func TestTabNavigation(t *testing.T) {
 
 	updated, _ = m.Update(key("left"))
 	m = updated.(Model)
-	if m.activeTab != actionsTab {
-		t.Fatalf("activeTab after wrapping left = %v, want actionsTab", m.activeTab)
+	if m.activeTab != trendsTab {
+		t.Fatalf("activeTab after wrapping left = %v, want trendsTab", m.activeTab)
 	}
 }
 
