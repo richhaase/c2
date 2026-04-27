@@ -6,9 +6,6 @@ import (
 )
 
 func Dir() string {
-	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
-		return filepath.Join(xdg, "c2")
-	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return filepath.Join(".config", "c2")

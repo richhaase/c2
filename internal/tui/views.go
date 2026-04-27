@@ -51,10 +51,10 @@ func renderBody(m Model) string {
 
 func renderDashboard(m Model) string {
 	total := totalMeters(m.workouts)
-	return fmt.Sprintf("%s\n\nTotal: %sm\nSessions: %d workouts\nGoal: %sm",
+	return fmt.Sprintf("%s\n\nTotal: %sm\nSessions: %d\nGoal: %sm",
 		titleStyle.Render("Dashboard"),
 		display.FormatMeters(total),
-		len(m.workouts),
+		stats.SessionCount(m.workouts),
 		display.FormatMeters(m.cfg.Goal.TargetMeters),
 	)
 }

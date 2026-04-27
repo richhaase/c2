@@ -8,7 +8,7 @@ Concept2 Logbook CLI.
 make build       # build bin/c2
 make install     # install c2 to GOBIN/GOPATH
 make test        # tests only
-make check       # full check: fmt + lint + vet + staticcheck + test
+make check       # full check: fmt-check + lint + vet + staticcheck + test
 go run ./cmd/c2  # run directly during dev
 ```
 

@@ -71,13 +71,14 @@ func TestLoadTrailingInvalidJSONReturnsError(t *testing.T) {
 
 func TestSaveWritesPrettyJSONWithTrailingNewline(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("XDG_CONFIG_HOME", dir)
+	t.Setenv("HOME", dir)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(t.TempDir(), "xdg"))
 	cfg := Default()
 	cfg.API.Token = "abc"
 	if err := Save(cfg); err != nil {
 		t.Fatal(err)
 	}
-	got, err := os.ReadFile(filepath.Join(dir, "c2", "config.json"))
+	got, err := os.ReadFile(filepath.Join(dir, ".config", "c2", "config.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -106,8 +107,8 @@ func TestSaveWritesPrettyJSONWithTrailingNewline(t *testing.T) {
 
 func TestSaveRestrictsExistingConfigPermissions(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("XDG_CONFIG_HOME", dir)
-	path := filepath.Join(dir, "c2", "config.json")
+	t.Setenv("HOME", dir)
+	path := filepath.Join(dir, ".config", "c2", "config.json")
 	writeFileForTest(t, path, `{"api":{"token":"old"}}`)
 	if err := os.Chmod(path, 0o644); err != nil {
 		t.Fatal(err)
@@ -130,13 +131,14 @@ func TestSaveRestrictsExistingConfigPermissions(t *testing.T) {
 
 func TestEnsureDirsCreatesDataAndStrokesDirs(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("XDG_CONFIG_HOME", dir)
+	t.Setenv("HOME", dir)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(t.TempDir(), "xdg"))
 	if err := EnsureDirs(); err != nil {
 		t.Fatal(err)
 	}
 	for _, path := range []string{
-		filepath.Join(dir, "c2", "data"),
-		filepath.Join(dir, "c2", "data", "strokes"),
+		filepath.Join(dir, ".config", "c2", "data"),
+		filepath.Join(dir, ".config", "c2", "data", "strokes"),
 	} {
 		info, err := os.Stat(path)
 		if err != nil {
@@ -145,6 +147,18 @@ func TestEnsureDirsCreatesDataAndStrokesDirs(t *testing.T) {
 		if !info.IsDir() {
 			t.Fatalf("%s is not a directory", path)
 		}
+	}
+}
+
+func TestDirIgnoresXDGConfigHomeForCompatibility(t *testing.T) {
+	home := t.TempDir()
+	xdg := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", xdg)
+
+	want := filepath.Join(home, ".config", "c2")
+	if got := Dir(); got != want {
+		t.Fatalf("Dir() = %q, want %q", got, want)
 	}
 }
 

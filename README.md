@@ -122,7 +122,7 @@ c2 trend -w 12
 Generate a self-contained static HTML progress report:
 
 ```bash
-# Generate report.html in current directory
+# Generate a report and print the output path
 c2 report
 
 # Custom output path

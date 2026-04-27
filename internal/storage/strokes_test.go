@@ -78,8 +78,8 @@ func TestWriteStrokeDataCreatesParentDirectory(t *testing.T) {
 
 func TestHasStrokeData(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("XDG_CONFIG_HOME", dir)
-	strokesDir := filepath.Join(dir, "c2", "data", "strokes")
+	t.Setenv("HOME", dir)
+	strokesDir := filepath.Join(dir, ".config", "c2", "data", "strokes")
 	if err := os.MkdirAll(strokesDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
