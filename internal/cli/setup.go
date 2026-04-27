@@ -20,15 +20,23 @@ func newSetupCommand(version string, deps Dependencies) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := deps.LoadConfig()
 			if err != nil {
-				fmt.Fprintf(cmd.ErrOrStderr(), "Warning: could not load existing config: %v\n", err)
-				fmt.Fprintln(cmd.ErrOrStderr(), "Starting from defaults.")
+				if _, writeErr := fmt.Fprintf(cmd.ErrOrStderr(), "Warning: could not load existing config: %v\n", err); writeErr != nil {
+					return writeErr
+				}
+				if _, writeErr := fmt.Fprintln(cmd.ErrOrStderr(), "Starting from defaults."); writeErr != nil {
+					return writeErr
+				}
 				cfg = config.Default()
 			}
 
 			reader := bufio.NewReader(deps.Stdin)
 			out := cmd.OutOrStdout()
-			fmt.Fprintln(out, "Concept2 CLI Setup")
-			fmt.Fprintln(out)
+			if _, err := fmt.Fprintln(out, "Concept2 CLI Setup"); err != nil {
+				return err
+			}
+			if _, err := fmt.Fprintln(out); err != nil {
+				return err
+			}
 
 			token, err := promptValue(reader, out, "API token (from log.concept2.com)", cfg.API.Token, true)
 			if err != nil {
@@ -52,7 +60,9 @@ func newSetupCommand(version string, deps Dependencies) *cobra.Command {
 			if _, err := config.ParseGoalDate(start); err == nil {
 				cfg.Goal.StartDate = start
 			} else if start != "" {
-				fmt.Fprintf(out, "Invalid date %q, keeping previous value.\n", start)
+				if _, err := fmt.Fprintf(out, "Invalid date %q, keeping previous value.\n", start); err != nil {
+					return err
+				}
 			}
 
 			end, err := promptValue(reader, out, "Goal end date (YYYY-MM-DD)", cfg.Goal.EndDate, false)
@@ -62,7 +72,9 @@ func newSetupCommand(version string, deps Dependencies) *cobra.Command {
 			if _, err := config.ParseGoalDate(end); err == nil {
 				cfg.Goal.EndDate = end
 			} else if end != "" {
-				fmt.Fprintf(out, "Invalid date %q, keeping previous value.\n", end)
+				if _, err := fmt.Fprintf(out, "Invalid date %q, keeping previous value.\n", end); err != nil {
+					return err
+				}
 			}
 
 			if err := deps.EnsureDirs(); err != nil {
@@ -71,19 +83,29 @@ func newSetupCommand(version string, deps Dependencies) *cobra.Command {
 			if err := deps.SaveConfig(cfg); err != nil {
 				return err
 			}
-			fmt.Fprintf(out, "\nConfig written to %s\n", filepath.Join(config.Dir(), "config.json"))
+			if _, err := fmt.Fprintf(out, "\nConfig written to %s\n", filepath.Join(config.Dir(), "config.json")); err != nil {
+				return err
+			}
 
 			if cfg.Goal.StartDate == "" || cfg.Goal.EndDate == "" {
-				fmt.Fprintln(out, "\nNote: Goal dates not set. Commands like `c2 status` require start/end dates.")
+				if _, err := fmt.Fprintln(out, "\nNote: Goal dates not set. Commands like `c2 status` require start/end dates."); err != nil {
+					return err
+				}
 			}
 
 			if cfg.API.Token != "" {
-				fmt.Fprintln(out, "Verifying token...")
+				if _, err := fmt.Fprintln(out, "Verifying token..."); err != nil {
+					return err
+				}
 				user, err := deps.VerifyUser(cmd.Context(), cfg, version)
 				if err != nil {
-					fmt.Fprintf(cmd.ErrOrStderr(), "Warning: could not verify token: %v\n", err)
+					if _, writeErr := fmt.Fprintf(cmd.ErrOrStderr(), "Warning: could not verify token: %v\n", err); writeErr != nil {
+						return writeErr
+					}
 				} else {
-					fmt.Fprintf(out, "Authenticated as: %s (ID: %d)\n", user.Username, user.ID)
+					if _, err := fmt.Fprintf(out, "Authenticated as: %s (ID: %d)\n", user.Username, user.ID); err != nil {
+						return err
+					}
 				}
 			}
 			return nil
@@ -97,9 +119,13 @@ func promptValue(reader *bufio.Reader, out interface{ Write([]byte) (int, error)
 		displayValue = maskToken(current)
 	}
 	if displayValue != "" {
-		fmt.Fprintf(out, "%s [%s]: ", label, displayValue)
+		if _, err := fmt.Fprintf(out, "%s [%s]: ", label, displayValue); err != nil {
+			return "", err
+		}
 	} else {
-		fmt.Fprintf(out, "%s: ", label)
+		if _, err := fmt.Fprintf(out, "%s: ", label); err != nil {
+			return "", err
+		}
 	}
 	input, err := reader.ReadString('\n')
 	if err != nil && len(input) == 0 {

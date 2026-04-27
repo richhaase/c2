@@ -115,7 +115,7 @@ func TestHTMLAnnotatesSameDayRecentWorkouts(t *testing.T) {
 	warmupIdx := strings.Index(html, "(warmup)")
 	hardIdx := strings.Index(html, "(hard)")
 	cooldownIdx := strings.Index(html, "(cooldown)")
-	if !(warmupIdx < hardIdx && hardIdx < cooldownIdx) {
+	if warmupIdx >= hardIdx || hardIdx >= cooldownIdx {
 		t.Fatalf("recent workout annotations are out of order: warmup=%d hard=%d cooldown=%d", warmupIdx, hardIdx, cooldownIdx)
 	}
 }

@@ -22,24 +22,34 @@ func newSyncCommand(version string, deps Dependencies) *cobra.Command {
 
 			out := cmd.OutOrStdout()
 			if cfg.Sync.LastSync != "" {
-				fmt.Fprintf(out, "Syncing workouts since %s...\n", cfg.Sync.LastSync)
+				if _, err := fmt.Fprintf(out, "Syncing workouts since %s...\n", cfg.Sync.LastSync); err != nil {
+					return err
+				}
 			} else {
-				fmt.Fprintln(out, "First sync - pulling all workouts...")
+				if _, err := fmt.Fprintln(out, "First sync - pulling all workouts..."); err != nil {
+					return err
+				}
 			}
 
 			result, err := deps.RunSync(cmd.Context(), cfg, version)
 			if err != nil {
 				return err
 			}
-			fmt.Fprintf(out, "Fetched %d workouts, %d new.\n", result.FetchedWorkouts, result.NewWorkouts)
+			if _, err := fmt.Fprintf(out, "Fetched %d workouts, %d new.\n", result.FetchedWorkouts, result.NewWorkouts); err != nil {
+				return err
+			}
 			for _, warning := range result.Warnings {
-				fmt.Fprintln(cmd.ErrOrStderr(), warning)
+				if _, err := fmt.Fprintln(cmd.ErrOrStderr(), warning); err != nil {
+					return err
+				}
 			}
 			if result.StrokeCount > 0 {
-				fmt.Fprintf(out, "Fetched stroke data for %d workouts.\n", result.StrokeCount)
+				if _, err := fmt.Fprintf(out, "Fetched stroke data for %d workouts.\n", result.StrokeCount); err != nil {
+					return err
+				}
 			}
-			fmt.Fprintf(out, "Total workouts: %d\n", result.TotalWorkouts)
-			return nil
+			_, err = fmt.Fprintf(out, "Total workouts: %d\n", result.TotalWorkouts)
+			return err
 		},
 	}
 }

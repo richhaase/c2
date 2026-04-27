@@ -1,6 +1,7 @@
 node_modules/
 bin/
 dist/
+.gocache/
 coverage.out
 coverage.html
 coverage.txt

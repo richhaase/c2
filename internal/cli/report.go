@@ -32,8 +32,8 @@ func newReportCommand(deps Dependencies) *cobra.Command {
 				return err
 			}
 			if len(workouts) == 0 {
-				fmt.Fprintln(cmd.OutOrStdout(), "No workouts found. Run `c2 sync` first.")
-				return nil
+				_, err := fmt.Fprintln(cmd.OutOrStdout(), "No workouts found. Run `c2 sync` first.")
+				return err
 			}
 
 			html, err := report.HTML(workouts, cfg.Goal, weeks, deps.Now())
@@ -61,8 +61,8 @@ func newReportCommand(deps Dependencies) *cobra.Command {
 				}
 				return nil
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "Report written to: %s\n", absPath)
-			return nil
+			_, err = fmt.Fprintf(cmd.OutOrStdout(), "Report written to: %s\n", absPath)
+			return err
 		},
 	}
 	cmd.Flags().StringVarP(&output, "output", "o", "", "save to a specific file instead of a temp file")

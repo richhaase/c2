@@ -28,19 +28,33 @@ func newStatusCommand(deps Dependencies) *cobra.Command {
 			}
 			out := cmd.OutOrStdout()
 			if len(workouts) == 0 {
-				fmt.Fprintln(out, "No workouts found. Run `c2 sync` first.")
-				return nil
+				_, err := fmt.Fprintln(out, "No workouts found. Run `c2 sync` first.")
+				return err
 			}
 
 			now := deps.Now()
 			goal := stats.ComputeGoalProgress(workouts, cfg.Goal, now)
-			fmt.Fprintf(out, "Goal: %sm\n", display.FormatMeters(goal.Target))
-			fmt.Fprintf(out, "Season start: %s\n", cfg.Goal.StartDate)
-			fmt.Fprintf(out, "Progress: %s / %s (%s)\n", display.FormatMeters(goal.TotalMeters), display.FormatMeters(goal.Target), display.FormatPercent(goal.Progress))
-			fmt.Fprintf(out, "Weeks elapsed: %d / %d\n", goal.WeeksElapsed, goal.TotalWeeks)
-			fmt.Fprintf(out, "Required pace: %s\n", display.FormatMetersPerWeek(goal.RequiredPace))
-			fmt.Fprintln(out)
-			fmt.Fprintln(out, "Last 4 weeks:")
+			if _, err := fmt.Fprintf(out, "Goal: %sm\n", display.FormatMeters(goal.Target)); err != nil {
+				return err
+			}
+			if _, err := fmt.Fprintf(out, "Season start: %s\n", cfg.Goal.StartDate); err != nil {
+				return err
+			}
+			if _, err := fmt.Fprintf(out, "Progress: %s / %s (%s)\n", display.FormatMeters(goal.TotalMeters), display.FormatMeters(goal.Target), display.FormatPercent(goal.Progress)); err != nil {
+				return err
+			}
+			if _, err := fmt.Fprintf(out, "Weeks elapsed: %d / %d\n", goal.WeeksElapsed, goal.TotalWeeks); err != nil {
+				return err
+			}
+			if _, err := fmt.Fprintf(out, "Required pace: %s\n", display.FormatMetersPerWeek(goal.RequiredPace)); err != nil {
+				return err
+			}
+			if _, err := fmt.Fprintln(out); err != nil {
+				return err
+			}
+			if _, err := fmt.Fprintln(out, "Last 4 weeks:"); err != nil {
+				return err
+			}
 
 			for i := 0; i < 4; i++ {
 				weekStart := stats.MondayOf(now).AddDate(0, 0, -i*7)
@@ -52,16 +66,22 @@ func newStatusCommand(deps Dependencies) *cobra.Command {
 					meters += workout.Distance
 					days[model.CalendarDay(workout)] = struct{}{}
 				}
-				fmt.Fprintf(out, "  Week of %s: %s (%d sessions)\n", weekStart.Format("01/02"), display.FormatMeters(meters), len(days))
+				if _, err := fmt.Fprintf(out, "  Week of %s: %s (%d sessions)\n", weekStart.Format("01/02"), display.FormatMeters(meters), len(days)); err != nil {
+					return err
+				}
 			}
-			fmt.Fprintln(out)
+			if _, err := fmt.Fprintln(out); err != nil {
+				return err
+			}
 
 			if goal.WeeksElapsed > 0 {
 				indicator := "behind pace x"
 				if goal.OnPace {
 					indicator = "on pace"
 				}
-				fmt.Fprintf(out, "Current avg: %s - %s\n", display.FormatMetersPerWeek(goal.CurrentAvgPace), indicator)
+				if _, err := fmt.Fprintf(out, "Current avg: %s - %s\n", display.FormatMetersPerWeek(goal.CurrentAvgPace), indicator); err != nil {
+					return err
+				}
 			}
 			return nil
 		},

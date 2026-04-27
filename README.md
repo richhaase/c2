@@ -1,34 +1,46 @@
-# c2 — Concept2 Logbook CLI
+# c2 - Concept2 Logbook CLI
 
-A CLI tool for syncing and analyzing rowing data from your [Concept2 Logbook](https://log.concept2.com). Built with [Bun](https://bun.sh).
+A CLI and terminal UI for syncing and analyzing rowing data from your
+[Concept2 Logbook](https://log.concept2.com).
 
 ## Install
 
-Requires [Bun](https://bun.sh) v1.0+.
+Install the latest released command with Go:
 
 ```bash
-# Install globally
-bun install -g @richhaase/c2
+go install github.com/richhaase/c2/cmd/c2@latest
+```
 
-# Or install from source
+Or build from source:
+
+```bash
 git clone https://github.com/richhaase/c2.git
 cd c2
-bun install
-bun link
+make build
+make install
 ```
 
 ## Quick Start
 
 ```bash
 # Configure token and goals
-bun src/index.ts setup
+c2 setup
+
+# Launch the terminal UI
+c2
 
 # Sync workouts
-bun src/index.ts sync
+c2 sync
 
-# Check your progress
-bun src/index.ts status
+# Generate a static HTML report
+c2 report
+
+# Export workouts
+c2 export
 ```
+
+Bare `c2` launches the terminal UI. The subcommands remain scriptable for
+syncing, reports, exports, and progress checks.
 
 ## Usage
 
@@ -40,7 +52,18 @@ Configure your token and goal settings:
 c2 setup
 ```
 
-Get your personal access token from [log.concept2.com](https://log.concept2.com) under Settings → Developer. The setup wizard will prompt for your token, goal target, and date range.
+Get your personal access token from [log.concept2.com](https://log.concept2.com)
+under Settings -> Developer. The setup wizard prompts for your token, goal
+target, and date range.
+
+### Terminal UI
+
+```bash
+c2
+```
+
+The default command opens an interactive terminal UI for reviewing progress,
+syncing workouts, generating reports, and exporting data.
 
 ### Sync Workouts
 
@@ -66,12 +89,12 @@ interval workouts, the displayed time (`time_formatted`) is elapsed time
 including rest, while the displayed pace is correctly computed from work
 time only. For example:
 
-```
+```text
 04/11   5,000m   28:35.4   2:51.5/500m  24spm  112bpm  107df
 04/11   3,000m   20:22.6   2:23.8/500m  30spm  152bpm  108df  [IVL rest 6:00.0]
 ```
 
-The second row is 6x500m with ~1 min rest between reps: 20:22.6 elapsed =
+The second row is 6x500m with about 1 min rest between reps: 20:22.6 elapsed =
 14:22.6 work + 6:00 rest. The `2:23.8/500m` pace is the work pace.
 
 ### Goal Progress
@@ -96,7 +119,7 @@ c2 trend -w 12
 
 ### HTML Report
 
-Generate a self-contained HTML progress report:
+Generate a self-contained static HTML progress report:
 
 ```bash
 # Generate report.html in current directory
@@ -136,7 +159,9 @@ continuous pieces without having to consult the full JSON export.
 
 ## Configuration
 
-Config lives at `~/.config/c2/config.json`. Created automatically on `c2 setup`.
+Config lives at `~/.config/c2/config.json`, and data is stored under
+`~/.config/c2/data/`. Both are created automatically by `c2 setup` or sync
+workflows when needed.
 
 ```json
 {
@@ -161,19 +186,24 @@ Config lives at `~/.config/c2/config.json`. Created automatically on `c2 setup`.
 ## Development
 
 ```bash
-# Install dependencies
-bun install
+# Build the binary into bin/c2
+make build
 
-# Type check
-bun run check
+# Install from source
+make install
 
 # Run tests
-bun test
+make test
 
-# Run directly
-bun src/index.ts <command>
+# Run the full check
+make check
+
+# Run during development
+go run ./cmd/c2
 ```
+
+The command entry point is `cmd/c2`.
 
 ## License
 
-MIT — see [LICENSE](LICENSE)
+MIT - see [LICENSE](LICENSE)

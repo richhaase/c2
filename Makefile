@@ -1,6 +1,6 @@
 # c2 development tasks
 
-.PHONY: help build install test test-coverage fmt lint vet tidy clean staticcheck check
+.PHONY: help build install test test-coverage fmt fmt-check lint vet tidy clean staticcheck check
 
 help:
 	@echo "Available targets:"
@@ -9,6 +9,7 @@ help:
 	@echo "  test          - Run all unit tests"
 	@echo "  test-coverage - Run tests with coverage"
 	@echo "  fmt           - Format Go source code"
+	@echo "  fmt-check     - Check Go source formatting"
 	@echo "  lint          - Run golangci-lint v2"
 	@echo "  vet           - Run go vet"
 	@echo "  tidy          - Tidy go modules"
@@ -31,7 +32,12 @@ install:
 	COMMIT=$$(git rev-parse --short HEAD 2>/dev/null || echo "none"); \
 	DATE=$$(date -u +"%Y-%m-%dT%H:%M:%SZ"); \
 	go install -ldflags "-X main.version=$$VERSION -X main.commit=$$COMMIT -X main.date=$$DATE" ./cmd/c2
-	@echo "Installed c2 to $$(go env GOPATH)/bin/c2"
+	@GOBIN=$$(go env GOBIN); \
+	if [ -n "$$GOBIN" ]; then \
+		echo "Installed c2 to $$GOBIN/c2"; \
+	else \
+		echo "Installed c2 to $$(go env GOPATH)/bin/c2"; \
+	fi
 
 test:
 	@go test ./...
@@ -44,6 +50,14 @@ test-coverage:
 
 fmt:
 	@go fmt ./...
+
+fmt-check:
+	@unformatted=$$(gofmt -l $$(git ls-files '*.go')); \
+	if [ -n "$$unformatted" ]; then \
+		echo "Go files need formatting:"; \
+		echo "$$unformatted"; \
+		exit 1; \
+	fi
 
 lint:
 	@go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.8.0 run --timeout=10m ./...
@@ -61,6 +75,6 @@ clean:
 	@go clean -testcache
 
 staticcheck:
-	@go run honnef.co/go/tools/cmd/staticcheck@latest ./...
+	@go run honnef.co/go/tools/cmd/staticcheck@v0.7.0 ./...
 
-check: fmt lint vet staticcheck test
+check: fmt-check lint vet staticcheck test

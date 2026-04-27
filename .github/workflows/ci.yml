@@ -12,11 +12,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: actions/setup-go@v5
         with:
-          bun-version: latest
+          go-version: "1.25.x"
 
-      - run: bun install --frozen-lockfile
+      - name: Check
+        run: make check
 
-      - name: Check (typecheck + lint + test)
-        run: bun run check
+      - name: Build
+        run: make build

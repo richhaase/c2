@@ -25,85 +25,124 @@ func newTrendCommand(deps Dependencies) *cobra.Command {
 			}
 			out := cmd.OutOrStdout()
 			if len(workouts) == 0 {
-				fmt.Fprintln(out, "No workouts found. Run `c2 sync` first.")
-				return nil
+				_, err := fmt.Fprintln(out, "No workouts found. Run `c2 sync` first.")
+				return err
 			}
 			summaries := stats.BuildWeekSummaries(workouts, weeks, deps.Now())
-			printVolumeTrend(out, summaries)
-			fmt.Fprintln(out)
-			printPaceTrend(out, summaries)
-			fmt.Fprintln(out)
-			printSPMTrend(out, summaries)
-			fmt.Fprintln(out)
-			printHRTrend(out, summaries)
-			return nil
+			if err := printVolumeTrend(out, summaries); err != nil {
+				return err
+			}
+			if _, err := fmt.Fprintln(out); err != nil {
+				return err
+			}
+			if err := printPaceTrend(out, summaries); err != nil {
+				return err
+			}
+			if _, err := fmt.Fprintln(out); err != nil {
+				return err
+			}
+			if err := printSPMTrend(out, summaries); err != nil {
+				return err
+			}
+			if _, err := fmt.Fprintln(out); err != nil {
+				return err
+			}
+			return printHRTrend(out, summaries)
 		},
 	}
 	cmd.Flags().IntVarP(&weeks, "weeks", "w", 8, "number of weeks to display")
 	return cmd
 }
 
-func printVolumeTrend(out interface{ Write([]byte) (int, error) }, summaries []stats.WeekSummary) {
-	fmt.Fprintln(out, "Volume (meters/week):")
+func printVolumeTrend(out interface{ Write([]byte) (int, error) }, summaries []stats.WeekSummary) error {
+	if _, err := fmt.Fprintln(out, "Volume (meters/week):"); err != nil {
+		return err
+	}
 	prevMeters := 0
 	max := maxMeters(summaries)
 	for _, summary := range summaries {
-		fmt.Fprintf(out, "  %s  %s %7s  %s  (%d sessions)\n",
+		if _, err := fmt.Fprintf(out, "  %s  %s %7s  %s  (%d sessions)\n",
 			summary.WeekStart.Format("01/02"),
 			display.TrendArrow(prevMeters, summary.Meters),
 			display.FormatMeters(summary.Meters),
 			display.SparkBar(summary.Meters, max),
 			summary.Sessions,
-		)
+		); err != nil {
+			return err
+		}
 		prevMeters = summary.Meters
 	}
+	return nil
 }
 
-func printPaceTrend(out interface{ Write([]byte) (int, error) }, summaries []stats.WeekSummary) {
-	fmt.Fprintln(out, "Avg Pace (/500m):")
+func printPaceTrend(out interface{ Write([]byte) (int, error) }, summaries []stats.WeekSummary) error {
+	if _, err := fmt.Fprintln(out, "Avg Pace (/500m):"); err != nil {
+		return err
+	}
 	prevPace := 0.0
 	for _, summary := range summaries {
 		if summary.PaceCount == 0 {
-			fmt.Fprintf(out, "  %s    -\n", summary.WeekStart.Format("01/02"))
+			if _, err := fmt.Fprintf(out, "  %s    -\n", summary.WeekStart.Format("01/02")); err != nil {
+				return err
+			}
 			continue
 		}
 		avg := summary.PaceSum / float64(summary.PaceCount)
-		fmt.Fprintf(out, "  %s  %s %s\n", summary.WeekStart.Format("01/02"), display.PaceArrow(prevPace, avg), model.FormatSeconds(avg))
+		if _, err := fmt.Fprintf(out, "  %s  %s %s\n", summary.WeekStart.Format("01/02"), display.PaceArrow(prevPace, avg), model.FormatSeconds(avg)); err != nil {
+			return err
+		}
 		prevPace = avg
 	}
+	return nil
 }
 
-func printSPMTrend(out interface{ Write([]byte) (int, error) }, summaries []stats.WeekSummary) {
-	fmt.Fprintln(out, "Avg Stroke Rate (spm):")
+func printSPMTrend(out interface{ Write([]byte) (int, error) }, summaries []stats.WeekSummary) error {
+	if _, err := fmt.Fprintln(out, "Avg Stroke Rate (spm):"); err != nil {
+		return err
+	}
 	prevSPM := 0
 	for _, summary := range summaries {
 		if summary.SPMCount == 0 {
-			fmt.Fprintf(out, "  %s    -\n", summary.WeekStart.Format("01/02"))
+			if _, err := fmt.Fprintf(out, "  %s    -\n", summary.WeekStart.Format("01/02")); err != nil {
+				return err
+			}
 			continue
 		}
 		avg := float64(summary.SPMSum) / float64(summary.SPMCount)
-		fmt.Fprintf(out, "  %s  %s %4.1f\n", summary.WeekStart.Format("01/02"), display.TrendArrow(prevSPM, int(avg)), avg)
+		if _, err := fmt.Fprintf(out, "  %s  %s %4.1f\n", summary.WeekStart.Format("01/02"), display.TrendArrow(prevSPM, int(avg)), avg); err != nil {
+			return err
+		}
 		prevSPM = int(avg)
 	}
+	return nil
 }
 
-func printHRTrend(out interface{ Write([]byte) (int, error) }, summaries []stats.WeekSummary) {
-	fmt.Fprintln(out, "Avg Heart Rate (bpm):")
+func printHRTrend(out interface{ Write([]byte) (int, error) }, summaries []stats.WeekSummary) error {
+	if _, err := fmt.Fprintln(out, "Avg Heart Rate (bpm):"); err != nil {
+		return err
+	}
 	hasAny := false
 	prevHR := 0
 	for _, summary := range summaries {
 		if summary.HRCount == 0 {
-			fmt.Fprintf(out, "  %s    -\n", summary.WeekStart.Format("01/02"))
+			if _, err := fmt.Fprintf(out, "  %s    -\n", summary.WeekStart.Format("01/02")); err != nil {
+				return err
+			}
 			continue
 		}
 		hasAny = true
 		avg := float64(summary.HRSum) / float64(summary.HRCount)
-		fmt.Fprintf(out, "  %s  %s %5.1f\n", summary.WeekStart.Format("01/02"), display.TrendArrow(prevHR, int(avg)), avg)
+		if _, err := fmt.Fprintf(out, "  %s  %s %5.1f\n", summary.WeekStart.Format("01/02"), display.TrendArrow(prevHR, int(avg)), avg); err != nil {
+			return err
+		}
 		prevHR = int(avg)
 	}
 	if !hasAny {
-		fmt.Fprintln(out, "  No heart rate data available.")
+		if _, err := fmt.Fprintln(out, "  No heart rate data available."); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 func maxMeters(summaries []stats.WeekSummary) int {

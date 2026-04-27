@@ -150,8 +150,7 @@ func TestQuitCancelsInFlightActionContext(t *testing.T) {
 		t.Fatal("sync key returned nil command")
 	}
 
-	updated, _ = m.Update(key("q"))
-	m = updated.(Model)
+	_, _ = m.Update(key("q"))
 
 	msg := cmd()
 	if _, ok := msg.(syncCompletedMsg); !ok {

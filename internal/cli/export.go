@@ -50,8 +50,8 @@ func newExportCommand(deps Dependencies) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			fmt.Fprint(cmd.OutOrStdout(), output)
-			return nil
+			_, err = fmt.Fprint(cmd.OutOrStdout(), output)
+			return err
 		},
 	}
 	cmd.Flags().StringVarP(&format, "format", "f", "csv", "output format: csv, json, or jsonl")

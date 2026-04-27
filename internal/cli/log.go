@@ -27,8 +27,8 @@ func newLogCommand(deps Dependencies) *cobra.Command {
 				return err
 			}
 			if len(workouts) == 0 {
-				fmt.Fprintln(cmd.OutOrStdout(), "No workouts found. Run `c2 sync` first.")
-				return nil
+				_, err := fmt.Fprintln(cmd.OutOrStdout(), "No workouts found. Run `c2 sync` first.")
+				return err
 			}
 
 			sort.Slice(workouts, func(i, j int) bool {
@@ -38,7 +38,9 @@ func newLogCommand(deps Dependencies) *cobra.Command {
 				count = len(workouts)
 			}
 			for _, workout := range workouts[:count] {
-				fmt.Fprintln(cmd.OutOrStdout(), display.FormatWorkoutLine(workout, cfg.Display.DateFormat))
+				if _, err := fmt.Fprintln(cmd.OutOrStdout(), display.FormatWorkoutLine(workout, cfg.Display.DateFormat)); err != nil {
+					return err
+				}
 			}
 			return nil
 		},
