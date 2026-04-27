@@ -39,6 +39,13 @@ internal/sync/          # sync service
 internal/tui/           # default terminal UI
 ```
 
+## Hard Rules
+
+- **No comments in source code, ever.** No exceptions. Not `//`, not `/* */`, not
+  JSDoc. If code needs explanation, rename the variable, extract a function, or
+  write a test that encodes the invariant. If context is load-bearing, put it in
+  the commit message. Rich does not read comments.
+
 ## Key Decisions
 
 - JSONL for storage (append-friendly, portable, small enough to parse fully)
