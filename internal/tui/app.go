@@ -27,7 +27,7 @@ func Run() error {
 }
 
 func RunWithServices(services Services) error {
-	program := tea.NewProgram(NewModel(services))
+	program := tea.NewProgram(NewModel(services), tea.WithAltScreen())
 	_, err := program.Run()
 	return err
 }

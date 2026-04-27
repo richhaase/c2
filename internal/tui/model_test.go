@@ -34,7 +34,7 @@ func TestInitialModelLoadsDashboard(t *testing.T) {
 		t.Fatalf("activeTab = %v, want dashboardTab", m.activeTab)
 	}
 	view := m.View()
-	for _, want := range []string{"Dashboard", "12,345m", "Sessions: 2"} {
+	for _, want := range []string{"Dashboard", "LIFETIME METERS", "SEASON METERS", "12,345", "SESSIONS", "Goal Progress"} {
 		if !strings.Contains(view, want) {
 			t.Fatalf("View() missing %q:\n%s", want, view)
 		}
