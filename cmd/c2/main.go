@@ -3,9 +3,13 @@ package main
 import (
 	"fmt"
 	"os"
+
+	"github.com/richhaase/c2/internal/cli"
 )
 
 func main() {
-	fmt.Fprintln(os.Stderr, "c2 Go port is not wired yet")
-	os.Exit(2)
+	if err := cli.NewRootCommand(buildVersionString(), cli.DefaultDependencies()).Execute(); err != nil {
+		fmt.Fprintln(os.Stderr, "Error:", err)
+		os.Exit(1)
+	}
 }

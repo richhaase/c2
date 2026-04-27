@@ -97,15 +97,22 @@ func saveToPath(path string, cfg Config) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
-	file, err := os.Create(path)
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
 	if err != nil {
 		return err
 	}
-	defer file.Close()
+	if err := file.Chmod(0o600); err != nil {
+		_ = file.Close()
+		return err
+	}
 
 	enc := json.NewEncoder(file)
 	enc.SetIndent("", "  ")
-	return enc.Encode(cfg)
+	if err := enc.Encode(cfg); err != nil {
+		_ = file.Close()
+		return err
+	}
+	return file.Close()
 }
 
 type partialConfig struct {

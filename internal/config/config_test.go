@@ -104,6 +104,30 @@ func TestSaveWritesPrettyJSONWithTrailingNewline(t *testing.T) {
 	}
 }
 
+func TestSaveRestrictsExistingConfigPermissions(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", dir)
+	path := filepath.Join(dir, "c2", "config.json")
+	writeFileForTest(t, path, `{"api":{"token":"old"}}`)
+	if err := os.Chmod(path, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := Default()
+	cfg.API.Token = "secret-token"
+	if err := Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := info.Mode().Perm(); got&0o077 != 0 {
+		t.Fatalf("config file mode = %v, want no group/world permissions", got)
+	}
+}
+
 func TestEnsureDirsCreatesDataAndStrokesDirs(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", dir)
