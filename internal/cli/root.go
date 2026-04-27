@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -15,11 +14,12 @@ import (
 	"github.com/richhaase/c2/internal/model"
 	"github.com/richhaase/c2/internal/storage"
 	syncsvc "github.com/richhaase/c2/internal/sync"
+	"github.com/richhaase/c2/internal/tui"
 	"github.com/spf13/cobra"
 )
 
 type Dependencies struct {
-	TUIRunner    func() error
+	TUIRunner    func(tui.Services) error
 	LoadConfig   func() (config.Config, error)
 	SaveConfig   func(config.Config) error
 	EnsureDirs   func() error
@@ -35,7 +35,7 @@ type Dependencies struct {
 
 func DefaultDependencies() Dependencies {
 	return Dependencies{
-		TUIRunner:    func() error { return errors.New("TUI not implemented yet") },
+		TUIRunner:    tui.RunWithServices,
 		LoadConfig:   config.Load,
 		SaveConfig:   config.Save,
 		EnsureDirs:   config.EnsureDirs,
@@ -65,7 +65,7 @@ func NewRootCommand(version string, deps Dependencies) *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return deps.TUIRunner()
+			return deps.TUIRunner(newTUIServices(version, deps))
 		},
 	}
 
@@ -78,6 +78,23 @@ func NewRootCommand(version string, deps Dependencies) *cobra.Command {
 	cmd.AddCommand(newReportCommand(deps))
 	cmd.SetVersionTemplate("{{.Version}}\n")
 	return cmd
+}
+
+func newTUIServices(version string, deps Dependencies) tui.Services {
+	return tui.Services{
+		LoadConfig:   deps.LoadConfig,
+		ReadWorkouts: deps.ReadWorkouts,
+		SyncService: tui.SyncServiceFunc(func(ctx context.Context) (syncsvc.Result, error) {
+			cfg, err := deps.LoadConfig()
+			if err != nil {
+				return syncsvc.Result{}, err
+			}
+			return deps.RunSync(ctx, cfg, version)
+		}),
+		ReportGenerator: tui.NewReportGenerator(deps.ReadWorkouts, deps.LoadConfig, deps.WriteFile, deps.Now),
+		Exporter:        tui.NewExporter(deps.ReadWorkouts, deps.WriteFile),
+		Now:             deps.Now,
+	}
 }
 
 func withDefaults(deps Dependencies) Dependencies {
