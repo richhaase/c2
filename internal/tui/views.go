@@ -17,8 +17,8 @@ const (
 	defaultViewWidth  = 100
 	defaultViewHeight = 32
 	minPanelWidth     = 60
-	panelBorderWidth  = 2 // left + right border (passed to lipgloss Width)
-	panelChromeWidth  = 6 // border (2) + horizontal padding (4); body sized to width-6
+	panelBorderWidth  = 2
+	panelChromeWidth  = 6
 )
 
 func panelOf(totalWidth int, body string) string {
@@ -97,8 +97,6 @@ func renderBody(m Model, width, height int) string {
 		return renderDashboard(m, width)
 	}
 }
-
-// --- dashboard ----------------------------------------------------------
 
 func renderDashboard(m Model, width int) string {
 	progress := stats.ComputeGoalProgress(m.workouts, m.cfg.Goal, m.now)
@@ -244,8 +242,6 @@ func renderGoalProgress(p stats.GoalProgress, width int) string {
 	return panelOf(width, body)
 }
 
-// --- workouts -----------------------------------------------------------
-
 func renderWorkouts(m Model, width, height int) string {
 	if len(m.workouts) == 0 {
 		body := lipgloss.JoinVertical(lipgloss.Left,
@@ -357,8 +353,6 @@ func detailRow(label, value string) string {
 	return fmt.Sprintf("%s  %s", mutedStyle.Render(fmt.Sprintf("%-12s", label)), value)
 }
 
-// --- trends -------------------------------------------------------------
-
 func renderTrends(m Model, width int) string {
 	contentW := innerWidth(width)
 	weeks := stats.BuildWeekSummaries(m.workouts, 12, m.now)
@@ -379,7 +373,6 @@ func renderTrends(m Model, width int) string {
 
 	labelW := 8
 	metaW := 22
-	// label + " " + bar + "  " + meta = labelW + 1 + barW + 2 + metaW
 	barW := contentW - labelW - metaW - 3
 	if barW < 12 {
 		barW = 12
@@ -427,8 +420,6 @@ func trendDefaultTarget(weeks []stats.WeekSummary) int {
 	return maxMeters
 }
 
-// --- actions ------------------------------------------------------------
-
 func renderActions(m Model, width int) string {
 	rows := []string{
 		titleStyle.Render("Actions"),
@@ -454,8 +445,6 @@ func actionRow(key, name, desc string) string {
 		mutedStyle.Render(desc),
 	)
 }
-
-// --- footer / status ----------------------------------------------------
 
 func renderFooter(m Model, width int) string {
 	left := renderStatus(m)
@@ -489,8 +478,6 @@ func helpForTab(t tab) string {
 		return helpStyle.Render(common)
 	}
 }
-
-// --- bar helpers --------------------------------------------------------
 
 func renderBar(width int, filled, marker float64, behind bool) string {
 	if width < 4 {
@@ -540,8 +527,6 @@ func clamp01(v float64) float64 {
 	return v
 }
 
-// --- text helpers -------------------------------------------------------
-
 func padBetween(left string, leftW int, right string, rightW int, total int) string {
 	gap := total - leftW - rightW
 	if gap < 1 {
@@ -573,8 +558,6 @@ func clipRunes(s string, width int) string {
 	}
 	return string(r[:width])
 }
-
-// --- stats helpers ------------------------------------------------------
 
 func totalMeters(workouts []model.Workout) int {
 	total := 0
@@ -628,8 +611,6 @@ func weeklyUnit(p stats.GoalProgress) string {
 	}
 	return "m/wk"
 }
-
-// --- paths --------------------------------------------------------------
 
 func defaultReportPath(now time.Time) string {
 	return fmt.Sprintf("c2-report-%s.html", now.Format("20060102-150405"))

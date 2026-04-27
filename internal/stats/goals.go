@@ -8,6 +8,8 @@ import (
 	"github.com/richhaase/c2/internal/model"
 )
 
+const recentWeeks = 4
+
 type GoalProgress struct {
 	Target          int
 	TotalMeters     int
@@ -63,7 +65,7 @@ func ComputeGoalProgress(workouts []model.Workout, cfg config.GoalConfig, now ti
 	requiredPace := int(math.Floor(float64(remainingMeters) / float64(remainingWeeks)))
 	currentAvgPace := 0
 	if weeksElapsed > 0 {
-		currentAvgPace = int(math.Floor(float64(totalMeters) / float64(weeksElapsed)))
+		currentAvgPace = recentWeeklyAverage(workouts, start, now)
 	}
 
 	targetWeekly := float64(target) / float64(totalWeeks)
@@ -81,4 +83,32 @@ func ComputeGoalProgress(workouts []model.Workout, cfg config.GoalConfig, now ti
 		CurrentAvgPace:  currentAvgPace,
 		OnPace:          onPace,
 	}
+}
+
+func recentWeeklyAverage(workouts []model.Workout, start, now time.Time) int {
+	thisMonday := MondayOf(now)
+	recentStart := thisMonday.AddDate(0, 0, -recentWeeks*7)
+	windowStart := recentStart
+	if recentStart.Before(start) {
+		windowStart = start
+	}
+	if !thisMonday.After(windowStart) {
+		return 0
+	}
+	windowDays := thisMonday.Sub(windowStart).Hours() / 24
+	weeksInWindow := int(math.Round(windowDays / 7))
+	if weeksInWindow < 1 {
+		weeksInWindow = 1
+	}
+	recentMeters := 0
+	for _, workout := range workouts {
+		parsed, err := model.ParsedDate(workout)
+		if err != nil {
+			continue
+		}
+		if !parsed.Before(windowStart) && parsed.Before(thisMonday) {
+			recentMeters += workout.Distance
+		}
+	}
+	return int(math.Floor(float64(recentMeters) / float64(weeksInWindow)))
 }

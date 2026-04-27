@@ -103,3 +103,32 @@ func TestComputeGoalProgressBeforeStartDateHasNoElapsedAverage(t *testing.T) {
 		t.Fatalf("CurrentAvgPace = %d, want 0", goal.CurrentAvgPace)
 	}
 }
+
+func TestCurrentAvgPaceUsesLastFourCompleteWeeks(t *testing.T) {
+	cfg := makeGoalConfig(config.GoalConfig{})
+	now := time.Date(2026, 4, 13, 12, 0, 0, 0, time.Local)
+	workouts := []model.Workout{
+		makeStatsWorkout(1, "2026-01-15 10:00:00", 30000),
+		makeStatsWorkout(2, "2026-03-17 10:00:00", 20000),
+		makeStatsWorkout(3, "2026-03-24 10:00:00", 20000),
+		makeStatsWorkout(4, "2026-03-31 10:00:00", 20000),
+		makeStatsWorkout(5, "2026-04-07 10:00:00", 20000),
+		makeStatsWorkout(6, "2026-04-13 09:00:00", 5500),
+	}
+	goal := ComputeGoalProgress(workouts, cfg, now)
+	if goal.CurrentAvgPace != 20000 {
+		t.Fatalf("CurrentAvgPace = %d, want 20000 (4 complete weeks at 20k each)", goal.CurrentAvgPace)
+	}
+}
+
+func TestCurrentAvgPaceClampsWindowAtSeasonStart(t *testing.T) {
+	cfg := makeGoalConfig(config.GoalConfig{StartDate: "2026-04-01"})
+	now := time.Date(2026, 4, 13, 12, 0, 0, 0, time.Local)
+	workouts := []model.Workout{
+		makeStatsWorkout(1, "2026-04-06 10:00:00", 10000),
+	}
+	goal := ComputeGoalProgress(workouts, cfg, now)
+	if goal.CurrentAvgPace == 0 {
+		t.Fatalf("CurrentAvgPace = 0, want non-zero (one full week at 10k inside the truncated window)")
+	}
+}

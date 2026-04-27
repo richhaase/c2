@@ -24,13 +24,16 @@ func HTML(workouts []model.Workout, goalCfg config.GoalConfig, weeks int, now ti
 
 	goal := stats.ComputeGoalProgress(workouts, goalCfg, now)
 	summaries := stats.BuildWeekSummaries(workouts, weeks, now)
+	thisMonday := stats.MondayOf(now)
+	cutoff := thisMonday.AddDate(0, 0, -(weeks-1)*7)
+	windowed := stats.WorkoutsInRange(workouts, cutoff, now.Add(time.Second))
 	data := reportData{
 		GeneratedYear: now.Year(),
 		GeneratedDate: fullDate(now),
 		Goal:          newGoalView(goal),
-		Sessions:      stats.SessionCount(workouts),
-		AvgPace:       fmtPace(avgPaceForWorkouts(workouts)),
-		AvgHR:         avgHRForWorkouts(workouts),
+		Sessions:      stats.SessionCount(windowed),
+		AvgPace:       fmtPace(avgPaceForWorkouts(windowed)),
+		AvgHR:         avgHRForWorkouts(windowed),
 		Weekly:        newWeeklyViews(summaries, goal.RequiredPace),
 		Trends:        newTrendViews(summaries),
 		Recent:        newRecentViews(workouts, 10),
