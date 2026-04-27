@@ -42,6 +42,39 @@ type StrokeData struct {
 	HR  *float64 `json:"hr,omitempty"`
 }
 
+type UserProfile struct {
+	ID        int    `json:"id"`
+	Username  string `json:"username"`
+	FirstName string `json:"first_name,omitempty"`
+	LastName  string `json:"last_name,omitempty"`
+	Email     string `json:"email,omitempty"`
+}
+
+type UserResponse struct {
+	Data UserProfile `json:"data"`
+}
+
+type Pagination struct {
+	Total       int `json:"total"`
+	Count       int `json:"count"`
+	PerPage     int `json:"per_page"`
+	CurrentPage int `json:"current_page"`
+	TotalPages  int `json:"total_pages"`
+}
+
+type ResultsMeta struct {
+	Pagination *Pagination `json:"pagination,omitempty"`
+}
+
+type ResultsResponse struct {
+	Data []Workout    `json:"data"`
+	Meta *ResultsMeta `json:"meta,omitempty"`
+}
+
+type StrokeDataResponse struct {
+	Data []StrokeData `json:"data"`
+}
+
 func ParsedDate(w Workout) (time.Time, error) {
 	return time.ParseInLocation("2006-01-02 15:04:05", w.Date, time.Local)
 }
