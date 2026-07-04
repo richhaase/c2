@@ -81,6 +81,29 @@ test("list_workouts tool filters and compacts", async () => {
   expect(parsed.workouts[0].pace_500m).toBe("1:15.0");
 });
 
+test("throwing tool dispatch still records a tool response", async () => {
+  const client = scriptedClient([
+    {
+      role: "assistant",
+      content: null,
+      tool_calls: [
+        { id: "c1", type: "function", function: { name: "goal_progress", arguments: "{}" } },
+      ],
+    },
+    { role: "assistant", content: "recovered" },
+  ]);
+  const dispatch = async () => {
+    throw new Error("corrupt cache");
+  };
+  const messages: ChatMessage[] = [{ role: "system", content: "sys" }];
+  const reply = await runTurn(messages, { client, tools: [], dispatch });
+  expect(reply).toBe("recovered");
+  const toolMsg = messages.find((m) => m.role === "tool");
+  expect(toolMsg).toBeDefined();
+  expect(toolMsg!.tool_call_id).toBe("c1");
+  expect(JSON.parse(toolMsg!.content as string).error).toContain("corrupt cache");
+});
+
 test("agent stops at the step limit without looping forever", async () => {
   const api = {} as C2Client;
   const { defs, dispatch } = buildTools({ cfg, workouts, api, now }, () => {});

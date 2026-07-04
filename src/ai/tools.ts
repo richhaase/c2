@@ -1,5 +1,6 @@
 import type { C2Client } from "../api/client.ts";
 import type { Config } from "../config.ts";
+import { formatDate } from "../display.ts";
 import {
   calendarDay,
   isIntervalWorkout,
@@ -154,7 +155,7 @@ export function buildTools(ctx: ToolContext, onEvent: ToolEvent) {
         const weeks = typeof args.weeks === "number" ? args.weeks : 12;
         onEvent(`summarizing last ${weeks} weeks`);
         const summaries = buildWeekSummaries(ctx.workouts, ctx.now, weeks).map((ws) => ({
-          week_start: ws.weekStart.toISOString().slice(0, 10),
+          week_start: formatDate(ws.weekStart, "%Y-%m-%d"),
           meters: ws.meters,
           sessions: ws.sessions,
           avg_pace_500m:

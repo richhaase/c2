@@ -1,4 +1,4 @@
-export function chatPanel(): string {
+export function chatPanel(sessionToken: string): string {
   return `<style>
   #c2-coach {
     position: fixed; top: 0; right: 0; bottom: 0; width: 400px;
@@ -78,6 +78,7 @@ export function chatPanel(): string {
 <button id="c2-fab" class="c2-hidden" title="Open coach">Coach</button>
 <script>
 (function(){
+  var TOKEN = ${JSON.stringify(sessionToken)};
   var panel = document.getElementById('c2-coach');
   var log = document.getElementById('c2-log');
   var form = document.getElementById('c2-form');
@@ -106,7 +107,7 @@ export function chatPanel(): string {
   function hideChips(){ chips.classList.add('c2-hidden'); }
 
   async function postJSON(path, body){
-    var r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    var r = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-C2-Token': TOKEN }, body: JSON.stringify(body) });
     return r.json();
   }
 

@@ -18,7 +18,12 @@ export async function runTurn(messages: ChatMessage[], deps: AgentDeps): Promise
     }
 
     for (const call of reply.tool_calls) {
-      const result = await deps.dispatch(call.function.name, call.function.arguments);
+      let result: string;
+      try {
+        result = await deps.dispatch(call.function.name, call.function.arguments);
+      } catch (err) {
+        result = JSON.stringify({ error: `tool failed: ${(err as Error).message}` });
+      }
       messages.push({ role: "tool", tool_call_id: call.id, content: result });
     }
   }

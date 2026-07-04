@@ -54,13 +54,20 @@ export async function serveCoachReport(opts: ServeOptions): Promise<void> {
     { role: "system", content: buildSystemPrompt({ cfg, workouts, profile, notes, now, surface }) },
   ];
 
+  const sessionToken = crypto.randomUUID();
   const reportHTML = buildReportHTML(cfg, workouts, weeks, now);
-  const page = reportHTML.replace("</body>", `${chatPanel()}\n</body>`);
+  const page = reportHTML.replace("</body>", `${chatPanel(sessionToken)}\n</body>`);
 
   let chatLock: Promise<unknown> = Promise.resolve();
 
-  async function handleChat(message: string): Promise<Response> {
-    const run = chatLock.then(async () => {
+  function serialized<T>(work: () => Promise<T>): Promise<T> {
+    const run = chatLock.then(work);
+    chatLock = run.catch(() => undefined);
+    return run;
+  }
+
+  function handleChat(message: string): Promise<Response> {
+    return serialized(async () => {
       events = [];
       messages.push({ role: "user", content: message });
       try {
@@ -70,8 +77,17 @@ export async function serveCoachReport(opts: ServeOptions): Promise<void> {
         return json({ error: (err as Error).message, events });
       }
     });
-    chatLock = run.catch(() => undefined);
-    return run;
+  }
+
+  function handleNoteSave(note: string): Promise<Response> {
+    return serialized(async () => {
+      await appendNote(note, new Date());
+      messages.push({
+        role: "system",
+        content: `The athlete just saved a note to coach memory: ${note}`,
+      });
+      return json({ saved: true });
+    });
   }
 
   const server = Bun.serve({
@@ -82,6 +98,9 @@ export async function serveCoachReport(opts: ServeOptions): Promise<void> {
       const url = new URL(req.url);
       if (req.method === "GET" && url.pathname === "/") {
         return new Response(page, { headers: { "Content-Type": "text/html; charset=utf-8" } });
+      }
+      if (req.method === "POST" && req.headers.get("x-c2-token") !== sessionToken) {
+        return json({ error: "invalid session token" }, 403);
       }
       if (req.method === "POST" && url.pathname === "/api/chat") {
         const body = (await req.json().catch(() => ({}))) as { message?: string };
@@ -96,8 +115,7 @@ export async function serveCoachReport(opts: ServeOptions): Promise<void> {
         const body = (await req.json().catch(() => ({}))) as { note?: string };
         const note = (body.note ?? "").trim();
         if (!note) return json({ error: "empty note" }, 400);
-        await appendNote(note, new Date());
-        return json({ saved: true });
+        return handleNoteSave(note);
       }
       return new Response("Not found", { status: 404 });
     },

@@ -1,5 +1,5 @@
 import type { Config } from "../config.ts";
-import { formatMeters } from "../display.ts";
+import { formatDate, formatMeters } from "../display.ts";
 import type { Workout } from "../models.ts";
 import { computeGoalProgress } from "../stats.ts";
 import type { CoachNote } from "./memory.ts";
@@ -22,7 +22,7 @@ export function buildSystemPrompt(ctx: PromptContext): string {
   const last = ctx.workouts.reduce((max, w) => (w.date > max ? w.date : max), "");
 
   const snapshot = [
-    `Today: ${ctx.now.toISOString().slice(0, 10)}`,
+    `Today: ${formatDate(ctx.now, "%Y-%m-%d")}`,
     `Goal: ${formatMeters(goal.target)} m from ${ctx.cfg.goal.start_date} to ${ctx.cfg.goal.end_date}`,
     `Logged: ${formatMeters(goal.totalMeters)} m (${(goal.progress * 100).toFixed(1)}%), ${ctx.workouts.length} workouts from ${first.slice(0, 10)} to ${last.slice(0, 10)}`,
     `Weeks: ${goal.weeksElapsed} elapsed of ${goal.totalWeeks}, ${goal.remainingWeeks} remaining`,
