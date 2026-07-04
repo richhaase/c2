@@ -94,9 +94,18 @@ c2 trend
 c2 trend -w 12
 ```
 
+### AI Coaching
+
+Add an [OpenRouter](https://openrouter.ai) API key during `c2 setup` to enable the embedded rowing coach. With a key configured:
+
+- `c2 report` serves a live report with a chat panel — ask the coach about goal pace, training load, recovery, or any specific piece. Type `/note ...` in the panel to save something to coach memory.
+- `c2 coach` starts the same coach as a terminal REPL.
+
+The coach has tool access to your full workout history and stroke-level data, and keeps durable memory (profile + dated notes) at `~/.config/c2/coach/` so context carries across sessions. The model is configurable via `c2 setup`. No key configured means no AI: `c2 report` produces the static file below and nothing leaves your machine.
+
 ### HTML Report
 
-Generate a self-contained HTML progress report:
+Generate a self-contained HTML progress report (the no-key default; with an AI key, `c2 report` serves the live coach report instead — use `-o` to write a file):
 
 ```bash
 # Generate report.html in current directory

@@ -35,6 +35,14 @@ src/
 ├── stats.ts              # Weekly summaries + goal progress
 ├── api/
 │   └── client.ts         # Concept2 API client
+├── ai/
+│   ├── client.ts         # OpenRouter chat client (tool calling)
+│   ├── agent.ts          # Tool-call loop shared by coach surfaces
+│   ├── tools.ts          # Coach tools bridging to stats/storage/api
+│   ├── memory.ts         # Coach memory (profile.md + notes.jsonl)
+│   ├── prompt.ts         # Coach system prompt
+│   ├── server.ts         # Live report server (report + chat panel)
+│   └── panel.ts          # Injected chat panel HTML/CSS/JS
 ├── commands/
 │   ├── setup.ts
 │   ├── sync.ts
@@ -42,7 +50,8 @@ src/
 │   ├── status.ts
 │   ├── trend.ts
 │   ├── export.ts
-│   └── report.ts
+│   ├── report.ts
+│   └── coach.ts
 └── *.test.ts             # Colocated tests
 ```
 
@@ -61,3 +70,7 @@ src/
 - `time` field from API is in tenths of a second
 - Session grouping: workouts on the same calendar day form one session
 - Stroke data fields use abbreviated names from API (`t`, `d`, `p`, `spm`, `hr`)
+- AI coaching via OpenRouter; features gate on config presence (an `ai.api_key` in config), never on CLI flags or env vars
+- `c2 report` auto-serves the live coach report when a key is configured; static HTML file otherwise
+- All config lives in `~/.config/c2/config.json` (chmod 600), managed via `c2 setup`
+- Coach memory at `~/.config/c2/coach/` (`profile.md` + `notes.jsonl`), seeded 2026-07 from the KnowledgeBase rowing coach, which this replaces

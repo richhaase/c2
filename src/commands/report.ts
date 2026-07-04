@@ -2,7 +2,7 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { Command } from "commander";
-import { loadConfig } from "../config.ts";
+import { type Config, loadConfig } from "../config.ts";
 import { formatMeters } from "../display.ts";
 import type { Workout } from "../models.ts";
 import { calendarDay, pace500m, pace500mSeconds } from "../models.ts";
@@ -652,14 +652,30 @@ ${buildProjection(goal, allWorkouts)}
 </html>`;
 }
 
+export function buildReportHTML(
+  cfg: Config,
+  workouts: Workout[],
+  weeks: number,
+  now: Date,
+): string {
+  const goal = computeGoalProgress(workouts, cfg, now);
+  const summaries = buildWeekSummaries(workouts, now, weeks);
+  const thisMonday = mondayOf(now);
+  const cutoff = new Date(thisMonday);
+  cutoff.setDate(cutoff.getDate() - (weeks - 1) * 7);
+  const windowedWorkouts = workoutsInRange(workouts, cutoff, now);
+  return buildHTML(goal, summaries, workouts, windowedWorkouts, 10);
+}
+
 export function registerReport(program: Command): void {
   program
     .command("report")
     .description("Generate HTML progress report and open in browser")
     .option("-o, --output <file>", "save to a specific file instead of a temp file")
     .option("-w, --weeks <n>", "weeks of history to show", "12")
+    .option("--port <n>", "port for the live coach server", "0")
     .option("--no-open", "don't open in browser")
-    .action(async (opts: { output?: string; weeks: string; open: boolean }) => {
+    .action(async (opts: { output?: string; weeks: string; port: string; open: boolean }) => {
       const cfg = await loadConfig();
       if (!cfg.goal.start_date || !cfg.goal.end_date) {
         console.error("Goal dates not configured. Run `c2 setup` to set start and end dates.");
@@ -672,19 +688,27 @@ export function registerReport(program: Command): void {
         return;
       }
 
-      const goal = computeGoalProgress(workouts, cfg);
       const weeks = parseInt(opts.weeks, 10);
       if (Number.isNaN(weeks) || weeks < 1) {
         console.error("Error: --weeks must be a positive integer.");
         process.exit(1);
       }
       const now = new Date();
-      const summaries = buildWeekSummaries(workouts, now, weeks);
-      const thisMonday = mondayOf(now);
-      const cutoff = new Date(thisMonday);
-      cutoff.setDate(cutoff.getDate() - (weeks - 1) * 7);
-      const windowedWorkouts = workoutsInRange(workouts, cutoff, now);
-      const html = buildHTML(goal, summaries, workouts, windowedWorkouts, 10);
+
+      if (cfg.ai.api_key && !opts.output) {
+        const { serveCoachReport } = await import("../ai/server.ts");
+        await serveCoachReport({
+          cfg,
+          workouts,
+          weeks,
+          now,
+          port: parseInt(opts.port, 10) || 0,
+          openBrowser: opts.open,
+        });
+        return;
+      }
+
+      const html = buildReportHTML(cfg, workouts, weeks, now);
 
       let outPath: string;
       if (opts.output) {

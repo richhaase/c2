@@ -2,6 +2,7 @@
 
 import { Command } from "commander";
 import pkg from "../package.json";
+import { registerCoach } from "./commands/coach.ts";
 import { registerExport } from "./commands/export.ts";
 import { registerLog } from "./commands/log.ts";
 import { registerReport } from "./commands/report.ts";
@@ -22,6 +23,7 @@ registerStatus(program);
 registerTrend(program);
 registerExport(program);
 registerReport(program);
+registerCoach(program);
 
 const args = process.argv.slice(2);
 const knownCommands = program.commands.map((c) => c.name());

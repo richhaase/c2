@@ -65,9 +65,21 @@ export function registerSetup(program: Command): void {
         console.log(`Invalid date "${endInput}", keeping previous value.`);
       }
 
+      console.log("\nAI coaching (optional — leave key blank to skip, '-' to remove)");
+      const aiKey = promptValue("OpenRouter API key", cfg.ai.api_key, true);
+      cfg.ai.api_key = aiKey === "-" ? "" : aiKey;
+      if (cfg.ai.api_key) {
+        cfg.ai.model = promptValue("Coach model", cfg.ai.model);
+      }
+
       await ensureDirs();
       await saveConfig(cfg);
-      console.log(`\nConfig written to ${join(configDir(), "config.json")}`);
+      console.log(`\nConfig written to ${join(configDir(), "config.json")} (mode 600)`);
+      console.log(
+        cfg.ai.api_key
+          ? `AI coaching enabled (${cfg.ai.model}) — \`c2 report\` now serves the live coach.`
+          : "AI coaching disabled — `c2 report` generates a static file.",
+      );
 
       if (!cfg.goal.start_date || !cfg.goal.end_date) {
         console.log(

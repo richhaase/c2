@@ -1,4 +1,4 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
@@ -7,6 +7,11 @@ export interface Config {
   sync: { last_sync?: string; machine_type: string };
   goal: { target_meters: number; start_date: string; end_date: string };
   display: { date_format: string };
+  ai: {
+    base_url: string;
+    api_key: string;
+    model: string;
+  };
 }
 
 export function defaultConfig(): Config {
@@ -15,6 +20,11 @@ export function defaultConfig(): Config {
     sync: { machine_type: "rower" },
     goal: { target_meters: 1_000_000, start_date: "", end_date: "" },
     display: { date_format: "%m/%d" },
+    ai: {
+      base_url: "https://openrouter.ai/api/v1",
+      api_key: "",
+      model: "openrouter/auto",
+    },
   };
 }
 
@@ -41,6 +51,7 @@ export async function loadConfig(): Promise<Config> {
       sync: { ...defaults.sync, ...parsed.sync },
       goal: { ...defaults.goal, ...parsed.goal },
       display: { ...defaults.display, ...parsed.display },
+      ai: { ...defaults.ai, ...parsed.ai },
     };
   } catch (err: unknown) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") {
@@ -54,7 +65,8 @@ export async function saveConfig(cfg: Config): Promise<void> {
   const path = join(configDir(), "config.json");
   await mkdir(configDir(), { recursive: true });
   const text = JSON.stringify(cfg, null, 2);
-  await writeFile(path, `${text}\n`, "utf-8");
+  await writeFile(path, `${text}\n`, { encoding: "utf-8", mode: 0o600 });
+  await chmod(path, 0o600);
 }
 
 export function parseGoalDate(s: string): Date {
