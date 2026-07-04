@@ -75,6 +75,7 @@ export async function serveCoachReport(opts: ServeOptions): Promise<void> {
   }
 
   const server = Bun.serve({
+    hostname: cfg.ai.bind_address,
     port: opts.port,
     idleTimeout: 240,
     async fetch(req) {
@@ -102,7 +103,8 @@ export async function serveCoachReport(opts: ServeOptions): Promise<void> {
     },
   });
 
-  const displayURL = `http://localhost:${server.port}`;
+  const displayHost = cfg.ai.bind_address === "0.0.0.0" ? "localhost" : cfg.ai.bind_address;
+  const displayURL = `http://${displayHost}:${server.port}`;
   console.log(`c2 coach report — ${cfg.ai.model}`);
   console.log(`Serving at ${displayURL}  (Ctrl-C to stop)`);
   if (opts.openBrowser) openInBrowser(displayURL);

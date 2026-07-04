@@ -12,6 +12,7 @@ export interface Config {
     base_url: string;
     api_key: string;
     model: string;
+    bind_address: string;
   };
 }
 
@@ -25,6 +26,7 @@ export function defaultConfig(): Config {
       base_url: "https://openrouter.ai/api/v1",
       api_key: "",
       model: DEFAULT_MODEL,
+      bind_address: "127.0.0.1",
     },
   };
 }

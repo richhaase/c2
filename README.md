@@ -163,9 +163,17 @@ Config lives at `~/.config/c2/config.json`. Created automatically on `c2 setup`.
   },
   "display": {
     "date_format": "%m/%d"
+  },
+  "ai": {
+    "base_url": "https://openrouter.ai/api/v1",
+    "api_key": "",
+    "model": "openai/gpt-5.4-mini",
+    "bind_address": "127.0.0.1"
   }
 }
 ```
+
+The live coach report server binds to `127.0.0.1` (localhost only). Set `ai.bind_address` if you need it reachable from another device — the server has no authentication, so anything beyond localhost exposes your data and lets others spend your OpenRouter credit.
 
 ## Development
 
