@@ -135,7 +135,7 @@ export function chatPanel(sessionToken: string): string {
 
   async function showNotes(){
     try {
-      var r = await fetch('/api/notes'); var d = await r.json();
+      var r = await fetch('/api/notes', { headers: { 'X-C2-Token': TOKEN } }); var d = await r.json();
       var notes = d.notes || [];
       if (!notes.length){ addEvent('no saved notes yet'); return; }
       var lines = notes.map(function(n){ return '\\u2022 [' + n.date.slice(0,10) + '] ' + n.note; });

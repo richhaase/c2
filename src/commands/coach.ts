@@ -36,7 +36,7 @@ export function registerCoach(program: Command): void {
 
       const profile = await readProfile();
       const notes = await readNotes(50);
-      const { defs, dispatch } = buildTools({ cfg, workouts, api, now }, (msg) =>
+      const { defs, dispatch } = buildTools({ cfg, workouts, api, now: () => new Date() }, (msg) =>
         console.log(`  · ${msg}`),
       );
 

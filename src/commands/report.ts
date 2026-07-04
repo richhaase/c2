@@ -696,13 +696,18 @@ export function registerReport(program: Command): void {
       const now = new Date();
 
       if (cfg.ai.api_key && !opts.output) {
+        const port = parseInt(opts.port, 10);
+        if (Number.isNaN(port) || port < 0 || port > 65535) {
+          console.error("Error: --port must be an integer between 0 and 65535.");
+          process.exit(1);
+        }
         const { serveCoachReport } = await import("../ai/server.ts");
         await serveCoachReport({
           cfg,
           workouts,
           weeks,
           now,
-          port: parseInt(opts.port, 10) || 0,
+          port,
           openBrowser: opts.open,
         });
         return;
@@ -721,13 +726,16 @@ export function registerReport(program: Command): void {
 
       if (opts.open) {
         const { spawn } = await import("node:child_process");
-        const cmd =
+        const [cmd, cmdArgs] =
           process.platform === "darwin"
-            ? "open"
+            ? ["open", [outPath]]
             : process.platform === "win32"
-              ? "start"
-              : "xdg-open";
-        const child = spawn(cmd, [outPath], { stdio: "ignore", detached: true });
+              ? ["cmd", ["/c", "start", "", outPath]]
+              : ["xdg-open", [outPath]];
+        const child = spawn(cmd as string, cmdArgs as string[], {
+          stdio: "ignore",
+          detached: true,
+        });
         child.on("error", (err) => {
           console.error(`Could not open report: ${err.message}`);
         });

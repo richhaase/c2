@@ -27,5 +27,8 @@ export async function runTurn(messages: ChatMessage[], deps: AgentDeps): Promise
       messages.push({ role: "tool", tool_call_id: call.id, content: result });
     }
   }
-  return "(coach reached the tool-call limit for this turn; ask again or narrow the question)";
+  const fallback =
+    "(coach reached the tool-call limit for this turn; ask again or narrow the question)";
+  messages.push({ role: "assistant", content: fallback });
+  return fallback;
 }

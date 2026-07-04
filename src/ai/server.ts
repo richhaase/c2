@@ -20,9 +20,13 @@ export interface ServeOptions {
 }
 
 function openInBrowser(url: string): void {
-  const cmd =
-    process.platform === "darwin" ? "open" : process.platform === "win32" ? "start" : "xdg-open";
-  const child = spawn(cmd, [url], { stdio: "ignore", detached: true });
+  const [cmd, args] =
+    process.platform === "darwin"
+      ? ["open", [url]]
+      : process.platform === "win32"
+        ? ["cmd", ["/c", "start", "", url]]
+        : ["xdg-open", [url]];
+  const child = spawn(cmd as string, args as string[], { stdio: "ignore", detached: true });
   child.on("error", (err) => console.error(`Could not open browser: ${err.message}`));
   child.unref();
 }
@@ -47,7 +51,9 @@ export async function serveCoachReport(opts: ServeOptions): Promise<void> {
   const notes = await readNotes(50);
 
   let events: string[] = [];
-  const { defs, dispatch } = buildTools({ cfg, workouts, api, now }, (m) => events.push(m));
+  const { defs, dispatch } = buildTools({ cfg, workouts, api, now: () => new Date() }, (m) =>
+    events.push(m),
+  );
 
   const surface = `The athlete is viewing an HTML progress report covering the last ${weeks} weeks alongside this chat. Answer questions about what that report shows, and go deeper with tools when useful.`;
   const messages: ChatMessage[] = [
@@ -93,13 +99,22 @@ export async function serveCoachReport(opts: ServeOptions): Promise<void> {
   const server = Bun.serve({
     hostname: cfg.ai.bind_address,
     port: opts.port,
-    idleTimeout: 240,
-    async fetch(req) {
+    idleTimeout: 0,
+    async fetch(req, srv) {
       const url = new URL(req.url);
+      const allowedHosts = new Set([
+        `127.0.0.1:${srv.port}`,
+        `localhost:${srv.port}`,
+        `[::1]:${srv.port}`,
+        `${cfg.ai.bind_address}:${srv.port}`,
+      ]);
+      if (!allowedHosts.has(url.host)) {
+        return json({ error: "invalid host" }, 403);
+      }
       if (req.method === "GET" && url.pathname === "/") {
         return new Response(page, { headers: { "Content-Type": "text/html; charset=utf-8" } });
       }
-      if (req.method === "POST" && req.headers.get("x-c2-token") !== sessionToken) {
+      if (url.pathname.startsWith("/api/") && req.headers.get("x-c2-token") !== sessionToken) {
         return json({ error: "invalid session token" }, 403);
       }
       if (req.method === "POST" && url.pathname === "/api/chat") {

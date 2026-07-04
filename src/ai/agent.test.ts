@@ -45,7 +45,9 @@ const workouts = [
 test("agent runs a tool call then returns final text", async () => {
   const seen: string[] = [];
   const api = {} as C2Client;
-  const { defs, dispatch } = buildTools({ cfg, workouts, api, now }, (m) => seen.push(m));
+  const { defs, dispatch } = buildTools({ cfg, workouts, api, now: () => now }, (m) =>
+    seen.push(m),
+  );
 
   const client = scriptedClient([
     {
@@ -73,12 +75,29 @@ test("agent runs a tool call then returns final text", async () => {
 
 test("list_workouts tool filters and compacts", async () => {
   const api = {} as C2Client;
-  const { dispatch } = buildTools({ cfg, workouts, api, now }, () => {});
+  const { dispatch } = buildTools({ cfg, workouts, api, now: () => now }, () => {});
   const raw = await dispatch("list_workouts", JSON.stringify({ from: "2026-07-01" }));
   const parsed = JSON.parse(raw);
   expect(parsed.count).toBe(1);
   expect(parsed.workouts[0].id).toBe(1);
   expect(parsed.workouts[0].pace_500m).toBe("1:15.0");
+});
+
+test("model-supplied numeric args are clamped", async () => {
+  const api = {} as C2Client;
+  const { dispatch } = buildTools({ cfg, workouts, api, now: () => now }, () => {});
+
+  const zeroLimit = JSON.parse(await dispatch("list_workouts", JSON.stringify({ limit: 0 })));
+  expect(zeroLimit.count).toBe(1);
+  const negLimit = JSON.parse(await dispatch("list_workouts", JSON.stringify({ limit: -5 })));
+  expect(negLimit.count).toBe(1);
+
+  const hugeWeeks = JSON.parse(
+    await dispatch("weekly_summaries", JSON.stringify({ weeks: 1_000_000 })),
+  );
+  expect(hugeWeeks.length).toBe(520);
+  const fracWeeks = JSON.parse(await dispatch("weekly_summaries", JSON.stringify({ weeks: 2.7 })));
+  expect(fracWeeks.length).toBe(2);
 });
 
 test("throwing tool dispatch still records a tool response", async () => {
@@ -104,9 +123,9 @@ test("throwing tool dispatch still records a tool response", async () => {
   expect(JSON.parse(toolMsg!.content as string).error).toContain("corrupt cache");
 });
 
-test("agent stops at the step limit without looping forever", async () => {
+test("agent stops at the step limit and persists the fallback reply", async () => {
   const api = {} as C2Client;
-  const { defs, dispatch } = buildTools({ cfg, workouts, api, now }, () => {});
+  const { defs, dispatch } = buildTools({ cfg, workouts, api, now: () => now }, () => {});
   const loopingCall: ChatMessage = {
     role: "assistant",
     content: null,
@@ -118,4 +137,7 @@ test("agent stops at the step limit without looping forever", async () => {
   const messages: ChatMessage[] = [{ role: "system", content: "sys" }];
   const reply = await runTurn(messages, { client, tools: defs, dispatch });
   expect(reply).toContain("tool-call limit");
+  const last = messages[messages.length - 1]!;
+  expect(last.role).toBe("assistant");
+  expect(last.content).toBe(reply);
 });

@@ -18,7 +18,12 @@ export interface ToolContext {
   cfg: Config;
   workouts: Workout[];
   api: C2Client;
-  now: Date;
+  now: () => Date;
+}
+
+function clampInt(value: unknown, fallback: number, min: number, max: number): number {
+  const n = typeof value === "number" && Number.isFinite(value) ? Math.floor(value) : fallback;
+  return Math.min(Math.max(n, min), max);
 }
 
 export type ToolEvent = (message: string) => void;
@@ -148,13 +153,13 @@ export function buildTools(ctx: ToolContext, onEvent: ToolEvent) {
     switch (name) {
       case "goal_progress": {
         onEvent("checking goal progress");
-        const goal = computeGoalProgress(ctx.workouts, ctx.cfg, ctx.now);
+        const goal = computeGoalProgress(ctx.workouts, ctx.cfg, ctx.now());
         return JSON.stringify(goal);
       }
       case "weekly_summaries": {
-        const weeks = typeof args.weeks === "number" ? args.weeks : 12;
+        const weeks = clampInt(args.weeks, 12, 1, 520);
         onEvent(`summarizing last ${weeks} weeks`);
-        const summaries = buildWeekSummaries(ctx.workouts, ctx.now, weeks).map((ws) => ({
+        const summaries = buildWeekSummaries(ctx.workouts, ctx.now(), weeks).map((ws) => ({
           week_start: formatDate(ws.weekStart, "%Y-%m-%d"),
           meters: ws.meters,
           sessions: ws.sessions,
@@ -168,7 +173,7 @@ export function buildTools(ctx: ToolContext, onEvent: ToolEvent) {
       case "list_workouts": {
         const from = typeof args.from === "string" ? args.from : "";
         const to = typeof args.to === "string" ? args.to : "";
-        const limit = typeof args.limit === "number" ? args.limit : 30;
+        const limit = clampInt(args.limit, 30, 1, 500);
         onEvent(`listing workouts${from || to ? ` ${from || "…"}→${to || "…"}` : ""}`);
         let filtered = ctx.workouts;
         if (from) filtered = filtered.filter((w) => calendarDay(w) >= from);
@@ -184,9 +189,15 @@ export function buildTools(ctx: ToolContext, onEvent: ToolEvent) {
           onEvent(`fetching stroke data for ${id} from Concept2`);
           try {
             strokes = await ctx.api.getStrokes(id);
-            if (strokes.length > 0) await writeStrokeData(id, strokes);
           } catch (err) {
             return JSON.stringify({ error: `could not fetch strokes: ${(err as Error).message}` });
+          }
+          if (strokes.length > 0) {
+            try {
+              await writeStrokeData(id, strokes);
+            } catch (err) {
+              onEvent(`could not cache strokes for ${id}: ${(err as Error).message}`);
+            }
           }
         } else {
           onEvent(`reading stroke data for ${id}`);
@@ -203,7 +214,7 @@ export function buildTools(ctx: ToolContext, onEvent: ToolEvent) {
       case "save_coach_note": {
         const note = typeof args.note === "string" ? args.note.trim() : "";
         if (!note) return JSON.stringify({ error: "note required" });
-        await appendNote(note, ctx.now);
+        await appendNote(note, ctx.now());
         onEvent("saved a note to memory");
         return JSON.stringify({ saved: true });
       }
