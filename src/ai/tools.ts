@@ -1,6 +1,13 @@
 import type { C2Client } from "../api/client.ts";
 import type { Config } from "../config.ts";
-import { calendarDay, isIntervalWorkout, pace500m, restSeconds, type Workout } from "../models.ts";
+import {
+  calendarDay,
+  isIntervalWorkout,
+  pace500m,
+  restSeconds,
+  type StrokeData,
+  type Workout,
+} from "../models.ts";
 import { buildWeekSummaries, computeGoalProgress } from "../stats.ts";
 import { readStrokeData, writeStrokeData } from "../storage.ts";
 import type { ToolDef } from "./client.ts";
@@ -14,6 +21,16 @@ export interface ToolContext {
 }
 
 export type ToolEvent = (message: string) => void;
+
+const MAX_STROKE_SAMPLES = 300;
+
+export function downsampleStrokes(strokes: StrokeData[], max = MAX_STROKE_SAMPLES): StrokeData[] {
+  if (strokes.length <= max) return strokes;
+  const stride = strokes.length / max;
+  const out = Array.from({ length: max }, (_, i) => strokes[Math.floor(i * stride)]!);
+  out[out.length - 1] = strokes[strokes.length - 1]!;
+  return out;
+}
 
 function compactWorkout(w: Workout) {
   return {
@@ -173,7 +190,14 @@ export function buildTools(ctx: ToolContext, onEvent: ToolEvent) {
         } else {
           onEvent(`reading stroke data for ${id}`);
         }
-        return JSON.stringify({ workout_id: id, sample_count: strokes.length, strokes });
+        const sampled = downsampleStrokes(strokes);
+        return JSON.stringify({
+          workout_id: id,
+          sample_count: strokes.length,
+          returned_samples: sampled.length,
+          downsampled: sampled.length < strokes.length,
+          strokes: sampled,
+        });
       }
       case "save_coach_note": {
         const note = typeof args.note === "string" ? args.note.trim() : "";

@@ -1,6 +1,7 @@
 import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { DEFAULT_MODEL } from "./ai/models.ts";
 
 export interface Config {
   api: { base_url: string; token: string };
@@ -23,7 +24,7 @@ export function defaultConfig(): Config {
     ai: {
       base_url: "https://openrouter.ai/api/v1",
       api_key: "",
-      model: "openrouter/auto",
+      model: DEFAULT_MODEL,
     },
   };
 }

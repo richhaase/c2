@@ -1,5 +1,6 @@
 import { join } from "node:path";
 import type { Command } from "commander";
+import { RECOMMENDED_MODELS, resolveModelChoice } from "../ai/models.ts";
 import { C2Client } from "../api/client.ts";
 import {
   type Config,
@@ -69,7 +70,16 @@ export function registerSetup(program: Command): void {
       const aiKey = promptValue("OpenRouter API key", cfg.ai.api_key, true);
       cfg.ai.api_key = aiKey === "-" ? "" : aiKey;
       if (cfg.ai.api_key) {
-        cfg.ai.model = promptValue("Coach model", cfg.ai.model);
+        console.log("\nCoach model — our recommendations:");
+        RECOMMENDED_MODELS.forEach((m, i) => {
+          console.log(`  ${i + 1}. ${m.id}`);
+          console.log(`     ${m.note}`);
+        });
+        console.log(
+          "Pick a number, enter any OpenRouter model id, or leave blank to keep current.",
+        );
+        const modelInput = promptValue("Coach model", cfg.ai.model);
+        cfg.ai.model = resolveModelChoice(modelInput, cfg.ai.model);
       }
 
       await ensureDirs();
