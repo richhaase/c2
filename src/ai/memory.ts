@@ -28,14 +28,24 @@ export async function readProfile(): Promise<string> {
   }
 }
 
+export function parseNotes(text: string, limit: number): CoachNote[] {
+  const notes: CoachNote[] = [];
+  for (const line of text.split("\n")) {
+    if (line.trim() === "") continue;
+    try {
+      const parsed = JSON.parse(line) as CoachNote;
+      if (typeof parsed?.date === "string" && typeof parsed?.note === "string") {
+        notes.push(parsed);
+      }
+    } catch {}
+  }
+  return notes.slice(-limit);
+}
+
 export async function readNotes(limit: number): Promise<CoachNote[]> {
   try {
     const text = await readFile(notesPath(), "utf-8");
-    const notes = text
-      .split("\n")
-      .filter((line) => line.trim() !== "")
-      .map((line) => JSON.parse(line) as CoachNote);
-    return notes.slice(-limit);
+    return parseNotes(text, limit);
   } catch (err: unknown) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") return [];
     throw err;

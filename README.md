@@ -173,7 +173,7 @@ Config lives at `~/.config/c2/config.json`. Created automatically on `c2 setup`.
 }
 ```
 
-The live coach report server binds to `127.0.0.1` (localhost only). Set `ai.bind_address` if you need it reachable from another device — the server has no authentication, so anything beyond localhost exposes your data and lets others spend your OpenRouter credit.
+The live coach report server binds to `127.0.0.1` (localhost only). Set `ai.bind_address` to `0.0.0.0` (or a specific interface IP) if you need it reachable from another device, and browse to the machine's IP address — requests are validated against the machine's own addresses, so third-party hostnames are rejected. Anything beyond localhost exposes your data and lets others spend your OpenRouter credit, so widen the binding deliberately.
 
 ## Development
 

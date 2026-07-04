@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { networkInterfaces } from "node:os";
 import { C2Client } from "../api/client.ts";
 import { buildReportHTML } from "../commands/report.ts";
 import type { Config } from "../config.ts";
@@ -29,6 +30,23 @@ function openInBrowser(url: string): void {
   const child = spawn(cmd as string, args as string[], { stdio: "ignore", detached: true });
   child.on("error", (err) => console.error(`Could not open browser: ${err.message}`));
   child.unref();
+}
+
+export function allowedHostsFor(bindAddress: string, port: number): Set<string> {
+  const hosts = new Set([
+    `127.0.0.1:${port}`,
+    `localhost:${port}`,
+    `[::1]:${port}`,
+    `${bindAddress}:${port}`,
+  ]);
+  if (bindAddress === "0.0.0.0" || bindAddress === "::") {
+    for (const infos of Object.values(networkInterfaces())) {
+      for (const info of infos ?? []) {
+        hosts.add(info.family === "IPv6" ? `[${info.address}]:${port}` : `${info.address}:${port}`);
+      }
+    }
+  }
+  return hosts;
 }
 
 function json(body: unknown, status = 200): Response {
@@ -65,6 +83,7 @@ export async function serveCoachReport(opts: ServeOptions): Promise<void> {
   const page = reportHTML.replace("</body>", `${chatPanel(sessionToken)}\n</body>`);
 
   let chatLock: Promise<unknown> = Promise.resolve();
+  let allowedHosts: Set<string> | null = null;
 
   function serialized<T>(work: () => Promise<T>): Promise<T> {
     const run = chatLock.then(work);
@@ -102,12 +121,7 @@ export async function serveCoachReport(opts: ServeOptions): Promise<void> {
     idleTimeout: 0,
     async fetch(req, srv) {
       const url = new URL(req.url);
-      const allowedHosts = new Set([
-        `127.0.0.1:${srv.port}`,
-        `localhost:${srv.port}`,
-        `[::1]:${srv.port}`,
-        `${cfg.ai.bind_address}:${srv.port}`,
-      ]);
+      allowedHosts ??= allowedHostsFor(cfg.ai.bind_address, srv.port ?? opts.port);
       if (!allowedHosts.has(url.host)) {
         return json({ error: "invalid host" }, 403);
       }
