@@ -48,6 +48,7 @@ src/
 
 ## Key Decisions
 
+- Bun/TypeScript is the long-term runtime
 - JSONL for storage (append-friendly, portable, small enough to parse fully)
 - Static personal access token (no OAuth2 flow — C2 provides one at log.concept2.com)
 - Custom goal dates independent of C2 season (May 1 – Apr 30)
