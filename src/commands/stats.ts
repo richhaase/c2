@@ -1,6 +1,6 @@
 import type { Command } from "commander";
 import { hrAtPace, splitShape, splitTable } from "../analysis.ts";
-import { loadConfig } from "../config.ts";
+import { loadConfig, parseGoalDate } from "../config.ts";
 import { formatMeters } from "../display.ts";
 import { printJSON } from "../envelope.ts";
 import { formatSeconds } from "../models.ts";
@@ -22,9 +22,11 @@ export interface GoalProjection {
   shortfall_meters: number;
 }
 
-export function projectGoal(goal: GoalProgress): GoalProjection {
-  const remaining = Math.max(0, goal.totalWeeks - goal.weeksElapsed);
-  const projected = Math.round(goal.currentAvgPace * remaining + goal.totalMeters);
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
+export function projectGoal(goal: GoalProgress, end: Date, now: Date): GoalProjection {
+  const weeksLeft = Math.max(0, (end.getTime() - now.getTime()) / WEEK_MS);
+  const projected = Math.round(goal.totalMeters + goal.currentAvgPace * weeksLeft);
   return {
     projected_total_meters: projected,
     projected_pct: Math.round((projected / goal.target) * 1000) / 10,
@@ -80,7 +82,7 @@ export function registerStats(program: Command): void {
       const workouts = await readWorkouts(dataPaths(cfg));
       const now = new Date();
       const goal = computeGoalProgress(workouts, cfg, now);
-      const projection = projectGoal(goal);
+      const projection = projectGoal(goal, parseGoalDate(cfg.goal.end_date), now);
       const weeks = recentWeeks(workouts, now, 4);
       const thisWeek = weeks[0]!;
 

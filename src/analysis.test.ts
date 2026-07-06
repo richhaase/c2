@@ -110,17 +110,32 @@ function goalFixture(overrides: Partial<GoalProgress>): GoalProgress {
   };
 }
 
-test("projectGoal uses true remaining weeks", () => {
-  const active = projectGoal(goalFixture({}));
+const PROJECT_NOW = new Date("2026-07-06T12:00:00");
+
+function daysAfterNow(n: number): Date {
+  return new Date(PROJECT_NOW.getTime() + n * 24 * 60 * 60 * 1000);
+}
+
+test("projectGoal projects over actual remaining time", () => {
+  const active = projectGoal(goalFixture({}), daysAfterNow(26 * 7), PROJECT_NOW);
   expect(active.projected_total_meters).toBe(900_000 + 26 * 20_000);
   expect(active.shortfall_meters).toBe(0);
 });
 
 test("projectGoal adds nothing after the goal window ends", () => {
-  const expired = projectGoal(goalFixture({ weeksElapsed: 60, remainingWeeks: 1 }));
+  const expired = projectGoal(
+    goalFixture({ weeksElapsed: 60, remainingWeeks: 1 }),
+    daysAfterNow(-2),
+    PROJECT_NOW,
+  );
   expect(expired.projected_total_meters).toBe(900_000);
   expect(expired.projected_pct).toBe(90);
   expect(expired.shortfall_meters).toBe(100_000);
+});
+
+test("projectGoal handles fractional final weeks without over-projecting", () => {
+  const halfWeek = projectGoal(goalFixture({}), daysAfterNow(3.5), PROJECT_NOW);
+  expect(halfWeek.projected_total_meters).toBe(900_000 + 10_000);
 });
 
 function steadyWorkout(id: number, date: string, paceSecs: number, hr: number): Workout {
