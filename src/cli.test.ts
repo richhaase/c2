@@ -67,6 +67,25 @@ beforeAll(async () => {
       stroke_rate: 24,
       heart_rate: { average: 140 },
       comments: "felt strong",
+      workout: {
+        targets: { pace: 1500 },
+        splits: [
+          {
+            type: "distance",
+            time: 6100,
+            distance: 4000,
+            stroke_rate: 24,
+            heart_rate: { average: 135, max: 142 },
+          },
+          {
+            type: "distance",
+            time: 5900,
+            distance: 4000,
+            stroke_rate: 25,
+            heart_rate: { average: 144, max: 150 },
+          },
+        ],
+      },
     },
     {
       id: 2,
@@ -81,6 +100,11 @@ beforeAll(async () => {
   await writeFile(
     join(dataDir, "workouts.jsonl"),
     `${workouts.map((w) => JSON.stringify(w)).join("\n")}\n`,
+    "utf-8",
+  );
+  await writeFile(
+    join(dataDir, "strokes", "1.jsonl"),
+    `${JSON.stringify({ t: 100, d: 500, p: 1500, spm: 24, hr: 130 })}\n${JSON.stringify({ t: 200, d: 1000, p: 1480, spm: 25, hr: 140 })}\n`,
     "utf-8",
   );
 });
@@ -147,6 +171,76 @@ test("trend --json emits week summaries", () => {
   expect(parsed.data.weeks.length).toBe(3);
   const withData = parsed.data.weeks.filter((w: { meters: number }) => w.meters > 0);
   expect(withData.length).toBe(2);
+});
+
+test("show resolves last and ids, renders splits and strokes", () => {
+  const last = run(["show", "last"]);
+  expect(last.code).toBe(0);
+  expect(last.stdout).toContain("Id: 1");
+  expect(last.stdout).toContain("Splits (negative):");
+  expect(last.stdout).toContain("Stroke data: 2 samples");
+  expect(last.stdout).toContain("Comments: felt strong");
+  expect(last.stdout).toContain("Target pace: 2:30.0/500m");
+
+  const byId = run(["show", "2"]);
+  expect(byId.code).toBe(0);
+  expect(byId.stdout).toContain("Id: 2");
+  expect(byId.stdout).not.toContain("Splits");
+
+  const missing = run(["show", "999"]);
+  expect(missing.code).toBe(1);
+  expect(missing.stderr).toContain("No workout with id 999");
+});
+
+test("show --json emits full detail envelope", () => {
+  const r = run(["show", "last", "--json"]);
+  expect(r.code).toBe(0);
+  const parsed = JSON.parse(r.stdout);
+  expect(parsed.schema).toBe("c2.show.v1");
+  expect(parsed.data.workout.id).toBe(1);
+  expect(parsed.data.splits.length).toBe(2);
+  expect(parsed.data.splits[0].pace_500m).toBe("1:16.3");
+  expect(parsed.data.split_shape).toBe("negative");
+  expect(parsed.data.stroke_summary.samples).toBe(2);
+  expect(parsed.data.target_pace_500m_seconds).toBe(150);
+  expect(parsed.data.raw.time).toBe(12000);
+  expect(parsed.data.raw.workout.targets.pace).toBe(1500);
+  expect(parsed.data.raw.workout.splits.length).toBe(2);
+});
+
+test("stats weekly/goal/splits/hr-pace emit versioned envelopes", () => {
+  const weekly = run(["stats", "weekly", "-w", "3", "--json"]);
+  expect(weekly.code).toBe(0);
+  const weeklyParsed = JSON.parse(weekly.stdout);
+  expect(weeklyParsed.schema).toBe("c2.stats.weekly.v1");
+  expect(weeklyParsed.data.weeks.length).toBe(3);
+
+  const goal = run(["stats", "goal", "--json"]);
+  expect(goal.code).toBe(0);
+  const goalParsed = JSON.parse(goal.stdout);
+  expect(goalParsed.schema).toBe("c2.stats.goal.v1");
+  expect(goalParsed.data.goal.totalMeters).toBe(14000);
+  expect(goalParsed.data.projection.projected_total_meters).toBeGreaterThan(0);
+  expect(goalParsed.data.this_week).toBeDefined();
+
+  const splits = run(["stats", "splits", "1", "--json"]);
+  expect(splits.code).toBe(0);
+  const splitsParsed = JSON.parse(splits.stdout);
+  expect(splitsParsed.schema).toBe("c2.stats.splits.v1");
+  expect(splitsParsed.data.split_shape).toBe("negative");
+  expect(splitsParsed.data.splits.length).toBe(2);
+
+  const hr = run(["stats", "hr-pace", "-w", "4", "--json"]);
+  expect(hr.code).toBe(0);
+  const hrParsed = JSON.parse(hr.stdout);
+  expect(hrParsed.schema).toBe("c2.stats.hr-pace.v1");
+  expect(Array.isArray(hrParsed.data.bands)).toBe(true);
+});
+
+test("stats splits handles workouts without split data", () => {
+  const r = run(["stats", "splits", "2"]);
+  expect(r.code).toBe(0);
+  expect(r.stdout).toContain("no split data");
 });
 
 test("export rejects invalid dates but allows empty ranges", () => {

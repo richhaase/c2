@@ -2,6 +2,21 @@ export interface HeartRate {
   average?: number;
   min?: number;
   max?: number;
+  ending?: number;
+}
+
+export interface WorkoutSplit {
+  type?: string;
+  time: number;
+  distance?: number;
+  calories_total?: number;
+  stroke_rate?: number;
+  heart_rate?: HeartRate;
+}
+
+export interface WorkoutDetail {
+  targets?: { pace?: number };
+  splits?: WorkoutSplit[];
 }
 
 export interface Workout {
@@ -25,6 +40,7 @@ export interface Workout {
   rest_time?: number;
   rest_distance?: number;
   comments?: string;
+  workout?: WorkoutDetail;
 }
 
 export interface StrokeData {
