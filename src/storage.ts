@@ -78,12 +78,18 @@ export async function readStrokeData(paths: DataPaths, workoutId: number): Promi
 }
 
 export async function readMeta(paths: DataPaths): Promise<StoreMeta | null> {
+  let text: string;
   try {
-    const text = await readFile(paths.meta, "utf-8");
-    return JSON.parse(text) as StoreMeta;
+    text = await readFile(paths.meta, "utf-8");
   } catch (err: unknown) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
     throw err;
+  }
+  try {
+    return JSON.parse(text) as StoreMeta;
+  } catch {
+    console.error(`Warning: ${paths.meta} is corrupt and will be ignored.`);
+    return null;
   }
 }
 

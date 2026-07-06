@@ -49,6 +49,10 @@ export function registerLog(program: Command): void {
         console.log("No workouts found. Run `c2 sync` first.");
         return;
       }
+      if (shown.length === 0) {
+        console.log("No workouts match the specified date range.");
+        return;
+      }
 
       for (const w of shown) {
         const line = formatWorkoutLine(w, cfg.display.date_format);

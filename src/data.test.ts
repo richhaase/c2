@@ -128,6 +128,37 @@ async function treeStatsPublic(dir: string): Promise<{ files: number }> {
   return { files };
 }
 
+test("moveStore survives same-named collisions with pre-existing target files", async () => {
+  const base = await tempRoot();
+  const from = pathsFor(join(base, "src"));
+  await mkdir(from.root);
+  await initStore(from, NOW);
+  await writeFile(from.workouts, `${WORKOUT_LINE}\n`, "utf-8");
+  await writeFile(join(from.root, ".DS_Store"), "source junk", "utf-8");
+
+  const to = pathsFor(join(base, "synced"));
+  await mkdir(to.root);
+  await writeFile(join(to.root, ".DS_Store"), "different pre-existing junk!", "utf-8");
+
+  const copied = await moveStore(from, to);
+  expect(copied.files).toBeGreaterThanOrEqual(3);
+  expect((await readWorkouts(to)).length).toBe(1);
+});
+
+test("corrupt meta.json is tolerated, not fatal", async () => {
+  const base = await tempRoot();
+  const paths = pathsFor(join(base, "corrupt"));
+  await mkdir(paths.root);
+  await initStore(paths, NOW);
+  await writeFile(paths.meta, "{ truncated", "utf-8");
+
+  const insp = await inspectDataDir(paths);
+  expect(insp.state).toBe("store");
+  expect(await readMeta(paths)).toBeNull();
+  const summary = await storeSummary(paths);
+  expect(summary.schemaVersion).toBeNull();
+});
+
 test("moveStore copies, verifies, and refuses non-empty targets", async () => {
   const base = await tempRoot();
   const from = pathsFor(join(base, "src"));

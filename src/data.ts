@@ -30,10 +30,10 @@ export async function inspectDataDir(paths: DataPaths): Promise<DirInspection> {
       return { path: paths.root, state: "foreign", writable: false };
     }
     const meta = await readMeta(paths);
-    if (meta != null) {
+    const entries = (await readdir(paths.root)).filter((e) => !e.startsWith("."));
+    if (meta != null || entries.includes("meta.json")) {
       state = "store";
     } else {
-      const entries = (await readdir(paths.root)).filter((e) => !e.startsWith("."));
       const legacyStore =
         entries.length > 0 &&
         entries.every((e) => e === "workouts.jsonl" || e === "strokes" || e === "notes");
@@ -107,24 +107,6 @@ export async function storeSummary(paths: DataPaths): Promise<StoreSummary> {
   };
 }
 
-async function treeStats(dir: string): Promise<{ files: number; bytes: number }> {
-  let files = 0;
-  let bytes = 0;
-  const entries = await readdir(dir, { withFileTypes: true });
-  for (const e of entries) {
-    const full = join(dir, e.name);
-    if (e.isDirectory()) {
-      const sub = await treeStats(full);
-      files += sub.files;
-      bytes += sub.bytes;
-    } else {
-      files++;
-      bytes += (await stat(full)).size;
-    }
-  }
-  return { files, bytes };
-}
-
 export async function moveStore(
   from: DataPaths,
   to: DataPaths,
@@ -137,16 +119,39 @@ export async function moveStore(
     throw new Error(`target ${to.root} is not writable`);
   }
   await mkdir(to.root, { recursive: true });
-  const preExisting = await treeStats(to.root);
   await cp(from.root, to.root, { recursive: true });
-  const src = await treeStats(from.root);
-  const dst = await treeStats(to.root);
-  const copiedFiles = dst.files - preExisting.files;
-  const copiedBytes = dst.bytes - preExisting.bytes;
-  if (src.files !== copiedFiles || src.bytes !== copiedBytes) {
-    throw new Error(
-      `copy verification failed: source ${src.files} files/${src.bytes} bytes, copied ${copiedFiles} files/${copiedBytes} bytes`,
-    );
+  return verifyCopy(from.root, to.root);
+}
+
+async function verifyCopy(
+  fromDir: string,
+  toDir: string,
+): Promise<{ files: number; bytes: number }> {
+  let files = 0;
+  let bytes = 0;
+  for (const e of await readdir(fromDir, { withFileTypes: true })) {
+    const src = join(fromDir, e.name);
+    const dst = join(toDir, e.name);
+    if (e.isDirectory()) {
+      const sub = await verifyCopy(src, dst);
+      files += sub.files;
+      bytes += sub.bytes;
+    } else {
+      const srcStat = await stat(src);
+      let dstStat: Awaited<ReturnType<typeof stat>>;
+      try {
+        dstStat = await stat(dst);
+      } catch {
+        throw new Error(`copy verification failed: ${dst} is missing`);
+      }
+      if (dstStat.size !== srcStat.size) {
+        throw new Error(
+          `copy verification failed: ${dst} has ${dstStat.size} bytes, expected ${srcStat.size}`,
+        );
+      }
+      files++;
+      bytes += srcStat.size;
+    }
   }
-  return { files: copiedFiles, bytes: copiedBytes };
+  return { files, bytes };
 }

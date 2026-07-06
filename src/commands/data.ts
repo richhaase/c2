@@ -22,6 +22,12 @@ export function registerData(program: Command): void {
         console.error(`No data store at ${paths.root}. Run \`c2 setup\` or \`c2 sync\` first.`);
         process.exit(1);
       }
+      if (inspection.state === "foreign") {
+        console.error(
+          `${paths.root} exists but is not a c2 data store. Fix data_dir via \`c2 setup\`.`,
+        );
+        process.exit(1);
+      }
 
       const summary = await storeSummary(paths);
       const lastSync = summary.lastSync ?? cfg.sync.last_sync ?? null;
@@ -58,8 +64,8 @@ export function registerData(program: Command): void {
       const cfg = await loadConfig();
       const from = pathsFor(await canonicalRoot(cfg.data_dir));
       const source = await inspectDataDir(from);
-      if (source.state === "missing") {
-        console.error(`No data store at ${from.root}; nothing to move.`);
+      if (source.state !== "store") {
+        console.error(`${from.root} is not a c2 data store; nothing to move.`);
         process.exit(1);
       }
 

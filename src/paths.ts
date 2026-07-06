@@ -54,7 +54,9 @@ export async function canonicalRoot(p: string): Promise<string> {
       const real = await realpath(base);
       return rest.length > 0 ? join(real, ...rest) : real;
     } catch (err: unknown) {
-      if ((err as NodeJS.ErrnoException).code !== "ENOENT") return base;
+      if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
+        return rest.length > 0 ? join(base, ...rest) : base;
+      }
       rest.unshift(basename(base));
       const parent = dirname(base);
       if (parent === base) return resolve(expandTilde(p));

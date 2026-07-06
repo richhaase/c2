@@ -5,6 +5,22 @@ import { isAbsolute, join, sep } from "node:path";
 
 let home: string;
 
+function ymd(d: Date): string {
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}
+
+function daysFromNow(n: number): Date {
+  const d = new Date();
+  d.setDate(d.getDate() + n);
+  return d;
+}
+
+const RECENT = ymd(daysFromNow(-2));
+const OLDER = ymd(daysFromNow(-9));
+const FUTURE = ymd(daysFromNow(365));
+
 function run(
   args: string[],
   opts: { cwd?: string; home?: string } = {},
@@ -31,7 +47,11 @@ beforeAll(async () => {
     join(home, ".config", "c2", "config.json"),
     JSON.stringify({
       api: { base_url: "https://log.concept2.com", token: "tok" },
-      goal: { target_meters: 1_000_000, start_date: "2026-01-01", end_date: "2026-12-31" },
+      goal: {
+        target_meters: 1_000_000,
+        start_date: ymd(daysFromNow(-180)),
+        end_date: ymd(daysFromNow(180)),
+      },
     }),
     "utf-8",
   );
@@ -39,7 +59,7 @@ beforeAll(async () => {
     {
       id: 1,
       user_id: 1,
-      date: "2026-07-01 08:00:00",
+      date: `${RECENT} 08:00:00`,
       distance: 8000,
       type: "rower",
       time: 12000,
@@ -51,7 +71,7 @@ beforeAll(async () => {
     {
       id: 2,
       user_id: 1,
-      date: "2026-06-28 08:00:00",
+      date: `${OLDER} 08:00:00`,
       distance: 6000,
       type: "rower",
       time: 9000,
@@ -107,12 +127,16 @@ test("log human output shows comments", () => {
 });
 
 test("log date filters work and reject garbage", () => {
-  const filtered = run(["log", "--from", "2026-07-01", "--json"]);
+  const filtered = run(["log", "--from", RECENT, "--json"]);
   expect(JSON.parse(filtered.stdout).data.count).toBe(1);
 
   const bad = run(["log", "--from", "not-a-date"]);
   expect(bad.code).toBe(1);
   expect(bad.stderr).toContain("invalid --from date");
+
+  const none = run(["log", "--from", FUTURE]);
+  expect(none.code).toBe(0);
+  expect(none.stdout).toContain("No workouts match");
 });
 
 test("trend --json emits week summaries", () => {
@@ -134,12 +158,12 @@ test("export rejects invalid dates but allows empty ranges", () => {
   expect(rollover.code).toBe(1);
   expect(rollover.stderr).toContain("invalid --from date");
 
-  const empty = run(["export", "--from", "2030-01-01", "-f", "json"]);
+  const empty = run(["export", "--from", FUTURE, "-f", "json"]);
   expect(empty.code).toBe(0);
   expect(empty.stderr).toContain("No workouts match");
   expect(JSON.parse(empty.stdout)).toEqual([]);
 
-  const emptyCSV = run(["export", "--from", "2030-01-01"]);
+  const emptyCSV = run(["export", "--from", FUTURE]);
   expect(emptyCSV.code).toBe(0);
   expect(emptyCSV.stdout.trim().split("\n").length).toBe(1);
   expect(emptyCSV.stdout).toContain("id,date,distance");
@@ -151,7 +175,11 @@ test("--json emits envelopes even on an empty store", async () => {
   await writeFile(
     join(home2, ".config", "c2", "config.json"),
     JSON.stringify({
-      goal: { target_meters: 1_000_000, start_date: "2026-01-01", end_date: "2026-12-31" },
+      goal: {
+        target_meters: 1_000_000,
+        start_date: ymd(daysFromNow(-180)),
+        end_date: ymd(daysFromNow(180)),
+      },
     }),
     "utf-8",
   );
@@ -183,7 +211,7 @@ test("data info reports the store", () => {
   const parsed = JSON.parse(r.stdout);
   expect(parsed.schema).toBe("c2.data.info.v1");
   expect(parsed.data.workouts).toBe(2);
-  expect(parsed.data.first_date).toBe("2026-06-28");
+  expect(parsed.data.first_date).toBe(OLDER);
   expect(parsed.data.root).toBe(join(home, ".config", "c2", "data"));
 });
 
@@ -218,4 +246,24 @@ test("data move refuses targets nested in the store", () => {
   const r = run(["data", "move", join(home, "rel-store", "sub")]);
   expect(r.code).toBe(1);
   expect(r.stderr).toContain("inside the current data directory");
+});
+
+test("foreign data_dir gets clean errors, not raw failures", async () => {
+  const home3 = await mkdtemp(join(tmpdir(), "c2-cli-foreign-"));
+  await mkdir(join(home3, ".config", "c2"), { recursive: true });
+  const filePath = join(home3, "not-a-dir");
+  await writeFile(filePath, "regular file", "utf-8");
+  await writeFile(
+    join(home3, ".config", "c2", "config.json"),
+    JSON.stringify({ data_dir: filePath }),
+    "utf-8",
+  );
+
+  const info = run(["data", "info"], { home: home3 });
+  expect(info.code).toBe(1);
+  expect(info.stderr).toContain("not a c2 data store");
+
+  const move = run(["data", "move", join(home3, "elsewhere")], { home: home3 });
+  expect(move.code).toBe(1);
+  expect(move.stderr).toContain("not a c2 data store");
 });
