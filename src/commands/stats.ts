@@ -23,7 +23,8 @@ export interface GoalProjection {
 }
 
 export function projectGoal(goal: GoalProgress): GoalProjection {
-  const projected = Math.round(goal.currentAvgPace * goal.remainingWeeks + goal.totalMeters);
+  const remaining = Math.max(0, goal.totalWeeks - goal.weeksElapsed);
+  const projected = Math.round(goal.currentAvgPace * remaining + goal.totalMeters);
   return {
     projected_total_meters: projected,
     projected_pct: Math.round((projected / goal.target) * 1000) / 10,

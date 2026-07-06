@@ -203,6 +203,9 @@ test("show --json emits full detail envelope", () => {
   expect(parsed.data.split_shape).toBe("negative");
   expect(parsed.data.stroke_summary.samples).toBe(2);
   expect(parsed.data.target_pace_500m_seconds).toBe(150);
+  expect(parsed.data.raw.time).toBe(12000);
+  expect(parsed.data.raw.workout.targets.pace).toBe(1500);
+  expect(parsed.data.raw.workout.splits.length).toBe(2);
 });
 
 test("stats weekly/goal/splits/hr-pace emit versioned envelopes", () => {

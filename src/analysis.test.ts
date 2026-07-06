@@ -1,6 +1,8 @@
 import { expect, test } from "bun:test";
 import { hrAtPace, splitShape, splitTable, strokeSummary } from "./analysis.ts";
+import { projectGoal } from "./commands/stats.ts";
 import type { StrokeData, Workout, WorkoutSplit } from "./models.ts";
+import type { GoalProgress } from "./stats.ts";
 
 function split(timeTenths: number, distance: number, spm: number, hr: number): WorkoutSplit {
   return {
@@ -90,6 +92,35 @@ test("strokeSummary aggregates samples", () => {
   expect(s.avg_spm).toBe(25);
   expect(s.avg_hr).toBe(118);
   expect(s.max_hr).toBe(126);
+});
+
+function goalFixture(overrides: Partial<GoalProgress>): GoalProgress {
+  return {
+    target: 1_000_000,
+    totalMeters: 900_000,
+    progress: 0.9,
+    weeksElapsed: 26,
+    totalWeeks: 52,
+    remainingMeters: 100_000,
+    remainingWeeks: 26,
+    requiredPace: 3846,
+    currentAvgPace: 20_000,
+    onPace: true,
+    ...overrides,
+  };
+}
+
+test("projectGoal uses true remaining weeks", () => {
+  const active = projectGoal(goalFixture({}));
+  expect(active.projected_total_meters).toBe(900_000 + 26 * 20_000);
+  expect(active.shortfall_meters).toBe(0);
+});
+
+test("projectGoal adds nothing after the goal window ends", () => {
+  const expired = projectGoal(goalFixture({ weeksElapsed: 60, remainingWeeks: 1 }));
+  expect(expired.projected_total_meters).toBe(900_000);
+  expect(expired.projected_pct).toBe(90);
+  expect(expired.shortfall_meters).toBe(100_000);
 });
 
 function steadyWorkout(id: number, date: string, paceSecs: number, hr: number): Workout {

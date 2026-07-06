@@ -45,6 +45,7 @@ export function registerShow(program: Command): void {
       if (opts.json) {
         printJSON("c2.show.v1", {
           workout: workoutJSON(w),
+          raw: w,
           target_pace_500m_seconds: w.workout?.targets?.pace ? w.workout.targets.pace / 10 : null,
           splits,
           split_shape: shape,
@@ -73,6 +74,9 @@ export function registerShow(program: Command): void {
       }
       if (w.rest_time != null && w.rest_time > 0) {
         console.log(`Interval rest: ${formatSeconds(w.rest_time / 10)}`);
+      }
+      if (w.rest_distance != null && w.rest_distance > 0) {
+        console.log(`Interval rest distance: ${formatMeters(w.rest_distance)}m`);
       }
       if (w.workout?.targets?.pace) {
         console.log(`Target pace: ${formatSeconds(w.workout.targets.pace / 10)}/500m`);
