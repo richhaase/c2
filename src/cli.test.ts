@@ -255,7 +255,7 @@ test("foreign data_dir gets clean errors, not raw failures", async () => {
   await writeFile(filePath, "regular file", "utf-8");
   await writeFile(
     join(home3, ".config", "c2", "config.json"),
-    JSON.stringify({ data_dir: filePath }),
+    JSON.stringify({ data_dir: filePath, api: { token: "tok" } }),
     "utf-8",
   );
 
@@ -266,4 +266,17 @@ test("foreign data_dir gets clean errors, not raw failures", async () => {
   const move = run(["data", "move", join(home3, "elsewhere")], { home: home3 });
   expect(move.code).toBe(1);
   expect(move.stderr).toContain("not a c2 data store");
+
+  const sync = run(["sync"], { home: home3 });
+  expect(sync.code).toBe(1);
+  expect(sync.stderr).toContain("not a c2 data store");
+
+  await writeFile(
+    join(home3, ".config", "c2", "config.json"),
+    JSON.stringify({ data_dir: join(filePath, "nested"), api: { token: "tok" } }),
+    "utf-8",
+  );
+  const nested = run(["data", "info"], { home: home3 });
+  expect(nested.code).toBe(1);
+  expect(nested.stderr).toContain("not a c2 data store");
 });

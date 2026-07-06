@@ -1,5 +1,5 @@
 import { cp, mkdir, readdir, rm, stat, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { calendarDay } from "./models.ts";
 import type { DataPaths } from "./paths.ts";
 import { readMeta, readWorkouts, SCHEMA_VERSION, writeMeta } from "./storage.ts";
@@ -22,6 +22,15 @@ export interface StoreSummary {
   lastSync: string | null;
 }
 
+const STORE_MARKERS = new Set([
+  "workouts.jsonl",
+  "strokes",
+  "notes",
+  "reports",
+  "plan.md",
+  "playbook.md",
+]);
+
 export async function inspectDataDir(paths: DataPaths): Promise<DirInspection> {
   let state: DirState;
   try {
@@ -31,18 +40,21 @@ export async function inspectDataDir(paths: DataPaths): Promise<DirInspection> {
     }
     const meta = await readMeta(paths);
     const entries = (await readdir(paths.root)).filter((e) => !e.startsWith("."));
-    if (meta != null || entries.includes("meta.json")) {
+    if (meta != null && typeof meta.schema_version === "number") {
       state = "store";
+    } else if (entries.length === 0) {
+      state = "empty";
     } else {
-      const legacyStore =
-        entries.length > 0 &&
-        entries.every((e) => e === "workouts.jsonl" || e === "strokes" || e === "notes");
-      if (entries.length === 0) state = "empty";
-      else if (legacyStore) state = "store";
-      else state = "foreign";
+      const hasMarker = entries.some((e) => STORE_MARKERS.has(e));
+      const allKnown = entries.every((e) => STORE_MARKERS.has(e) || e === "meta.json");
+      state = hasMarker && allKnown ? "store" : "foreign";
     }
   } catch (err: unknown) {
-    if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === "ENOTDIR") {
+      return { path: paths.root, state: "foreign", writable: false };
+    }
+    if (code !== "ENOENT") throw err;
     return { path: paths.root, state: "missing", writable: await parentWritable(paths.root) };
   }
   return { path: paths.root, state, writable: await probeWritable(paths.root) };
@@ -119,7 +131,10 @@ export async function moveStore(
     throw new Error(`target ${to.root} is not writable`);
   }
   await mkdir(to.root, { recursive: true });
-  await cp(from.root, to.root, { recursive: true });
+  await cp(from.root, to.root, {
+    recursive: true,
+    filter: (src) => src === from.root || !basename(src).startsWith("."),
+  });
   return verifyCopy(from.root, to.root);
 }
 
@@ -130,6 +145,7 @@ async function verifyCopy(
   let files = 0;
   let bytes = 0;
   for (const e of await readdir(fromDir, { withFileTypes: true })) {
+    if (e.name.startsWith(".")) continue;
     const src = join(fromDir, e.name);
     const dst = join(toDir, e.name);
     if (e.isDirectory()) {

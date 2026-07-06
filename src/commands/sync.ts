@@ -1,7 +1,7 @@
 import type { Command } from "commander";
 import { C2Client } from "../api/client.ts";
 import { loadConfig } from "../config.ts";
-import { initStore } from "../data.ts";
+import { initStore, inspectDataDir } from "../data.ts";
 import type { Workout } from "../models.ts";
 import type { DataPaths } from "../paths.ts";
 import { dataPaths } from "../paths.ts";
@@ -55,6 +55,17 @@ export function registerSync(program: Command): void {
         process.exit(1);
       }
       const paths = dataPaths(cfg);
+      const inspection = await inspectDataDir(paths);
+      if (inspection.state === "foreign") {
+        console.error(
+          `${paths.root} exists but is not a c2 data store. Fix data_dir via \`c2 setup\`.`,
+        );
+        process.exit(1);
+      }
+      if (!inspection.writable) {
+        console.error(`Cannot write to ${paths.root}.`);
+        process.exit(1);
+      }
       const now = new Date();
       await initStore(paths, now);
 

@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { mkdir, mkdtemp, readdir, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { initStore, inspectDataDir, moveStore, storeSummary } from "./data.ts";
@@ -128,21 +128,54 @@ async function treeStatsPublic(dir: string): Promise<{ files: number }> {
   return { files };
 }
 
-test("moveStore survives same-named collisions with pre-existing target files", async () => {
+test("moveStore never copies dotfiles and preserves target VCS metadata", async () => {
   const base = await tempRoot();
   const from = pathsFor(join(base, "src"));
   await mkdir(from.root);
   await initStore(from, NOW);
   await writeFile(from.workouts, `${WORKOUT_LINE}\n`, "utf-8");
   await writeFile(join(from.root, ".DS_Store"), "source junk", "utf-8");
+  await mkdir(join(from.root, ".git"));
+  await writeFile(join(from.root, ".git", "HEAD"), "ref: refs/heads/source\n", "utf-8");
 
   const to = pathsFor(join(base, "synced"));
-  await mkdir(to.root);
+  await mkdir(join(to.root, ".git"), { recursive: true });
+  await writeFile(join(to.root, ".git", "HEAD"), "ref: refs/heads/target\n", "utf-8");
   await writeFile(join(to.root, ".DS_Store"), "different pre-existing junk!", "utf-8");
 
   const copied = await moveStore(from, to);
-  expect(copied.files).toBeGreaterThanOrEqual(3);
+  expect(copied.files).toBeGreaterThanOrEqual(2);
   expect((await readWorkouts(to)).length).toBe(1);
+  expect(await readFile(join(to.root, ".git", "HEAD"), "utf-8")).toBe("ref: refs/heads/target\n");
+  expect(await readFile(join(to.root, ".DS_Store"), "utf-8")).toBe("different pre-existing junk!");
+});
+
+test("a directory with only a foreign meta.json is not adopted", async () => {
+  const base = await tempRoot();
+  const paths = pathsFor(join(base, "other-tool"));
+  await mkdir(paths.root);
+  await writeFile(paths.meta, JSON.stringify({ name: "some other tool" }), "utf-8");
+  expect((await inspectDataDir(paths)).state).toBe("foreign");
+});
+
+test("a store missing meta.json but with current-layout dirs is recognized", async () => {
+  const base = await tempRoot();
+  const paths = pathsFor(join(base, "meta-lost"));
+  await mkdir(join(paths.root, "strokes"), { recursive: true });
+  await mkdir(join(paths.root, "reports"), { recursive: true });
+  await writeFile(paths.workouts, `${WORKOUT_LINE}\n`, "utf-8");
+  await writeFile(paths.plan, "# plan\n", "utf-8");
+  expect((await inspectDataDir(paths)).state).toBe("store");
+});
+
+test("a file in the path yields foreign, not a raw ENOTDIR", async () => {
+  const base = await tempRoot();
+  const filePath = join(base, "regular-file");
+  await writeFile(filePath, "hi", "utf-8");
+  const nested = pathsFor(join(filePath, "sub"));
+  const insp = await inspectDataDir(nested);
+  expect(insp.state).toBe("foreign");
+  expect(insp.writable).toBe(false);
 });
 
 test("corrupt meta.json is tolerated, not fatal", async () => {
