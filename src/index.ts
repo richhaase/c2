@@ -7,6 +7,8 @@ import { registerExport } from "./commands/export.ts";
 import { registerLog } from "./commands/log.ts";
 import { registerReport } from "./commands/report.ts";
 import { registerSetup } from "./commands/setup.ts";
+import { registerShow } from "./commands/show.ts";
+import { registerStats } from "./commands/stats.ts";
 import { registerStatus } from "./commands/status.ts";
 import { registerSync } from "./commands/sync.ts";
 import { registerTrend } from "./commands/trend.ts";
@@ -24,6 +26,8 @@ registerTrend(program);
 registerExport(program);
 registerReport(program);
 registerData(program);
+registerShow(program);
+registerStats(program);
 
 if (process.argv.length <= 2) {
   program.outputHelp();

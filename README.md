@@ -134,9 +134,25 @@ The CSV export includes `workout_type`, `rest_time_tenths`, and
 `rest_distance` columns so interval workouts are fully distinguishable from
 continuous pieces without having to consult the full JSON export.
 
+### Workout Detail & Derived Stats
+
+```bash
+# Full detail for one workout: splits, stroke summary, comments
+c2 show last
+c2 show 118212501
+
+# Derived analytics (the arithmetic, so coaches only interpret)
+c2 stats weekly -w 12     # volume/pace/SPM/HR per week
+c2 stats goal             # trajectory + projection
+c2 stats splits last      # per-split pace/HR + shape (even/negative/positive)
+c2 stats hr-pace -w 8     # avg HR by steady pace band, with early→late drift
+```
+
+All of these accept `--json`.
+
 ### Machine-Readable Output
 
-`log`, `status`, `trend`, and `data info` accept `--json` and emit a stable
+`log`, `status`, `trend`, `show`, `stats`, and `data info` accept `--json` and emit a stable
 versioned envelope for scripts and AI agents:
 
 ```json

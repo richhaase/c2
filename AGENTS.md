@@ -33,6 +33,7 @@ src/
 ├── storage.ts            # JSONL read/write + store meta.json
 ├── data.ts               # Store inspect/init/summary/move
 ├── envelope.ts           # Versioned JSON output envelope
+├── analysis.ts           # Split/stroke/HR-at-pace analysis
 ├── display.ts            # Formatting helpers
 ├── sessions.ts           # Session grouping (same-day merge)
 ├── stats.ts              # Weekly summaries + goal progress
@@ -46,7 +47,9 @@ src/
 │   ├── trend.ts
 │   ├── export.ts
 │   ├── report.ts
-│   └── data.ts
+│   ├── data.ts
+│   ├── show.ts
+│   └── stats.ts
 └── *.test.ts             # Colocated tests
 ```
 
