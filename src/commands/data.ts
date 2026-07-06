@@ -28,9 +28,16 @@ export function registerData(program: Command): void {
         );
         process.exit(1);
       }
+      if (inspection.state === "empty") {
+        console.error(
+          `${paths.root} is an empty directory, not yet a data store. Run \`c2 sync\` to initialize it.`,
+        );
+        process.exit(1);
+      }
 
       const summary = await storeSummary(paths);
-      const lastSync = summary.lastSync ?? cfg.sync.last_sync ?? null;
+      const legacyStore = summary.schemaVersion == null && summary.workouts > 0;
+      const lastSync = summary.lastSync ?? (legacyStore ? (cfg.sync.last_sync ?? null) : null);
       if (opts.json) {
         printJSON("c2.data.info.v1", {
           root: paths.root,
@@ -79,18 +86,27 @@ export function registerData(program: Command): void {
         process.exit(1);
       }
 
+      let copied: { files: number; bytes: number };
       try {
-        const copied = await moveStore(from, to);
-        cfg.data_dir = to.root;
-        await saveConfig(cfg);
-        console.log(
-          `Copied ${copied.files} files (${formatMeters(copied.bytes)} bytes) to ${to.root}`,
-        );
-        console.log(`Config updated: data_dir = ${to.root}`);
-        console.log(`Old data left at ${from.root} — remove it manually once satisfied.`);
+        copied = await moveStore(from, to);
       } catch (err) {
         console.error(`Error: ${(err as Error).message}`);
         process.exit(1);
       }
+      try {
+        cfg.data_dir = to.root;
+        await saveConfig(cfg);
+      } catch (err) {
+        console.error(`Error: copy completed but config update failed: ${(err as Error).message}`);
+        console.error(
+          `Set data_dir to ${to.root} in ~/.config/c2/config.json manually, or remove ${to.root} and retry.`,
+        );
+        process.exit(1);
+      }
+      console.log(
+        `Copied ${copied.files} files (${formatMeters(copied.bytes)} bytes) to ${to.root}`,
+      );
+      console.log(`Config updated: data_dir = ${to.root}`);
+      console.log(`Old data left at ${from.root} — remove it manually once satisfied.`);
     });
 }

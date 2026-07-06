@@ -34,8 +34,12 @@ export async function loadConfig(): Promise<Config> {
   try {
     const text = await readFile(path, "utf-8");
     const parsed = JSON.parse(text) as Partial<Config>;
+    const dataDir =
+      typeof parsed.data_dir === "string" && parsed.data_dir.trim() !== ""
+        ? parsed.data_dir
+        : defaults.data_dir;
     return {
-      data_dir: parsed.data_dir ?? defaults.data_dir,
+      data_dir: dataDir,
       api: { ...defaults.api, ...parsed.api },
       sync: { ...defaults.sync, ...parsed.sync },
       goal: { ...defaults.goal, ...parsed.goal },

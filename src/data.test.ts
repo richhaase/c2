@@ -150,6 +150,19 @@ test("moveStore never copies dotfiles and preserves target VCS metadata", async 
   expect(await readFile(join(to.root, ".DS_Store"), "utf-8")).toBe("different pre-existing junk!");
 });
 
+test("generic folder names alone are not adopted as stores", async () => {
+  const base = await tempRoot();
+
+  const notesOnly = pathsFor(join(base, "notes-only"));
+  await mkdir(join(notesOnly.root, "notes"), { recursive: true });
+  expect((await inspectDataDir(notesOnly)).state).toBe("foreign");
+
+  const planOnly = pathsFor(join(base, "plan-only"));
+  await mkdir(planOnly.root);
+  await writeFile(planOnly.plan, "# someone else's plan\n", "utf-8");
+  expect((await inspectDataDir(planOnly)).state).toBe("foreign");
+});
+
 test("a directory with only a foreign meta.json is not adopted", async () => {
   const base = await tempRoot();
   const paths = pathsFor(join(base, "other-tool"));

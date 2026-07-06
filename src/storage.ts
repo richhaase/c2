@@ -18,7 +18,8 @@ export async function readWorkouts(paths: DataPaths): Promise<Workout[]> {
       .filter((line) => line.trim() !== "")
       .map((line) => JSON.parse(line) as Workout);
   } catch (err: unknown) {
-    if ((err as NodeJS.ErrnoException).code === "ENOENT") return [];
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === "ENOENT" || code === "ENOTDIR") return [];
     throw err;
   }
 }
@@ -40,7 +41,8 @@ export async function workoutCount(paths: DataPaths): Promise<number> {
     const text = await readFile(paths.workouts, "utf-8");
     return text.split("\n").filter((line) => line.trim() !== "").length;
   } catch (err: unknown) {
-    if ((err as NodeJS.ErrnoException).code === "ENOENT") return 0;
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === "ENOENT" || code === "ENOTDIR") return 0;
     throw err;
   }
 }
@@ -50,7 +52,8 @@ export async function hasStrokeData(paths: DataPaths, workoutId: number): Promis
     await stat(paths.strokeFile(workoutId));
     return true;
   } catch (err: unknown) {
-    if ((err as NodeJS.ErrnoException).code === "ENOENT") return false;
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === "ENOENT" || code === "ENOTDIR") return false;
     throw err;
   }
 }
@@ -72,7 +75,8 @@ export async function readStrokeData(paths: DataPaths, workoutId: number): Promi
       .filter((line) => line.trim() !== "")
       .map((line) => JSON.parse(line) as StrokeData);
   } catch (err: unknown) {
-    if ((err as NodeJS.ErrnoException).code === "ENOENT") return [];
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === "ENOENT" || code === "ENOTDIR") return [];
     throw err;
   }
 }
@@ -82,7 +86,8 @@ export async function readMeta(paths: DataPaths): Promise<StoreMeta | null> {
   try {
     text = await readFile(paths.meta, "utf-8");
   } catch (err: unknown) {
-    if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === "ENOENT" || code === "ENOTDIR") return null;
     throw err;
   }
   try {

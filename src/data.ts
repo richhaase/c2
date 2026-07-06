@@ -45,9 +45,9 @@ export async function inspectDataDir(paths: DataPaths): Promise<DirInspection> {
     } else if (entries.length === 0) {
       state = "empty";
     } else {
-      const hasMarker = entries.some((e) => STORE_MARKERS.has(e));
+      const hasStrongMarker = entries.includes("workouts.jsonl") || entries.includes("strokes");
       const allKnown = entries.every((e) => STORE_MARKERS.has(e) || e === "meta.json");
-      state = hasMarker && allKnown ? "store" : "foreign";
+      state = hasStrongMarker && allKnown ? "store" : "foreign";
     }
   } catch (err: unknown) {
     const code = (err as NodeJS.ErrnoException).code;
@@ -96,17 +96,23 @@ export async function initStore(paths: DataPaths, now: Date): Promise<void> {
   }
 }
 
+async function listIfPresent(dir: string): Promise<string[]> {
+  try {
+    return await readdir(dir);
+  } catch (err: unknown) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === "ENOENT" || code === "ENOTDIR") return [];
+    throw err;
+  }
+}
+
 export async function storeSummary(paths: DataPaths): Promise<StoreSummary> {
   const workouts = await readWorkouts(paths);
   const days = workouts.map(calendarDay).sort();
-  let strokeFiles = 0;
-  try {
-    strokeFiles = (await readdir(paths.strokesDir)).filter((f) => f.endsWith(".jsonl")).length;
-  } catch {}
-  let notes = 0;
-  try {
-    notes = (await readdir(paths.notesDir)).filter((f) => f.endsWith(".json")).length;
-  } catch {}
+  const strokeFiles = (await listIfPresent(paths.strokesDir)).filter((f) =>
+    f.endsWith(".jsonl"),
+  ).length;
+  const notes = (await listIfPresent(paths.notesDir)).filter((f) => f.endsWith(".json")).length;
   const meta = await readMeta(paths);
   return {
     workouts: workouts.length,

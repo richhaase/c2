@@ -279,4 +279,28 @@ test("foreign data_dir gets clean errors, not raw failures", async () => {
   const nested = run(["data", "info"], { home: home3 });
   expect(nested.code).toBe(1);
   expect(nested.stderr).toContain("not a c2 data store");
+
+  const readThrough = run(["log"], { home: home3 });
+  expect(readThrough.code).toBe(0);
+  expect(readThrough.stdout).toContain("No workouts found");
+
+  const emptyDir = join(home3, "empty-dir");
+  await mkdir(emptyDir);
+  await writeFile(
+    join(home3, ".config", "c2", "config.json"),
+    JSON.stringify({ data_dir: emptyDir, api: { token: "tok" } }),
+    "utf-8",
+  );
+  const emptyInfo = run(["data", "info"], { home: home3 });
+  expect(emptyInfo.code).toBe(1);
+  expect(emptyInfo.stderr).toContain("empty directory");
+
+  await writeFile(
+    join(home3, ".config", "c2", "config.json"),
+    JSON.stringify({ data_dir: 123, api: { token: "tok" } }),
+    "utf-8",
+  );
+  const badType = run(["data", "info"], { home: home3 });
+  expect(badType.code).toBe(1);
+  expect(badType.stderr).toContain(join(".config", "c2", "data"));
 });
