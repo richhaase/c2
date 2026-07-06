@@ -1,14 +1,18 @@
 import { beforeAll, expect, test } from "bun:test";
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { isAbsolute, join, sep } from "node:path";
 
 let home: string;
 
-function run(args: string[]): { code: number; stdout: string; stderr: string } {
+function run(
+  args: string[],
+  opts: { cwd?: string; home?: string } = {},
+): { code: number; stdout: string; stderr: string } {
   const proc = Bun.spawnSync({
     cmd: ["bun", join(import.meta.dir, "index.ts"), ...args],
-    env: { ...process.env, HOME: home },
+    env: { ...process.env, HOME: opts.home ?? home },
+    cwd: opts.cwd,
     stdout: "pipe",
     stderr: "pipe",
   });
@@ -126,9 +130,43 @@ test("export rejects invalid dates but allows empty ranges", () => {
   expect(bad.code).toBe(1);
   expect(bad.stderr).toContain("invalid --from date");
 
-  const empty = run(["export", "--from", "2030-01-01"]);
+  const rollover = run(["export", "--from", "2026-02-31"]);
+  expect(rollover.code).toBe(1);
+  expect(rollover.stderr).toContain("invalid --from date");
+
+  const empty = run(["export", "--from", "2030-01-01", "-f", "json"]);
   expect(empty.code).toBe(0);
   expect(empty.stderr).toContain("No workouts match");
+  expect(JSON.parse(empty.stdout)).toEqual([]);
+
+  const emptyCSV = run(["export", "--from", "2030-01-01"]);
+  expect(emptyCSV.code).toBe(0);
+  expect(emptyCSV.stdout.trim().split("\n").length).toBe(1);
+  expect(emptyCSV.stdout).toContain("id,date,distance");
+});
+
+test("--json emits envelopes even on an empty store", async () => {
+  const home2 = await mkdtemp(join(tmpdir(), "c2-cli-empty-"));
+  await mkdir(join(home2, ".config", "c2", "data", "strokes"), { recursive: true });
+  await writeFile(
+    join(home2, ".config", "c2", "config.json"),
+    JSON.stringify({
+      goal: { target_meters: 1_000_000, start_date: "2026-01-01", end_date: "2026-12-31" },
+    }),
+    "utf-8",
+  );
+
+  const status = run(["status", "--json"], { home: home2 });
+  expect(status.code).toBe(0);
+  const statusParsed = JSON.parse(status.stdout);
+  expect(statusParsed.schema).toBe("c2.status.v1");
+  expect(statusParsed.data.goal.totalMeters).toBe(0);
+
+  const log = run(["log", "--json"], { home: home2 });
+  expect(JSON.parse(log.stdout).data.count).toBe(0);
+
+  const trend = run(["trend", "--json", "-w", "2"], { home: home2 });
+  expect(JSON.parse(trend.stdout).data.weeks.length).toBe(2);
 });
 
 test("export json remains a raw array for legacy consumers", () => {
@@ -157,9 +195,27 @@ test("data move relocates the store and updates config", async () => {
 
   const info = run(["data", "info", "--json"]);
   const parsed = JSON.parse(info.stdout);
-  expect(parsed.data.root).toBe(target);
+  expect(parsed.data.root.endsWith(`${sep}kb-data`)).toBe(true);
   expect(parsed.data.workouts).toBe(2);
 
   const back = run(["log", "--json"]);
   expect(JSON.parse(back.stdout).data.count).toBe(2);
+});
+
+test("data move persists an absolute path for relative targets", async () => {
+  const r = run(["data", "move", "rel-store"], { cwd: home });
+  expect(r.code).toBe(0);
+
+  const cfg = JSON.parse(await readFile(join(home, ".config", "c2", "config.json"), "utf-8"));
+  expect(isAbsolute(cfg.data_dir)).toBe(true);
+  expect(cfg.data_dir.endsWith(`${sep}rel-store`)).toBe(true);
+
+  const elsewhere = run(["log", "--json"], { cwd: tmpdir() });
+  expect(JSON.parse(elsewhere.stdout).data.count).toBe(2);
+});
+
+test("data move refuses targets nested in the store", () => {
+  const r = run(["data", "move", join(home, "rel-store", "sub")]);
+  expect(r.code).toBe(1);
+  expect(r.stderr).toContain("inside the current data directory");
 });

@@ -115,7 +115,6 @@ export function registerExport(program: Command): void {
       workouts = filterByDate(workouts, opts.from ?? "", opts.to ?? "");
       if (workouts.length === 0) {
         console.error("No workouts match the specified date range.");
-        return;
       }
 
       workouts.sort((a, b) => a.date.localeCompare(b.date));

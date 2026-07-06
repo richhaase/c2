@@ -1,5 +1,5 @@
 import { cp, mkdir, readdir, rm, stat, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { calendarDay } from "./models.ts";
 import type { DataPaths } from "./paths.ts";
 import { readMeta, readWorkouts, SCHEMA_VERSION, writeMeta } from "./storage.ts";
@@ -49,12 +49,17 @@ export async function inspectDataDir(paths: DataPaths): Promise<DirInspection> {
 }
 
 async function parentWritable(path: string): Promise<boolean> {
-  const parent = join(path, "..");
-  try {
-    await stat(parent);
-    return probeWritable(parent);
-  } catch {
-    return false;
+  let current = path;
+  for (;;) {
+    const parent = dirname(current);
+    if (parent === current) return false;
+    try {
+      await stat(parent);
+      return probeWritable(parent);
+    } catch (err: unknown) {
+      if ((err as NodeJS.ErrnoException).code !== "ENOENT") return false;
+      current = parent;
+    }
   }
 }
 
@@ -132,13 +137,16 @@ export async function moveStore(
     throw new Error(`target ${to.root} is not writable`);
   }
   await mkdir(to.root, { recursive: true });
+  const preExisting = await treeStats(to.root);
   await cp(from.root, to.root, { recursive: true });
   const src = await treeStats(from.root);
   const dst = await treeStats(to.root);
-  if (src.files !== dst.files || src.bytes !== dst.bytes) {
+  const copiedFiles = dst.files - preExisting.files;
+  const copiedBytes = dst.bytes - preExisting.bytes;
+  if (src.files !== copiedFiles || src.bytes !== copiedBytes) {
     throw new Error(
-      `copy verification failed: source ${src.files} files/${src.bytes} bytes, target ${dst.files} files/${dst.bytes} bytes`,
+      `copy verification failed: source ${src.files} files/${src.bytes} bytes, copied ${copiedFiles} files/${copiedBytes} bytes`,
     );
   }
-  return dst;
+  return { files: copiedFiles, bytes: copiedBytes };
 }

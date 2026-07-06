@@ -113,6 +113,13 @@ export function formatSeconds(totalSeconds: number): string {
 }
 
 export function isValidYMD(s: string): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
-  return !Number.isNaN(new Date(`${s}T00:00:00`).getTime());
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+  if (!m) return false;
+  const d = new Date(`${s}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return false;
+  return (
+    d.getFullYear() === Number(m[1]) &&
+    d.getMonth() + 1 === Number(m[2]) &&
+    d.getDate() === Number(m[3])
+  );
 }

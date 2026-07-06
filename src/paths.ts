@@ -1,5 +1,6 @@
+import { realpath } from "node:fs/promises";
 import { homedir } from "node:os";
-import { join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import type { Config } from "./config.ts";
 
 export interface DataPaths {
@@ -43,4 +44,21 @@ export function pathsFor(root: string): DataPaths {
 
 export function dataPaths(cfg: Config): DataPaths {
   return pathsFor(cfg.data_dir);
+}
+
+export async function canonicalRoot(p: string): Promise<string> {
+  let base = resolve(expandTilde(p));
+  const rest: string[] = [];
+  for (;;) {
+    try {
+      const real = await realpath(base);
+      return rest.length > 0 ? join(real, ...rest) : real;
+    } catch (err: unknown) {
+      if ((err as NodeJS.ErrnoException).code !== "ENOENT") return base;
+      rest.unshift(basename(base));
+      const parent = dirname(base);
+      if (parent === base) return resolve(expandTilde(p));
+      base = parent;
+    }
+  }
 }

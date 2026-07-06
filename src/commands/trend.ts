@@ -94,10 +94,6 @@ export function registerTrend(program: Command): void {
     .action(async (opts: { weeks: string; json?: boolean }) => {
       const cfg = await loadConfig();
       const workouts = await readWorkouts(dataPaths(cfg));
-      if (workouts.length === 0) {
-        console.log("No workouts found. Run `c2 sync` first.");
-        return;
-      }
 
       const weeks = parseInt(opts.weeks, 10);
       if (Number.isNaN(weeks) || weeks < 1) {
@@ -108,6 +104,11 @@ export function registerTrend(program: Command): void {
 
       if (opts.json) {
         printJSON("c2.trend.v1", { weeks: summaries.map(weekSummaryData) });
+        return;
+      }
+
+      if (workouts.length === 0) {
+        console.log("No workouts found. Run `c2 sync` first.");
         return;
       }
 

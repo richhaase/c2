@@ -11,7 +11,7 @@ import {
 } from "../config.ts";
 import { initStore, inspectDataDir, storeSummary } from "../data.ts";
 import { formatMeters } from "../display.ts";
-import { pathsFor } from "../paths.ts";
+import { canonicalRoot, pathsFor } from "../paths.ts";
 
 function maskToken(token: string): string {
   if (token.length <= 4) return token;
@@ -75,7 +75,7 @@ async function chooseDataDir(current: string): Promise<string> {
   }
 
   await initStore(paths, new Date());
-  return input;
+  return canonicalRoot(paths.root);
 }
 
 export function registerSetup(program: Command): void {

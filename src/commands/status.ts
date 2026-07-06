@@ -19,14 +19,15 @@ export function registerStatus(program: Command): void {
       }
       const paths = dataPaths(cfg);
       const workouts = await readWorkouts(paths);
-      if (workouts.length === 0) {
-        console.log("No workouts found. Run `c2 sync` first.");
-        return;
-      }
       const now = new Date();
       const goal = computeGoalProgress(workouts, cfg, now);
       const weeks = recentWeeks(workouts, now, 4);
       const thisWeek = weeks[0]!;
+
+      if (!opts.json && workouts.length === 0) {
+        console.log("No workouts found. Run `c2 sync` first.");
+        return;
+      }
 
       if (opts.json) {
         printJSON("c2.status.v1", {

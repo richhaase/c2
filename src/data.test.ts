@@ -85,6 +85,49 @@ test("storeSummary counts contents", async () => {
   expect(summary.schemaVersion).toBe(1);
 });
 
+test("missing nested paths are creatable, not rejected", async () => {
+  const base = await tempRoot();
+  const nested = pathsFor(join(base, "a", "b", "c"));
+  const insp = await inspectDataDir(nested);
+  expect(insp.state).toBe("missing");
+  expect(insp.writable).toBe(true);
+
+  await initStore(nested, NOW);
+  expect((await inspectDataDir(nested)).state).toBe("store");
+});
+
+test("moveStore tolerates pre-existing dotfiles in the target", async () => {
+  const base = await tempRoot();
+  const from = pathsFor(join(base, "src"));
+  await mkdir(from.root);
+  await initStore(from, NOW);
+  await writeFile(from.workouts, `${WORKOUT_LINE}\n`, "utf-8");
+
+  const to = pathsFor(join(base, "gitrepo"));
+  await mkdir(join(to.root, ".git"), { recursive: true });
+  await writeFile(join(to.root, ".git", "HEAD"), "ref: refs/heads/main\n", "utf-8");
+  await writeFile(join(to.root, ".DS_Store"), "junk", "utf-8");
+
+  const src = await treeStatsPublic(from.root);
+  const copied = await moveStore(from, to);
+  expect(copied.files).toBe(src.files);
+  expect((await readWorkouts(to)).length).toBe(1);
+});
+
+async function treeStatsPublic(dir: string): Promise<{ files: number }> {
+  const { readdir: rd, stat: st } = await import("node:fs/promises");
+  let files = 0;
+  for (const e of await rd(dir, { withFileTypes: true })) {
+    const full = join(dir, e.name);
+    if (e.isDirectory()) files += (await treeStatsPublic(full)).files;
+    else {
+      await st(full);
+      files++;
+    }
+  }
+  return { files };
+}
+
 test("moveStore copies, verifies, and refuses non-empty targets", async () => {
   const base = await tempRoot();
   const from = pathsFor(join(base, "src"));

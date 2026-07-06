@@ -1,9 +1,10 @@
+import { sep } from "node:path";
 import type { Command } from "commander";
 import { loadConfig, saveConfig } from "../config.ts";
 import { inspectDataDir, moveStore, storeSummary } from "../data.ts";
 import { formatMeters } from "../display.ts";
 import { printJSON } from "../envelope.ts";
-import { dataPaths, pathsFor } from "../paths.ts";
+import { canonicalRoot, dataPaths, pathsFor } from "../paths.ts";
 
 export function registerData(program: Command): void {
   const data = program.command("data").description("Manage the c2 data store");
@@ -55,27 +56,31 @@ export function registerData(program: Command): void {
     .description("Relocate the data store and update config")
     .action(async (dir: string) => {
       const cfg = await loadConfig();
-      const from = dataPaths(cfg);
+      const from = pathsFor(await canonicalRoot(cfg.data_dir));
       const source = await inspectDataDir(from);
       if (source.state === "missing") {
         console.error(`No data store at ${from.root}; nothing to move.`);
         process.exit(1);
       }
 
-      const to = pathsFor(dir);
+      const to = pathsFor(await canonicalRoot(dir));
       if (to.root === from.root) {
         console.error("Target is the current data directory.");
+        process.exit(1);
+      }
+      if (to.root.startsWith(from.root + sep) || from.root.startsWith(to.root + sep)) {
+        console.error("Target must not be inside the current data directory (or contain it).");
         process.exit(1);
       }
 
       try {
         const copied = await moveStore(from, to);
-        cfg.data_dir = dir;
+        cfg.data_dir = to.root;
         await saveConfig(cfg);
         console.log(
           `Copied ${copied.files} files (${formatMeters(copied.bytes)} bytes) to ${to.root}`,
         );
-        console.log(`Config updated: data_dir = ${dir}`);
+        console.log(`Config updated: data_dir = ${to.root}`);
         console.log(`Old data left at ${from.root} — remove it manually once satisfied.`);
       } catch (err) {
         console.error(`Error: ${(err as Error).message}`);

@@ -35,18 +35,18 @@ export function registerLog(program: Command): void {
         process.exit(1);
       }
 
-      let workouts = await readWorkouts(paths);
-      if (workouts.length === 0) {
-        console.log("No workouts found. Run `c2 sync` first.");
-        return;
-      }
-
-      workouts = filterByDate(workouts, opts.from ?? "", opts.to ?? "");
+      const all = await readWorkouts(paths);
+      const workouts = filterByDate(all, opts.from ?? "", opts.to ?? "");
       workouts.sort((a, b) => b.date.localeCompare(a.date));
       const shown = workouts.slice(0, Math.min(count, workouts.length));
 
       if (opts.json) {
         printJSON("c2.log.v1", { count: shown.length, workouts: shown.map(workoutJSON) });
+        return;
+      }
+
+      if (all.length === 0) {
+        console.log("No workouts found. Run `c2 sync` first.");
         return;
       }
 
