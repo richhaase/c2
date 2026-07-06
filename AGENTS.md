@@ -34,6 +34,8 @@ src/
 ├── data.ts               # Store inspect/init/summary/move
 ├── envelope.ts           # Versioned JSON output envelope
 ├── analysis.ts           # Split/stroke/HR-at-pace analysis
+├── notes.ts              # Coaching notes: ULID ids, per-file hot set, yearly archives
+├── doctor.ts             # Store validation checks
 ├── display.ts            # Formatting helpers
 ├── sessions.ts           # Session grouping (same-day merge)
 ├── stats.ts              # Weekly summaries + goal progress
@@ -49,7 +51,9 @@ src/
 │   ├── report.ts
 │   ├── data.ts
 │   ├── show.ts
-│   └── stats.ts
+│   ├── stats.ts
+│   ├── note.ts
+│   └── docs.ts           # plan / playbook / narrative documents
 └── *.test.ts             # Colocated tests
 ```
 
@@ -66,3 +70,6 @@ src/
 - Machine-readable output via `--json` with versioned envelopes (`c2.<command>.v1`); `export -f json` stays a raw array for legacy consumers
 - Bare `c2` prints help; unknown commands are errors (no default command)
 - Store state (`meta.json`: schema_version, last_sync) lives in the data dir, not config
+- Coaching notes: one JSON file per note (sync-conflict-safe) for the last 7 days, then deterministic compaction into `notes/archive/<year>.jsonl`; reads union both and dedup by id
+- Note dates use local-offset ISO timestamps so calendar days display correctly
+- plan.md / playbook.md / reports/<date>.md are whole-file managed documents

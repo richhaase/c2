@@ -1,5 +1,5 @@
 import { beforeAll, expect, test } from "bun:test";
-import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { isAbsolute, join, sep } from "node:path";
 
@@ -241,6 +241,114 @@ test("stats splits handles workouts without split data", () => {
   const r = run(["stats", "splits", "2"]);
   expect(r.code).toBe(0);
   expect(r.stdout).toContain("no split data");
+});
+
+test("note add/list/show round-trip through the CLI", () => {
+  const added = run([
+    "note",
+    "add",
+    "--type",
+    "subjective",
+    "--workout",
+    "last",
+    "--tags",
+    "hr,ramp",
+    "felt slow early, opened up late",
+  ]);
+  expect(added.code).toBe(0);
+  const noteId = added.stdout.trim();
+  expect(noteId.length).toBe(26);
+
+  const list = run(["note", "list", "--json"]);
+  const parsed = JSON.parse(list.stdout);
+  expect(parsed.schema).toBe("c2.notes.v1");
+  expect(parsed.data.count).toBe(1);
+  expect(parsed.data.notes[0].workout_id).toBe(1);
+  expect(parsed.data.notes[0].tags).toEqual(["hr", "ramp"]);
+
+  const shown = run(["note", "show", noteId]);
+  expect(shown.code).toBe(0);
+  expect(shown.stdout).toContain("felt slow early");
+
+  const filtered = run(["note", "list", "--type", "lesson"]);
+  expect(filtered.stdout).toContain("No notes found");
+
+  const badType = run(["note", "add", "--type", "vibes", "x"]);
+  expect(badType.code).toBe(1);
+  expect(badType.stderr).toContain("--type must be one of");
+});
+
+test("note add links into show output", () => {
+  const shown = run(["show", "1"]);
+  expect(shown.stdout).toContain("Notes:");
+  expect(shown.stdout).toContain("felt slow early");
+
+  const json = run(["show", "1", "--json"]);
+  expect(JSON.parse(json.stdout).data.notes.length).toBe(1);
+});
+
+test("backdated notes and compaction via data compact", async () => {
+  const old = run([
+    "note",
+    "add",
+    "--date",
+    ymd(daysFromNow(-30)),
+    "--type",
+    "lesson",
+    "--author",
+    "coach",
+    "old lesson to archive",
+  ]);
+  expect(old.code).toBe(0);
+
+  const compact = run(["data", "compact"]);
+  expect(compact.code).toBe(0);
+  expect(compact.stdout).toContain("Compacted 1 note");
+
+  const list = run(["note", "list", "--json"]);
+  expect(JSON.parse(list.stdout).data.count).toBe(2);
+
+  const again = run(["data", "compact"]);
+  expect(again.stdout).toContain("Nothing to compact");
+
+  const doctor = run(["data", "doctor"]);
+  expect(doctor.code).toBe(0);
+  expect(doctor.stdout).toContain("no problems found");
+});
+
+test("plan, playbook, and narrative round-trip", async () => {
+  const planFile = join(home, "plan-src.md");
+  await writeFile(planFile, "# Plan\nEvery other day, 6K.\n", "utf-8");
+  expect(run(["plan", "set", planFile]).code).toBe(0);
+  const plan = run(["plan", "show"]);
+  expect(plan.code).toBe(0);
+  expect(plan.stdout).toContain("Every other day");
+
+  const missing = run(["playbook", "show"]);
+  expect(missing.code).toBe(1);
+  expect(missing.stderr).toContain("No playbook recorded");
+
+  const narrFile = join(home, "narr.md");
+  await writeFile(narrFile, "Solid week.\n", "utf-8");
+  expect(run(["narrative", "add", RECENT, narrFile]).code).toBe(0);
+  expect(run(["narrative", "show"]).stdout).toContain("Solid week");
+  expect(run(["narrative", "show", RECENT]).stdout).toContain("Solid week");
+  const narrList = run(["narrative", "list", "--json"]);
+  expect(JSON.parse(narrList.stdout).data.dates).toEqual([RECENT]);
+
+  const badDate = run(["narrative", "add", "not-a-date", narrFile]);
+  expect(badDate.code).toBe(1);
+});
+
+test("data doctor reports corruption", async () => {
+  const info = run(["data", "info", "--json"]);
+  const root = JSON.parse(info.stdout).data.root;
+  await writeFile(join(root, "notes", "ZZBAD.json"), "{ nope", "utf-8");
+  const doctor = run(["data", "doctor"]);
+  expect(doctor.code).toBe(1);
+  expect(doctor.stderr).toContain("ZZBAD.json: not valid JSON");
+  await rm(join(root, "notes", "ZZBAD.json"));
+  expect(run(["data", "doctor"]).code).toBe(0);
 });
 
 test("export rejects invalid dates but allows empty ranges", () => {
