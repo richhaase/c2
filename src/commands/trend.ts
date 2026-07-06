@@ -1,6 +1,9 @@
 import type { Command } from "commander";
+import { loadConfig } from "../config.ts";
 import { formatMeters, paceArrow, sparkBar, trendArrow } from "../display.ts";
-import { buildWeekSummaries, type WeekSummary } from "../stats.ts";
+import { printJSON } from "../envelope.ts";
+import { dataPaths } from "../paths.ts";
+import { buildWeekSummaries, type WeekSummary, weekSummaryData } from "../stats.ts";
 import { readWorkouts } from "../storage.ts";
 
 function fmtDate(d: Date): string {
@@ -87,12 +90,10 @@ export function registerTrend(program: Command): void {
     .command("trend")
     .description("Show training trends over time")
     .option("-w, --weeks <n>", "number of weeks to display", "8")
-    .action(async (opts: { weeks: string }) => {
-      const workouts = await readWorkouts();
-      if (workouts.length === 0) {
-        console.log("No workouts found. Run `c2 sync` first.");
-        return;
-      }
+    .option("--json", "output as JSON")
+    .action(async (opts: { weeks: string; json?: boolean }) => {
+      const cfg = await loadConfig();
+      const workouts = await readWorkouts(dataPaths(cfg));
 
       const weeks = parseInt(opts.weeks, 10);
       if (Number.isNaN(weeks) || weeks < 1) {
@@ -100,6 +101,16 @@ export function registerTrend(program: Command): void {
         process.exit(1);
       }
       const summaries = buildWeekSummaries(workouts, new Date(), weeks);
+
+      if (opts.json) {
+        printJSON("c2.trend.v1", { weeks: summaries.map(weekSummaryData) });
+        return;
+      }
+
+      if (workouts.length === 0) {
+        console.log("No workouts found. Run `c2 sync` first.");
+        return;
+      }
 
       printVolumeTrend(summaries);
       console.log();

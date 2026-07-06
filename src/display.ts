@@ -1,5 +1,12 @@
 import type { Workout } from "./models.ts";
-import { formatSeconds, isIntervalWorkout, pace500m, parsedDate, restSeconds } from "./models.ts";
+import {
+  formatSeconds,
+  isIntervalWorkout,
+  pace500m,
+  pace500mSeconds,
+  parsedDate,
+  restSeconds,
+} from "./models.ts";
 
 export function formatMeters(m: number): string {
   return m.toLocaleString("en-US");
@@ -49,6 +56,28 @@ export function formatWorkoutLine(w: Workout, dateFormat: string): string {
   const tagSuffix = tag ? `  ${tag}` : "";
 
   return `${dateStr}  ${distance.padStart(7)}  ${w.time_formatted.padStart(8)}  ${pace.padStart(7)}/500m  ${spm.padStart(5)}  ${hr.padStart(6)}  ${df.padStart(4)}${tagSuffix}`;
+}
+
+export function workoutJSON(w: Workout) {
+  const paceSecs = pace500mSeconds(w);
+  const rest = restSeconds(w);
+  return {
+    id: w.id,
+    date: w.date,
+    distance: w.distance,
+    time_tenths: w.time,
+    time_formatted: w.time_formatted,
+    pace_500m: paceSecs > 0 ? pace500m(w) : null,
+    pace_500m_seconds: paceSecs > 0 ? Math.round(paceSecs * 10) / 10 : null,
+    stroke_rate: w.stroke_rate ?? null,
+    hr_avg: w.heart_rate?.average ?? null,
+    drag_factor: w.drag_factor ?? null,
+    workout_type: w.workout_type ?? null,
+    interval: isIntervalWorkout(w),
+    rest_seconds: rest > 0 ? rest : null,
+    comments: w.comments ?? null,
+    has_stroke_data: w.stroke_data ?? false,
+  };
 }
 
 export function sparkBar(value: number, max: number): string {

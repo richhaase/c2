@@ -6,6 +6,7 @@ import { loadConfig } from "../config.ts";
 import { formatMeters } from "../display.ts";
 import type { Workout } from "../models.ts";
 import { calendarDay, pace500m, pace500mSeconds } from "../models.ts";
+import { dataPaths } from "../paths.ts";
 import { sessionCount } from "../sessions.ts";
 import {
   buildWeekSummaries,
@@ -665,7 +666,7 @@ export function registerReport(program: Command): void {
         console.error("Goal dates not configured. Run `c2 setup` to set start and end dates.");
         process.exit(1);
       }
-      const workouts = await readWorkouts();
+      const workouts = await readWorkouts(dataPaths(cfg));
 
       if (workouts.length === 0) {
         console.log("No workouts found. Run `c2 sync` first.");

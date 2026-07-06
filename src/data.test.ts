@@ -1,0 +1,226 @@
+import { expect, test } from "bun:test";
+import { mkdir, mkdtemp, readdir, readFile, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { initStore, inspectDataDir, moveStore, storeSummary } from "./data.ts";
+import { pathsFor } from "./paths.ts";
+import { readMeta, readWorkouts } from "./storage.ts";
+
+const NOW = new Date("2026-07-05T12:00:00");
+
+async function tempRoot(): Promise<string> {
+  return mkdtemp(join(tmpdir(), "c2-data-test-"));
+}
+
+const WORKOUT_LINE = JSON.stringify({
+  id: 1,
+  user_id: 1,
+  date: "2026-07-01 08:00:00",
+  distance: 8000,
+  type: "rower",
+  time: 12000,
+  time_formatted: "20:00.0",
+});
+
+test("inspect reports missing directory", async () => {
+  const base = await tempRoot();
+  const paths = pathsFor(join(base, "nope"));
+  const insp = await inspectDataDir(paths);
+  expect(insp.state).toBe("missing");
+  expect(insp.writable).toBe(true);
+});
+
+test("inspect reports empty, store, legacy store, and foreign", async () => {
+  const base = await tempRoot();
+
+  const empty = pathsFor(join(base, "empty"));
+  await mkdir(empty.root);
+  expect((await inspectDataDir(empty)).state).toBe("empty");
+
+  const store = pathsFor(join(base, "store"));
+  await mkdir(store.root);
+  await initStore(store, NOW);
+  expect((await inspectDataDir(store)).state).toBe("store");
+
+  const legacy = pathsFor(join(base, "legacy"));
+  await mkdir(join(legacy.root, "strokes"), { recursive: true });
+  await writeFile(legacy.workouts, `${WORKOUT_LINE}\n`, "utf-8");
+  expect((await inspectDataDir(legacy)).state).toBe("store");
+
+  const foreign = pathsFor(join(base, "foreign"));
+  await mkdir(foreign.root);
+  await writeFile(join(foreign.root, "novel.docx"), "chapter one", "utf-8");
+  expect((await inspectDataDir(foreign)).state).toBe("foreign");
+});
+
+test("initStore creates directories and meta once", async () => {
+  const base = await tempRoot();
+  const paths = pathsFor(join(base, "init"));
+  await mkdir(paths.root);
+  await initStore(paths, NOW);
+
+  const meta = await readMeta(paths);
+  expect(meta?.schema_version).toBe(1);
+  expect(meta?.created).toBe(NOW.toISOString());
+
+  await initStore(paths, new Date("2027-01-01T00:00:00"));
+  const again = await readMeta(paths);
+  expect(again?.created).toBe(NOW.toISOString());
+});
+
+test("storeSummary counts contents", async () => {
+  const base = await tempRoot();
+  const paths = pathsFor(join(base, "sum"));
+  await mkdir(paths.root);
+  await initStore(paths, NOW);
+  await writeFile(paths.workouts, `${WORKOUT_LINE}\n`, "utf-8");
+  await writeFile(paths.strokeFile(1), '{"t":1}\n', "utf-8");
+  await writeFile(join(paths.notesDir, "01A.json"), "{}", "utf-8");
+
+  const summary = await storeSummary(paths);
+  expect(summary.workouts).toBe(1);
+  expect(summary.firstDate).toBe("2026-07-01");
+  expect(summary.strokeFiles).toBe(1);
+  expect(summary.notes).toBe(1);
+  expect(summary.schemaVersion).toBe(1);
+});
+
+test("missing nested paths are creatable, not rejected", async () => {
+  const base = await tempRoot();
+  const nested = pathsFor(join(base, "a", "b", "c"));
+  const insp = await inspectDataDir(nested);
+  expect(insp.state).toBe("missing");
+  expect(insp.writable).toBe(true);
+
+  await initStore(nested, NOW);
+  expect((await inspectDataDir(nested)).state).toBe("store");
+});
+
+test("moveStore tolerates pre-existing dotfiles in the target", async () => {
+  const base = await tempRoot();
+  const from = pathsFor(join(base, "src"));
+  await mkdir(from.root);
+  await initStore(from, NOW);
+  await writeFile(from.workouts, `${WORKOUT_LINE}\n`, "utf-8");
+
+  const to = pathsFor(join(base, "gitrepo"));
+  await mkdir(join(to.root, ".git"), { recursive: true });
+  await writeFile(join(to.root, ".git", "HEAD"), "ref: refs/heads/main\n", "utf-8");
+  await writeFile(join(to.root, ".DS_Store"), "junk", "utf-8");
+
+  const src = await treeStatsPublic(from.root);
+  const copied = await moveStore(from, to);
+  expect(copied.files).toBe(src.files);
+  expect((await readWorkouts(to)).length).toBe(1);
+});
+
+async function treeStatsPublic(dir: string): Promise<{ files: number }> {
+  const { readdir: rd, stat: st } = await import("node:fs/promises");
+  let files = 0;
+  for (const e of await rd(dir, { withFileTypes: true })) {
+    const full = join(dir, e.name);
+    if (e.isDirectory()) files += (await treeStatsPublic(full)).files;
+    else {
+      await st(full);
+      files++;
+    }
+  }
+  return { files };
+}
+
+test("moveStore never copies dotfiles and preserves target VCS metadata", async () => {
+  const base = await tempRoot();
+  const from = pathsFor(join(base, "src"));
+  await mkdir(from.root);
+  await initStore(from, NOW);
+  await writeFile(from.workouts, `${WORKOUT_LINE}\n`, "utf-8");
+  await writeFile(join(from.root, ".DS_Store"), "source junk", "utf-8");
+  await mkdir(join(from.root, ".git"));
+  await writeFile(join(from.root, ".git", "HEAD"), "ref: refs/heads/source\n", "utf-8");
+
+  const to = pathsFor(join(base, "synced"));
+  await mkdir(join(to.root, ".git"), { recursive: true });
+  await writeFile(join(to.root, ".git", "HEAD"), "ref: refs/heads/target\n", "utf-8");
+  await writeFile(join(to.root, ".DS_Store"), "different pre-existing junk!", "utf-8");
+
+  const copied = await moveStore(from, to);
+  expect(copied.files).toBeGreaterThanOrEqual(2);
+  expect((await readWorkouts(to)).length).toBe(1);
+  expect(await readFile(join(to.root, ".git", "HEAD"), "utf-8")).toBe("ref: refs/heads/target\n");
+  expect(await readFile(join(to.root, ".DS_Store"), "utf-8")).toBe("different pre-existing junk!");
+});
+
+test("generic folder names alone are not adopted as stores", async () => {
+  const base = await tempRoot();
+
+  const notesOnly = pathsFor(join(base, "notes-only"));
+  await mkdir(join(notesOnly.root, "notes"), { recursive: true });
+  expect((await inspectDataDir(notesOnly)).state).toBe("foreign");
+
+  const planOnly = pathsFor(join(base, "plan-only"));
+  await mkdir(planOnly.root);
+  await writeFile(planOnly.plan, "# someone else's plan\n", "utf-8");
+  expect((await inspectDataDir(planOnly)).state).toBe("foreign");
+});
+
+test("a directory with only a foreign meta.json is not adopted", async () => {
+  const base = await tempRoot();
+  const paths = pathsFor(join(base, "other-tool"));
+  await mkdir(paths.root);
+  await writeFile(paths.meta, JSON.stringify({ name: "some other tool" }), "utf-8");
+  expect((await inspectDataDir(paths)).state).toBe("foreign");
+});
+
+test("a store missing meta.json but with current-layout dirs is recognized", async () => {
+  const base = await tempRoot();
+  const paths = pathsFor(join(base, "meta-lost"));
+  await mkdir(join(paths.root, "strokes"), { recursive: true });
+  await mkdir(join(paths.root, "reports"), { recursive: true });
+  await writeFile(paths.workouts, `${WORKOUT_LINE}\n`, "utf-8");
+  await writeFile(paths.plan, "# plan\n", "utf-8");
+  expect((await inspectDataDir(paths)).state).toBe("store");
+});
+
+test("a file in the path yields foreign, not a raw ENOTDIR", async () => {
+  const base = await tempRoot();
+  const filePath = join(base, "regular-file");
+  await writeFile(filePath, "hi", "utf-8");
+  const nested = pathsFor(join(filePath, "sub"));
+  const insp = await inspectDataDir(nested);
+  expect(insp.state).toBe("foreign");
+  expect(insp.writable).toBe(false);
+});
+
+test("corrupt meta.json is tolerated, not fatal", async () => {
+  const base = await tempRoot();
+  const paths = pathsFor(join(base, "corrupt"));
+  await mkdir(paths.root);
+  await initStore(paths, NOW);
+  await writeFile(paths.meta, "{ truncated", "utf-8");
+
+  const insp = await inspectDataDir(paths);
+  expect(insp.state).toBe("store");
+  expect(await readMeta(paths)).toBeNull();
+  const summary = await storeSummary(paths);
+  expect(summary.schemaVersion).toBeNull();
+});
+
+test("moveStore copies, verifies, and refuses non-empty targets", async () => {
+  const base = await tempRoot();
+  const from = pathsFor(join(base, "src"));
+  await mkdir(from.root);
+  await initStore(from, NOW);
+  await writeFile(from.workouts, `${WORKOUT_LINE}\n`, "utf-8");
+  await writeFile(from.strokeFile(1), '{"t":1}\n', "utf-8");
+
+  const to = pathsFor(join(base, "dst"));
+  const copied = await moveStore(from, to);
+  expect(copied.files).toBeGreaterThanOrEqual(3);
+  expect((await readWorkouts(to)).length).toBe(1);
+  expect((await readdir(to.strokesDir)).length).toBe(1);
+
+  const occupied = pathsFor(join(base, "occupied"));
+  await mkdir(occupied.root);
+  await writeFile(join(occupied.root, "file.txt"), "x", "utf-8");
+  await expect(moveStore(from, occupied)).rejects.toThrow("not empty");
+});

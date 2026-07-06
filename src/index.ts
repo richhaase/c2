@@ -2,6 +2,7 @@
 
 import { Command } from "commander";
 import pkg from "../package.json";
+import { registerData } from "./commands/data.ts";
 import { registerExport } from "./commands/export.ts";
 import { registerLog } from "./commands/log.ts";
 import { registerReport } from "./commands/report.ts";
@@ -22,13 +23,11 @@ registerStatus(program);
 registerTrend(program);
 registerExport(program);
 registerReport(program);
+registerData(program);
 
-const args = process.argv.slice(2);
-const knownCommands = program.commands.map((c) => c.name());
-const hasSubcommand = args.some((a) => knownCommands.includes(a));
-const hasHelpOrVersion = args.some((a) => ["-h", "--help", "-v", "--version"].includes(a));
-if (args.length === 0 || (!hasSubcommand && !hasHelpOrVersion)) {
-  process.argv.splice(2, 0, "report");
+if (process.argv.length <= 2) {
+  program.outputHelp();
+  process.exit(0);
 }
 
 program.parseAsync(process.argv).catch((err: Error) => {

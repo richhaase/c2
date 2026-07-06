@@ -5,12 +5,13 @@ import {
   type Config,
   configDir,
   defaultConfig,
-  ensureDirs,
   loadConfig,
   parseGoalDate,
   saveConfig,
 } from "../config.ts";
+import { initStore, inspectDataDir, storeSummary } from "../data.ts";
 import { formatMeters } from "../display.ts";
+import { canonicalRoot, pathsFor } from "../paths.ts";
 
 function maskToken(token: string): string {
   if (token.length <= 4) return token;
@@ -21,6 +22,60 @@ function promptValue(label: string, current: string, mask = false): string {
   const display = current ? ` [${mask ? maskToken(current) : current}]` : "";
   const input = prompt(`${label}${display}:`);
   return (input ?? "").trim() || current;
+}
+
+function confirm(question: string, defaultYes: boolean): boolean {
+  const suffix = defaultYes ? "[Y/n]" : "[y/N]";
+  const input = (prompt(`${question} ${suffix}`) ?? "").trim().toLowerCase();
+  if (input === "") return defaultYes;
+  return input === "y" || input === "yes";
+}
+
+async function chooseDataDir(current: string): Promise<string> {
+  const input = promptValue("Data directory", current);
+  const paths = pathsFor(input);
+  const inspection = await inspectDataDir(paths);
+
+  if (!inspection.writable) {
+    console.error(`Cannot write to ${paths.root}; keeping ${current}.`);
+    return current;
+  }
+
+  switch (inspection.state) {
+    case "missing":
+      if (!confirm(`${paths.root} does not exist. Create it?`, true)) {
+        console.log(`Keeping ${current}.`);
+        return current;
+      }
+      break;
+    case "store": {
+      const summary = await storeSummary(paths);
+      if (summary.workouts > 0) {
+        console.log(
+          `Found existing c2 store: ${summary.workouts} workouts (${summary.firstDate} → ${summary.lastDate}), ${summary.strokeFiles} stroke files, ${summary.notes} notes.`,
+        );
+      } else {
+        console.log("Found existing empty c2 store.");
+      }
+      break;
+    }
+    case "empty":
+      break;
+    case "foreign":
+      if (
+        !confirm(
+          `${paths.root} is not empty and not a c2 store. Initialize a store here anyway?`,
+          false,
+        )
+      ) {
+        console.log(`Keeping ${current}.`);
+        return current;
+      }
+      break;
+  }
+
+  await initStore(paths, new Date());
+  return canonicalRoot(paths.root);
 }
 
 export function registerSetup(program: Command): void {
@@ -65,9 +120,11 @@ export function registerSetup(program: Command): void {
         console.log(`Invalid date "${endInput}", keeping previous value.`);
       }
 
-      await ensureDirs();
+      cfg.data_dir = await chooseDataDir(cfg.data_dir);
+
       await saveConfig(cfg);
-      console.log(`\nConfig written to ${join(configDir(), "config.json")}`);
+      console.log(`\nConfig written to ${join(configDir(), "config.json")} (mode 600)`);
+      console.log(`Data directory: ${pathsFor(cfg.data_dir).root}`);
 
       if (!cfg.goal.start_date || !cfg.goal.end_date) {
         console.log(

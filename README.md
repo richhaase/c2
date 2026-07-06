@@ -134,12 +134,47 @@ The CSV export includes `workout_type`, `rest_time_tenths`, and
 `rest_distance` columns so interval workouts are fully distinguishable from
 continuous pieces without having to consult the full JSON export.
 
+### Machine-Readable Output
+
+`log`, `status`, `trend`, and `data info` accept `--json` and emit a stable
+versioned envelope for scripts and AI agents:
+
+```json
+{ "schema": "c2.status.v1", "generated_at": "2026-07-05T18:00:00.000Z", "data": { } }
+```
+
+`export -f json` remains a raw workout array for existing consumers.
+
+### Data Store
+
+Workout data and (soon) coaching data live in a single data directory,
+chosen during `c2 setup` and stored as `data_dir` in config. Point it at a
+synced folder (iCloud, Dropbox, a git repo) to share one store across
+machines — the config file with your API token always stays machine-local
+in `~/.config/c2/` (mode 600).
+
+```bash
+# Where is my data, and what's in it?
+c2 data info
+
+# Relocate the store (copies, verifies, updates config)
+c2 data move ~/Documents/KnowledgeBase/c2-data
+```
+
+Setup validates the directory you pick: it creates it if missing (with
+confirmation), checks writability, adopts an existing c2 store it finds
+there, and refuses to save a path that fails validation.
+
+Note: bare `c2` prints help. Unknown commands error instead of falling
+through to a default.
+
 ## Configuration
 
 Config lives at `~/.config/c2/config.json`. Created automatically on `c2 setup`.
 
 ```json
 {
+  "data_dir": "~/.config/c2/data",
   "api": {
     "base_url": "https://log.concept2.com",
     "token": "YOUR_TOKEN"
