@@ -1,19 +1,18 @@
 import { appendFile, readFile, stat, writeFile } from "node:fs/promises";
-import { join } from "node:path";
-import { dataDir } from "./config.ts";
 import type { StrokeData, Workout } from "./models.ts";
+import type { DataPaths } from "./paths.ts";
 
-function workoutsPath(): string {
-  return join(dataDir(), "workouts.jsonl");
+export interface StoreMeta {
+  schema_version: number;
+  created: string;
+  last_sync?: string;
 }
 
-function strokesPath(workoutId: number): string {
-  return join(dataDir(), "strokes", `${workoutId}.jsonl`);
-}
+export const SCHEMA_VERSION = 1;
 
-export async function readWorkouts(): Promise<Workout[]> {
+export async function readWorkouts(paths: DataPaths): Promise<Workout[]> {
   try {
-    const text = await readFile(workoutsPath(), "utf-8");
+    const text = await readFile(paths.workouts, "utf-8");
     return text
       .split("\n")
       .filter((line) => line.trim() !== "")
@@ -24,21 +23,21 @@ export async function readWorkouts(): Promise<Workout[]> {
   }
 }
 
-export async function appendWorkouts(newWorkouts: Workout[]): Promise<number> {
-  const existing = await readWorkouts();
+export async function appendWorkouts(paths: DataPaths, newWorkouts: Workout[]): Promise<number> {
+  const existing = await readWorkouts(paths);
   const seen = new Set(existing.map((w) => w.id));
 
   const toWrite = newWorkouts.filter((w) => !seen.has(w.id));
   if (toWrite.length === 0) return 0;
 
   const lines = `${toWrite.map((w) => JSON.stringify(w)).join("\n")}\n`;
-  await appendFile(workoutsPath(), lines, "utf-8");
+  await appendFile(paths.workouts, lines, "utf-8");
   return toWrite.length;
 }
 
-export async function workoutCount(): Promise<number> {
+export async function workoutCount(paths: DataPaths): Promise<number> {
   try {
-    const text = await readFile(workoutsPath(), "utf-8");
+    const text = await readFile(paths.workouts, "utf-8");
     return text.split("\n").filter((line) => line.trim() !== "").length;
   } catch (err: unknown) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") return 0;
@@ -46,9 +45,9 @@ export async function workoutCount(): Promise<number> {
   }
 }
 
-export async function hasStrokeData(workoutId: number): Promise<boolean> {
+export async function hasStrokeData(paths: DataPaths, workoutId: number): Promise<boolean> {
   try {
-    await stat(strokesPath(workoutId));
+    await stat(paths.strokeFile(workoutId));
     return true;
   } catch (err: unknown) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") return false;
@@ -56,14 +55,18 @@ export async function hasStrokeData(workoutId: number): Promise<boolean> {
   }
 }
 
-export async function writeStrokeData(workoutId: number, strokes: StrokeData[]): Promise<void> {
+export async function writeStrokeData(
+  paths: DataPaths,
+  workoutId: number,
+  strokes: StrokeData[],
+): Promise<void> {
   const lines = `${strokes.map((s) => JSON.stringify(s)).join("\n")}\n`;
-  await writeFile(strokesPath(workoutId), lines, "utf-8");
+  await writeFile(paths.strokeFile(workoutId), lines, "utf-8");
 }
 
-export async function readStrokeData(workoutId: number): Promise<StrokeData[]> {
+export async function readStrokeData(paths: DataPaths, workoutId: number): Promise<StrokeData[]> {
   try {
-    const text = await readFile(strokesPath(workoutId), "utf-8");
+    const text = await readFile(paths.strokeFile(workoutId), "utf-8");
     return text
       .split("\n")
       .filter((line) => line.trim() !== "")
@@ -72,4 +75,18 @@ export async function readStrokeData(workoutId: number): Promise<StrokeData[]> {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") return [];
     throw err;
   }
+}
+
+export async function readMeta(paths: DataPaths): Promise<StoreMeta | null> {
+  try {
+    const text = await readFile(paths.meta, "utf-8");
+    return JSON.parse(text) as StoreMeta;
+  } catch (err: unknown) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw err;
+  }
+}
+
+export async function writeMeta(paths: DataPaths, meta: StoreMeta): Promise<void> {
+  await writeFile(paths.meta, `${JSON.stringify(meta, null, 2)}\n`, "utf-8");
 }

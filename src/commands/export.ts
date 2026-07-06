@@ -1,6 +1,8 @@
 import type { Command } from "commander";
+import { loadConfig } from "../config.ts";
 import type { Workout } from "../models.ts";
-import { pace500m } from "../models.ts";
+import { isValidYMD, pace500m } from "../models.ts";
+import { dataPaths } from "../paths.ts";
 import { readWorkouts } from "../storage.ts";
 
 export function filterByDate(workouts: Workout[], from: string, to: string): Workout[] {
@@ -89,7 +91,22 @@ export function registerExport(program: Command): void {
     .option("--from <date>", "filter workouts from date (YYYY-MM-DD)")
     .option("--to <date>", "filter workouts to date (YYYY-MM-DD)")
     .action(async (opts: { format: string; from?: string; to?: string }) => {
-      let workouts = await readWorkouts();
+      for (const [flag, value] of [
+        ["--from", opts.from],
+        ["--to", opts.to],
+      ] as const) {
+        if (value && !isValidYMD(value)) {
+          console.error(`Error: invalid ${flag} date "${value}" (expected YYYY-MM-DD).`);
+          process.exit(1);
+        }
+      }
+      if (!["csv", "json", "jsonl"].includes(opts.format)) {
+        console.error(`Unsupported format "${opts.format}": must be csv, json, or jsonl`);
+        process.exit(1);
+      }
+
+      const cfg = await loadConfig();
+      let workouts = await readWorkouts(dataPaths(cfg));
       if (workouts.length === 0) {
         console.error("No workouts found. Run `c2 sync` first.");
         process.exit(1);
@@ -98,7 +115,7 @@ export function registerExport(program: Command): void {
       workouts = filterByDate(workouts, opts.from ?? "", opts.to ?? "");
       if (workouts.length === 0) {
         console.error("No workouts match the specified date range.");
-        process.exit(1);
+        return;
       }
 
       workouts.sort((a, b) => a.date.localeCompare(b.date));
@@ -113,9 +130,6 @@ export function registerExport(program: Command): void {
         case "jsonl":
           exportJSONL(workouts);
           break;
-        default:
-          console.error(`Unsupported format "${opts.format}": must be csv, json, or jsonl`);
-          process.exit(1);
       }
     });
 }

@@ -1,7 +1,7 @@
 import type { Config } from "./config.ts";
 import { parseGoalDate } from "./config.ts";
 import type { Workout } from "./models.ts";
-import { calendarDay, pace500mSeconds, parsedDate } from "./models.ts";
+import { calendarDay, formatSeconds, pace500mSeconds, parsedDate } from "./models.ts";
 
 export interface WeekSummary {
   weekStart: Date;
@@ -103,6 +103,58 @@ export function buildWeekSummaries(workouts: Workout[], now: Date, weeks: number
   }
 
   return summaries;
+}
+
+export interface RecentWeek {
+  weekStart: Date;
+  meters: number;
+  sessions: number;
+}
+
+export function recentWeeks(workouts: Workout[], now: Date, count: number): RecentWeek[] {
+  const out: RecentWeek[] = [];
+  for (let i = 0; i < count; i++) {
+    const weekStart = mondayOf(now);
+    weekStart.setDate(weekStart.getDate() - i * 7);
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekEnd.getDate() + 7);
+    const weekWorkouts = workoutsInRange(workouts, weekStart, weekEnd);
+    out.push({
+      weekStart,
+      meters: weekWorkouts.reduce((sum, w) => sum + w.distance, 0),
+      sessions: new Set(weekWorkouts.map(calendarDay)).size,
+    });
+  }
+  return out;
+}
+
+export interface WeekSummaryData {
+  week_start: string;
+  meters: number;
+  sessions: number;
+  avg_pace_500m_seconds: number | null;
+  avg_pace_500m: string | null;
+  avg_spm: number | null;
+  avg_hr: number | null;
+}
+
+export function localYMD(d: Date): string {
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}
+
+export function weekSummaryData(ws: WeekSummary): WeekSummaryData {
+  const avgPace = ws.paceCount > 0 ? ws.paceSum / ws.paceCount : null;
+  return {
+    week_start: localYMD(ws.weekStart),
+    meters: ws.meters,
+    sessions: ws.sessions,
+    avg_pace_500m_seconds: avgPace != null ? Math.round(avgPace * 10) / 10 : null,
+    avg_pace_500m: avgPace != null ? formatSeconds(avgPace) : null,
+    avg_spm: ws.spmCount > 0 ? Math.round((ws.spmSum / ws.spmCount) * 10) / 10 : null,
+    avg_hr: ws.hrCount > 0 ? Math.round(ws.hrSum / ws.hrCount) : null,
+  };
 }
 
 export function computeGoalProgress(workouts: Workout[], cfg: Config, now?: Date): GoalProgress {

@@ -111,3 +111,8 @@ export function formatSeconds(totalSeconds: number): string {
   const rem = totalSeconds - mins * 60;
   return `${mins}:${rem.toFixed(1).padStart(4, "0")}`;
 }
+
+export function isValidYMD(s: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  return !Number.isNaN(new Date(`${s}T00:00:00`).getTime());
+}
