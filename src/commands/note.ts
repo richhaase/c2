@@ -1,5 +1,6 @@
 import type { Command } from "commander";
 import { loadConfig } from "../config.ts";
+import { ensureStoreForWrite } from "../data.ts";
 import { printJSON } from "../envelope.ts";
 import { isValidYMD } from "../models.ts";
 import {
@@ -25,6 +26,8 @@ async function readBody(bodyArg: string | undefined): Promise<string> {
 }
 
 function parseNoteDate(raw: string): string | null {
+  const prefix = /^(\d{4}-\d{2}-\d{2})/.exec(raw);
+  if (prefix != null && !isValidYMD(prefix[1]!)) return null;
   if (isValidYMD(raw)) return `${raw}T12:00:00${localISO(new Date()).slice(-6)}`;
   const d = new Date(raw);
   if (Number.isNaN(d.getTime())) return null;
@@ -71,6 +74,11 @@ export function registerNote(program: Command): void {
         const cfg = await loadConfig();
         const paths = dataPaths(cfg);
         const now = new Date();
+        const storeError = await ensureStoreForWrite(paths, now);
+        if (storeError != null) {
+          console.error(storeError);
+          process.exit(1);
+        }
 
         let workoutId: number | undefined;
         if (opts.workout) {

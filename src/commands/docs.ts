@@ -1,7 +1,7 @@
-import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
-import { dirname } from "node:path";
+import { readdir, readFile, writeFile } from "node:fs/promises";
 import type { Command } from "commander";
 import { loadConfig } from "../config.ts";
+import { ensureStoreForWrite } from "../data.ts";
 import { printJSON } from "../envelope.ts";
 import { isValidYMD } from "../models.ts";
 import type { DataPaths } from "../paths.ts";
@@ -55,8 +55,13 @@ function registerDoc(
         process.exit(1);
       }
       const cfg = await loadConfig();
-      const target = pathOf(dataPaths(cfg));
-      await mkdir(dirname(target), { recursive: true });
+      const paths = dataPaths(cfg);
+      const storeError = await ensureStoreForWrite(paths, new Date());
+      if (storeError != null) {
+        console.error(storeError);
+        process.exit(1);
+      }
+      const target = pathOf(paths);
       await writeFile(target, content.endsWith("\n") ? content : `${content}\n`, "utf-8");
       console.log(`${name} updated (${content.length} chars).`);
     });
@@ -88,7 +93,11 @@ export function registerDocs(program: Command): void {
       }
       const cfg = await loadConfig();
       const paths = dataPaths(cfg);
-      await mkdir(paths.reportsDir, { recursive: true });
+      const storeError = await ensureStoreForWrite(paths, new Date());
+      if (storeError != null) {
+        console.error(storeError);
+        process.exit(1);
+      }
       await writeFile(
         paths.narrativeFile(date),
         content.endsWith("\n") ? content : `${content}\n`,

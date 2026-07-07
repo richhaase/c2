@@ -53,18 +53,20 @@ export function serializeNote(note: NoteRecord): string {
   return JSON.stringify(ordered);
 }
 
+export function isNoteShaped(parsed: unknown): parsed is NoteRecord {
+  const note = parsed as NoteRecord;
+  return (
+    typeof note?.id === "string" &&
+    typeof note?.date === "string" &&
+    typeof note?.body === "string" &&
+    (NOTE_TYPES as readonly string[]).includes(note?.type)
+  );
+}
+
 function parseNote(raw: string): NoteRecord | null {
   try {
-    const parsed = JSON.parse(raw) as NoteRecord;
-    if (
-      typeof parsed?.id === "string" &&
-      typeof parsed?.date === "string" &&
-      typeof parsed?.body === "string" &&
-      (NOTE_TYPES as readonly string[]).includes(parsed?.type)
-    ) {
-      return parsed;
-    }
-    return null;
+    const parsed = JSON.parse(raw) as unknown;
+    return isNoteShaped(parsed) ? parsed : null;
   } catch {
     return null;
   }

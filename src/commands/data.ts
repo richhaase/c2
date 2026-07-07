@@ -72,6 +72,11 @@ export function registerData(program: Command): void {
     .action(async () => {
       const cfg = await loadConfig();
       const paths = dataPaths(cfg);
+      const inspection = await inspectDataDir(paths);
+      if (inspection.state !== "store") {
+        console.error(`${paths.root} is not a c2 data store; nothing to compact.`);
+        process.exit(1);
+      }
       const result = await compactNotes(paths, new Date());
       if (result.archived === 0) {
         console.log("Nothing to compact.");

@@ -276,6 +276,29 @@ test("note add/list/show round-trip through the CLI", () => {
   const badType = run(["note", "add", "--type", "vibes", "x"]);
   expect(badType.code).toBe(1);
   expect(badType.stderr).toContain("--type must be one of");
+
+  const rollover = run(["note", "add", "--date", "2026-02-31", "x"]);
+  expect(rollover.code).toBe(1);
+  expect(rollover.stderr).toContain('invalid --date "2026-02-31"');
+});
+
+test("first coaching write initializes a proper store", async () => {
+  const home5 = await mkdtemp(join(tmpdir(), "c2-cli-first-write-"));
+  await mkdir(join(home5, ".config", "c2"), { recursive: true });
+  await writeFile(join(home5, ".config", "c2", "config.json"), JSON.stringify({}), "utf-8");
+
+  const planFile = join(home5, "p.md");
+  await writeFile(planFile, "# Plan\n", "utf-8");
+  expect(run(["plan", "set", planFile], { home: home5 }).code).toBe(0);
+
+  const info = run(["data", "info", "--json"], { home: home5 });
+  expect(info.code).toBe(0);
+  const parsed = JSON.parse(info.stdout);
+  expect(parsed.data.state).toBe("store");
+  expect(parsed.data.schema_version).toBe(1);
+
+  expect(run(["note", "add", "first note ever"], { home: home5 }).code).toBe(0);
+  expect(run(["data", "doctor"], { home: home5 }).code).toBe(0);
 });
 
 test("note add links into show output", () => {
@@ -472,6 +495,14 @@ test("foreign data_dir gets clean errors, not raw failures", async () => {
   const sync = run(["sync"], { home: home3 });
   expect(sync.code).toBe(1);
   expect(sync.stderr).toContain("not a c2 data store");
+
+  const noteAdd = run(["note", "add", "should not land here"], { home: home3 });
+  expect(noteAdd.code).toBe(1);
+  expect(noteAdd.stderr).toContain("not a c2 data store");
+
+  const compact = run(["data", "compact"], { home: home3 });
+  expect(compact.code).toBe(1);
+  expect(compact.stderr).toContain("nothing to compact");
 
   await writeFile(
     join(home3, ".config", "c2", "config.json"),

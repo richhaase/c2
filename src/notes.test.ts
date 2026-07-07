@@ -119,6 +119,27 @@ test("compaction is deterministic and merge-idempotent", async () => {
   expect(merged.filter((n) => n.date.startsWith("2026-06")).length).toBe(3);
 });
 
+test("doctor tolerates loose/archive duplicates but flags malformed records", async () => {
+  const { runDoctor } = await import("./doctor.ts");
+  const paths = await tempStore();
+  const dup = record("DUP", "2026-06-01T08:00:00-06:00", "both places");
+  await writeNote(paths, dup);
+  await writeFile(paths.archiveFile(2026), `${serializeNote(dup)}\n`, "utf-8");
+
+  const clean = await runDoctor(paths);
+  expect(clean.issues).toEqual([]);
+
+  await writeFile(
+    paths.archiveFile(2027),
+    `${JSON.stringify({ id: "X", date: "2027-01-01T00:00:00-07:00" })}\n`,
+    "utf-8",
+  );
+  await writeFile(join(paths.notesDir, "BADSHAPE.json"), '{"id":"BADSHAPE"}', "utf-8");
+  const dirty = await runDoctor(paths);
+  expect(dirty.issues).toContain("notes/archive/2027.jsonl: line 1 malformed note record");
+  expect(dirty.issues).toContain("notes/BADSHAPE.json: malformed note record");
+});
+
 test("a note both loose and archived reads once", async () => {
   const paths = await tempStore();
   const n = record("DUP", "2026-06-01T08:00:00-06:00", "loose wins");

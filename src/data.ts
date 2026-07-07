@@ -86,6 +86,18 @@ async function probeWritable(dir: string): Promise<boolean> {
   }
 }
 
+export async function ensureStoreForWrite(paths: DataPaths, now: Date): Promise<string | null> {
+  const inspection = await inspectDataDir(paths);
+  if (inspection.state === "foreign") {
+    return `${paths.root} exists but is not a c2 data store. Fix data_dir via \`c2 setup\`.`;
+  }
+  if (!inspection.writable) {
+    return `Cannot write to ${paths.root}.`;
+  }
+  await initStore(paths, now);
+  return null;
+}
+
 export async function initStore(paths: DataPaths, now: Date): Promise<void> {
   await mkdir(paths.strokesDir, { recursive: true });
   await mkdir(paths.archiveDir, { recursive: true });
