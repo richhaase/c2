@@ -288,6 +288,10 @@ test("note add/list/show round-trip through the CLI", () => {
   const badWorkout = run(["note", "list", "--workout", "banana"]);
   expect(badWorkout.code).toBe(1);
   expect(badWorkout.stderr).toContain('invalid --workout id "banana"');
+
+  const badFilter = run(["note", "list", "--type", "vibes"]);
+  expect(badFilter.code).toBe(1);
+  expect(badFilter.stderr).toContain("--type must be one of");
 });
 
 test("first coaching write initializes a proper store", async () => {

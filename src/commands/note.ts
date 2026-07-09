@@ -139,6 +139,10 @@ export function registerNote(program: Command): void {
           console.error(`Error: invalid --since date "${opts.since}" (expected YYYY-MM-DD).`);
           process.exit(1);
         }
+        if (opts.type && !(NOTE_TYPES as readonly string[]).includes(opts.type)) {
+          console.error(`Error: --type must be one of ${NOTE_TYPES.join(", ")}.`);
+          process.exit(1);
+        }
         let workoutId: number | undefined;
         if (opts.workout != null) {
           workoutId = Number(opts.workout);

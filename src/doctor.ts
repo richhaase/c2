@@ -65,8 +65,25 @@ export async function runDoctor(paths: DataPaths): Promise<DoctorReport> {
   const workouts = await readOrNull(paths.workouts, "workouts.jsonl", issues);
   if (workouts != null) {
     checkedFiles++;
-    for (const line of badLines(workouts)) {
-      issues.push(`workouts.jsonl: line ${line} is not valid JSON`);
+    let lineNo = 0;
+    for (const line of workouts.split("\n")) {
+      lineNo++;
+      if (line.trim() === "") continue;
+      let parsed: { id?: unknown; date?: unknown; distance?: unknown; time?: unknown };
+      try {
+        parsed = JSON.parse(line);
+      } catch {
+        issues.push(`workouts.jsonl: line ${lineNo} is not valid JSON`);
+        continue;
+      }
+      if (
+        typeof parsed.id !== "number" ||
+        typeof parsed.date !== "string" ||
+        typeof parsed.distance !== "number" ||
+        typeof parsed.time !== "number"
+      ) {
+        issues.push(`workouts.jsonl: line ${lineNo} malformed workout record`);
+      }
     }
   }
 

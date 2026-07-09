@@ -191,6 +191,53 @@ test("parseNoteDate uses the target date's own offset and rejects partial dates"
   expect(parseNoteDate("2026-07-15T08:30:00")).toBe(localISO(new Date("2026-07-15T08:30:00")));
 });
 
+test("compaction compares note age as instants, not offset strings", async () => {
+  const paths = await tempStore();
+  const cutoffInstant = new Date(NOW);
+  cutoffInstant.setDate(cutoffInstant.getDate() - 7);
+  const oldInstant = new Date(cutoffInstant.getTime() - 11 * 60 * 60 * 1000);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const inPlus13 = new Date(oldInstant.getTime() + 13 * 60 * 60 * 1000);
+  const farOffsetDate = `${inPlus13.getUTCFullYear()}-${pad(inPlus13.getUTCMonth() + 1)}-${pad(inPlus13.getUTCDate())}T${pad(inPlus13.getUTCHours())}:${pad(inPlus13.getUTCMinutes())}:00+13:00`;
+
+  await writeNote(paths, record("FAROFF", farOffsetDate, "written abroad"));
+  const result = await compactNotes(paths, NOW);
+  expect(result.archived).toBe(1);
+});
+
+test("notes with unparseable dates are skipped and never reach compaction", async () => {
+  const paths = await tempStore();
+  await writeFile(
+    join(paths.notesDir, "BADDATE.json"),
+    JSON.stringify({
+      id: "BADDATE",
+      date: "sometime last spring",
+      type: "observation",
+      body: "x",
+      author: "athlete",
+    }),
+    "utf-8",
+  );
+  expect((await readAllNotes(paths)).length).toBe(0);
+  const result = await compactNotes(paths, NOW);
+  expect(result.archived).toBe(0);
+  const { runDoctor } = await import("./doctor.ts");
+  const report = await runDoctor(paths);
+  expect(report.issues).toContain("notes/BADDATE.json: malformed note record");
+});
+
+test("doctor flags malformed workout records", async () => {
+  const { runDoctor } = await import("./doctor.ts");
+  const paths = await tempStore();
+  await writeFile(
+    paths.workouts,
+    `${JSON.stringify({ id: 1, date: "2026-07-01 08:00:00", distance: 8000, time: 12000 })}\n${JSON.stringify({ id: "two", date: 5 })}\n`,
+    "utf-8",
+  );
+  const report = await runDoctor(paths);
+  expect(report.issues).toContain("workouts.jsonl: line 2 malformed workout record");
+});
+
 test("compaction deletes the files it read, including conflict copies", async () => {
   const paths = await tempStore();
   const old = record("OLDX", "2026-06-01T08:00:00-06:00", "original");

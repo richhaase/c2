@@ -61,6 +61,7 @@ export function isNoteShaped(parsed: unknown): parsed is NoteRecord {
     typeof note?.body === "string" &&
     (NOTE_TYPES as readonly string[]).includes(note?.type) &&
     (NOTE_AUTHORS as readonly string[]).includes(note?.author) &&
+    !Number.isNaN(new Date(note.date).getTime()) &&
     (note.workout_id === undefined ||
       (typeof note.workout_id === "number" && Number.isFinite(note.workout_id))) &&
     (note.tags === undefined ||
@@ -200,14 +201,14 @@ export interface CompactResult {
 export async function compactNotes(paths: DataPaths, now: Date): Promise<CompactResult> {
   const cutoff = new Date(now);
   cutoff.setDate(cutoff.getDate() - COMPACT_AGE_DAYS);
-  const cutoffKey = localISO(cutoff);
+  const cutoffMs = cutoff.getTime();
 
   const entries = await readLooseEntries(paths);
   const deduped = new Map<string, NoteRecord>();
   for (const e of entries) {
     deduped.set(e.note.id, e.note);
   }
-  const eligible = [...deduped.values()].filter((n) => n.date < cutoffKey);
+  const eligible = [...deduped.values()].filter((n) => new Date(n.date).getTime() < cutoffMs);
   if (eligible.length === 0) return { archived: 0, years: [], skippedYears: [] };
 
   const byYear = new Map<number, NoteRecord[]>();
