@@ -59,7 +59,8 @@ export function isNoteShaped(parsed: unknown): parsed is NoteRecord {
     typeof note?.id === "string" &&
     typeof note?.date === "string" &&
     typeof note?.body === "string" &&
-    (NOTE_TYPES as readonly string[]).includes(note?.type)
+    (NOTE_TYPES as readonly string[]).includes(note?.type) &&
+    (NOTE_AUTHORS as readonly string[]).includes(note?.author)
   );
 }
 
@@ -152,17 +153,41 @@ export function filterNotes(notes: NoteRecord[], filter: NoteFilter): NoteRecord
 
 const COMPACT_AGE_DAYS = 7;
 
-export async function compactNotes(
+async function readArchiveYear(
   paths: DataPaths,
-  now: Date,
-): Promise<{ archived: number; years: number[] }> {
+  year: number,
+): Promise<{ notes: NoteRecord[]; corruptLines: number }> {
+  const notes: NoteRecord[] = [];
+  let corruptLines = 0;
+  let text: string;
+  try {
+    text = await readFile(paths.archiveFile(year), "utf-8");
+  } catch {
+    return { notes, corruptLines };
+  }
+  for (const line of text.split("\n")) {
+    if (line.trim() === "") continue;
+    const note = parseNote(line);
+    if (note != null) notes.push(note);
+    else corruptLines++;
+  }
+  return { notes, corruptLines };
+}
+
+export interface CompactResult {
+  archived: number;
+  years: number[];
+  skippedYears: number[];
+}
+
+export async function compactNotes(paths: DataPaths, now: Date): Promise<CompactResult> {
   const cutoff = new Date(now);
   cutoff.setDate(cutoff.getDate() - COMPACT_AGE_DAYS);
   const cutoffKey = localISO(cutoff);
 
   const loose = await readLooseNotes(paths);
   const eligible = [...loose.values()].filter((n) => n.date < cutoffKey);
-  if (eligible.length === 0) return { archived: 0, years: [] };
+  if (eligible.length === 0) return { archived: 0, years: [], skippedYears: [] };
 
   const byYear = new Map<number, NoteRecord[]>();
   for (const note of eligible) {
@@ -171,21 +196,27 @@ export async function compactNotes(
     byYear.get(year)!.push(note);
   }
 
-  const archived = await readArchivedNotes(paths);
   await mkdir(paths.archiveDir, { recursive: true });
+  let archivedCount = 0;
+  const years: number[] = [];
+  const skippedYears: number[] = [];
   for (const [year, notes] of byYear) {
-    const merged = new Map<string, NoteRecord>();
-    for (const n of archived.values()) {
-      if (Number(n.date.slice(0, 4)) === year) merged.set(n.id, n);
+    const existing = await readArchiveYear(paths, year);
+    if (existing.corruptLines > 0) {
+      skippedYears.push(year);
+      continue;
     }
+    const merged = new Map<string, NoteRecord>();
+    for (const n of existing.notes) merged.set(n.id, n);
     for (const n of notes) merged.set(n.id, n);
     const lines = [...merged.values()].sort(compareNotes).map(serializeNote);
     await writeFile(paths.archiveFile(year), `${lines.join("\n")}\n`, "utf-8");
+    for (const note of notes) {
+      await rm(join(paths.notesDir, `${note.id}.json`), { force: true });
+    }
+    archivedCount += notes.length;
+    years.push(year);
   }
 
-  for (const note of eligible) {
-    await rm(join(paths.notesDir, `${note.id}.json`), { force: true });
-  }
-
-  return { archived: eligible.length, years: [...byYear.keys()].sort() };
+  return { archived: archivedCount, years: years.sort(), skippedYears: skippedYears.sort() };
 }

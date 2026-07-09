@@ -119,6 +119,61 @@ test("compaction is deterministic and merge-idempotent", async () => {
   expect(merged.filter((n) => n.date.startsWith("2026-06")).length).toBe(3);
 });
 
+test("notes with invalid authors are skipped by the reader", async () => {
+  const paths = await tempStore();
+  await writeNote(paths, record("GOOD", "2026-07-05T10:00:00-06:00", "fine"));
+  await writeFile(
+    join(paths.notesDir, "LLM.json"),
+    JSON.stringify({
+      id: "LLM",
+      date: "2026-07-05T10:00:00-06:00",
+      type: "observation",
+      body: "x",
+      author: "llm",
+    }),
+    "utf-8",
+  );
+  const notes = await readAllNotes(paths);
+  expect(notes.map((n) => n.id)).toEqual(["GOOD"]);
+});
+
+test("compaction refuses to rewrite archives containing corrupt lines", async () => {
+  const paths = await tempStore();
+  const garbage = "{ this is not json";
+  await writeFile(
+    paths.archiveFile(2026),
+    `${serializeNote(record("OLDARCH", "2026-01-01T08:00:00-07:00", "archived"))}\n${garbage}\n`,
+    "utf-8",
+  );
+  await writeNote(paths, record("OLDLOOSE", "2026-06-01T08:00:00-06:00", "wants archiving"));
+
+  const result = await compactNotes(paths, NOW);
+  expect(result.archived).toBe(0);
+  expect(result.skippedYears).toEqual([2026]);
+
+  const archiveText = await readFile(paths.archiveFile(2026), "utf-8");
+  expect(archiveText).toContain(garbage);
+  const looseFiles = (await readdir(paths.notesDir)).filter((f) => f.endsWith(".json"));
+  expect(looseFiles).toEqual(["OLDLOOSE.json"]);
+});
+
+test("parseNoteDate uses the target date's own offset", async () => {
+  const { parseNoteDate } = await import("./commands/note.ts");
+  expect(parseNoteDate("2026-01-15")).toBe(localISO(new Date("2026-01-15T12:00:00")));
+  expect(parseNoteDate("2026-07-15")).toBe(localISO(new Date("2026-07-15T12:00:00")));
+  expect(parseNoteDate("2026-02-31")).toBeNull();
+});
+
+test("doctor flags unreadable note directories", async () => {
+  const { runDoctor } = await import("./doctor.ts");
+  const base = await mkdtemp(join(tmpdir(), "c2-notes-test-"));
+  const paths = pathsFor(join(base, "store"));
+  await mkdir(paths.root, { recursive: true });
+  await writeFile(paths.notesDir, "a file where a directory should be", "utf-8");
+  const report = await runDoctor(paths);
+  expect(report.issues.some((i) => i.startsWith("notes/: unreadable"))).toBe(true);
+});
+
 test("doctor tolerates loose/archive duplicates but flags malformed records", async () => {
   const { runDoctor } = await import("./doctor.ts");
   const paths = await tempStore();

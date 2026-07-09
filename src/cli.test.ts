@@ -337,6 +337,9 @@ test("backdated notes and compaction via data compact", async () => {
   const doctor = run(["data", "doctor"]);
   expect(doctor.code).toBe(0);
   expect(doctor.stdout).toContain("no problems found");
+
+  const info = run(["data", "info", "--json"]);
+  expect(JSON.parse(info.stdout).data.notes).toBe(2);
 });
 
 test("plan, playbook, and narrative round-trip", async () => {
@@ -527,6 +530,10 @@ test("foreign data_dir gets clean errors, not raw failures", async () => {
   const emptyInfo = run(["data", "info"], { home: home3 });
   expect(emptyInfo.code).toBe(1);
   expect(emptyInfo.stderr).toContain("empty directory");
+
+  const emptyDoctor = run(["data", "doctor"], { home: home3 });
+  expect(emptyDoctor.code).toBe(1);
+  expect(emptyDoctor.stderr).toContain("No data store");
 
   await writeFile(
     join(home3, ".config", "c2", "config.json"),

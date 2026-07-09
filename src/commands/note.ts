@@ -25,11 +25,10 @@ async function readBody(bodyArg: string | undefined): Promise<string> {
   return text.trim();
 }
 
-function parseNoteDate(raw: string): string | null {
+export function parseNoteDate(raw: string): string | null {
   const prefix = /^(\d{4}-\d{2}-\d{2})/.exec(raw);
   if (prefix != null && !isValidYMD(prefix[1]!)) return null;
-  if (isValidYMD(raw)) return `${raw}T12:00:00${localISO(new Date()).slice(-6)}`;
-  const d = new Date(raw);
+  const d = isValidYMD(raw) ? new Date(`${raw}T12:00:00`) : new Date(raw);
   if (Number.isNaN(d.getTime())) return null;
   return localISO(d);
 }

@@ -78,6 +78,11 @@ export function registerData(program: Command): void {
         process.exit(1);
       }
       const result = await compactNotes(paths, new Date());
+      for (const year of result.skippedYears) {
+        console.error(
+          `Warning: notes/archive/${year}.jsonl has corrupt lines; left untouched (run \`c2 data doctor\`).`,
+        );
+      }
       if (result.archived === 0) {
         console.log("Nothing to compact.");
         return;
@@ -94,7 +99,7 @@ export function registerData(program: Command): void {
       const cfg = await loadConfig();
       const paths = dataPaths(cfg);
       const inspection = await inspectDataDir(paths);
-      if (inspection.state === "missing" || inspection.state === "foreign") {
+      if (inspection.state !== "store") {
         console.error(`No data store at ${paths.root}.`);
         process.exit(1);
       }

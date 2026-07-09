@@ -75,7 +75,17 @@ test("storeSummary counts contents", async () => {
   await initStore(paths, NOW);
   await writeFile(paths.workouts, `${WORKOUT_LINE}\n`, "utf-8");
   await writeFile(paths.strokeFile(1), '{"t":1}\n', "utf-8");
-  await writeFile(join(paths.notesDir, "01A.json"), "{}", "utf-8");
+  await writeFile(
+    join(paths.notesDir, "01A.json"),
+    JSON.stringify({
+      id: "01A",
+      date: "2026-07-01T08:00:00-06:00",
+      type: "observation",
+      body: "counted",
+      author: "athlete",
+    }),
+    "utf-8",
+  );
 
   const summary = await storeSummary(paths);
   expect(summary.workouts).toBe(1);

@@ -1,6 +1,7 @@
 import { cp, mkdir, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { calendarDay } from "./models.ts";
+import { readAllNotes } from "./notes.ts";
 import type { DataPaths } from "./paths.ts";
 import { readMeta, readWorkouts, SCHEMA_VERSION, writeMeta } from "./storage.ts";
 
@@ -124,7 +125,7 @@ export async function storeSummary(paths: DataPaths): Promise<StoreSummary> {
   const strokeFiles = (await listIfPresent(paths.strokesDir)).filter((f) =>
     f.endsWith(".jsonl"),
   ).length;
-  const notes = (await listIfPresent(paths.notesDir)).filter((f) => f.endsWith(".json")).length;
+  const notes = (await readAllNotes(paths)).length;
   const meta = await readMeta(paths);
   return {
     workouts: workouts.length,

@@ -99,6 +99,11 @@ export function registerSync(program: Command): void {
       });
 
       const compacted = await compactNotes(paths, now);
+      for (const year of compacted.skippedYears) {
+        console.error(
+          `Warning: notes/archive/${year}.jsonl has corrupt lines; left untouched (run \`c2 data doctor\`).`,
+        );
+      }
       if (compacted.archived > 0) {
         console.log(
           `Compacted ${compacted.archived} note${compacted.archived === 1 ? "" : "s"} into ${compacted.years.map((y) => `${y}.jsonl`).join(", ")}.`,

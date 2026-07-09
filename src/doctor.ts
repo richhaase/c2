@@ -18,10 +18,14 @@ async function readOrNull(path: string): Promise<string | null> {
   }
 }
 
-async function listDir(dir: string): Promise<string[]> {
+async function listDir(dir: string, label: string, issues: string[]): Promise<string[]> {
   try {
     return await readdir(dir);
-  } catch {
+  } catch (err: unknown) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code !== "ENOENT") {
+      issues.push(`${label}: unreadable (${code ?? (err as Error).message})`);
+    }
     return [];
   }
 }
@@ -64,7 +68,7 @@ export async function runDoctor(paths: DataPaths): Promise<DoctorReport> {
     }
   }
 
-  for (const f of await listDir(paths.strokesDir)) {
+  for (const f of await listDir(paths.strokesDir, "strokes/", issues)) {
     if (!f.endsWith(".jsonl")) continue;
     const text = await readOrNull(join(paths.strokesDir, f));
     if (text == null) continue;
@@ -74,7 +78,7 @@ export async function runDoctor(paths: DataPaths): Promise<DoctorReport> {
     }
   }
 
-  for (const f of await listDir(paths.notesDir)) {
+  for (const f of await listDir(paths.notesDir, "notes/", issues)) {
     if (!f.endsWith(".json")) continue;
     const text = await readOrNull(join(paths.notesDir, f));
     if (text == null) continue;
@@ -92,7 +96,7 @@ export async function runDoctor(paths: DataPaths): Promise<DoctorReport> {
   }
 
   const archiveIds = new Set<string>();
-  for (const f of await listDir(paths.archiveDir)) {
+  for (const f of await listDir(paths.archiveDir, "notes/archive/", issues)) {
     if (!f.endsWith(".jsonl")) continue;
     const text = await readOrNull(join(paths.archiveDir, f));
     if (text == null) continue;
