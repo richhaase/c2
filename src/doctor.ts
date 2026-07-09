@@ -8,13 +8,15 @@ export interface DoctorReport {
   checkedFiles: number;
 }
 
-async function readOrNull(path: string): Promise<string | null> {
+async function readOrNull(path: string, label: string, issues: string[]): Promise<string | null> {
   try {
     return await readFile(path, "utf-8");
   } catch (err: unknown) {
     const code = (err as NodeJS.ErrnoException).code;
-    if (code === "ENOENT" || code === "ENOTDIR") return null;
-    throw err;
+    if (code !== "ENOENT") {
+      issues.push(`${label}: unreadable (${code ?? (err as Error).message})`);
+    }
+    return null;
   }
 }
 
@@ -47,7 +49,7 @@ export async function runDoctor(paths: DataPaths): Promise<DoctorReport> {
   const issues: string[] = [];
   let checkedFiles = 0;
 
-  const meta = await readOrNull(paths.meta);
+  const meta = await readOrNull(paths.meta, "meta.json", issues);
   if (meta != null) {
     checkedFiles++;
     try {
@@ -60,7 +62,7 @@ export async function runDoctor(paths: DataPaths): Promise<DoctorReport> {
     }
   }
 
-  const workouts = await readOrNull(paths.workouts);
+  const workouts = await readOrNull(paths.workouts, "workouts.jsonl", issues);
   if (workouts != null) {
     checkedFiles++;
     for (const line of badLines(workouts)) {
@@ -70,7 +72,7 @@ export async function runDoctor(paths: DataPaths): Promise<DoctorReport> {
 
   for (const f of await listDir(paths.strokesDir, "strokes/", issues)) {
     if (!f.endsWith(".jsonl")) continue;
-    const text = await readOrNull(join(paths.strokesDir, f));
+    const text = await readOrNull(join(paths.strokesDir, f), `strokes/${f}`, issues);
     if (text == null) continue;
     checkedFiles++;
     for (const line of badLines(text)) {
@@ -80,7 +82,7 @@ export async function runDoctor(paths: DataPaths): Promise<DoctorReport> {
 
   for (const f of await listDir(paths.notesDir, "notes/", issues)) {
     if (!f.endsWith(".json")) continue;
-    const text = await readOrNull(join(paths.notesDir, f));
+    const text = await readOrNull(join(paths.notesDir, f), `notes/${f}`, issues);
     if (text == null) continue;
     checkedFiles++;
     try {
@@ -98,7 +100,7 @@ export async function runDoctor(paths: DataPaths): Promise<DoctorReport> {
   const archiveIds = new Set<string>();
   for (const f of await listDir(paths.archiveDir, "notes/archive/", issues)) {
     if (!f.endsWith(".jsonl")) continue;
-    const text = await readOrNull(join(paths.archiveDir, f));
+    const text = await readOrNull(join(paths.archiveDir, f), `notes/archive/${f}`, issues);
     if (text == null) continue;
     checkedFiles++;
     let prevKey = "";

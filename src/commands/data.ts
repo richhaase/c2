@@ -77,6 +77,10 @@ export function registerData(program: Command): void {
         console.error(`${paths.root} is not a c2 data store; nothing to compact.`);
         process.exit(1);
       }
+      if (!inspection.writable) {
+        console.error(`Cannot write to ${paths.root}.`);
+        process.exit(1);
+      }
       const result = await compactNotes(paths, new Date());
       for (const year of result.skippedYears) {
         console.error(

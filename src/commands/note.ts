@@ -26,9 +26,9 @@ async function readBody(bodyArg: string | undefined): Promise<string> {
 }
 
 export function parseNoteDate(raw: string): string | null {
-  const prefix = /^(\d{4}-\d{2}-\d{2})/.exec(raw);
-  if (prefix != null && !isValidYMD(prefix[1]!)) return null;
-  const d = isValidYMD(raw) ? new Date(`${raw}T12:00:00`) : new Date(raw);
+  const prefix = /^(\d{4}-\d{2}-\d{2})([T ].+)?$/.exec(raw);
+  if (prefix == null || !isValidYMD(prefix[1]!)) return null;
+  const d = prefix[2] == null ? new Date(`${raw}T12:00:00`) : new Date(raw);
   if (Number.isNaN(d.getTime())) return null;
   return localISO(d);
 }
@@ -139,12 +139,20 @@ export function registerNote(program: Command): void {
           console.error(`Error: invalid --since date "${opts.since}" (expected YYYY-MM-DD).`);
           process.exit(1);
         }
+        let workoutId: number | undefined;
+        if (opts.workout != null) {
+          workoutId = Number(opts.workout);
+          if (!Number.isInteger(workoutId)) {
+            console.error(`Error: invalid --workout id "${opts.workout}".`);
+            process.exit(1);
+          }
+        }
         const cfg = await loadConfig();
         const paths = dataPaths(cfg);
         let notes = filterNotes(await readAllNotes(paths), {
           type: opts.type,
           since: opts.since,
-          workoutId: opts.workout != null ? Number(opts.workout) : undefined,
+          workoutId,
         });
         if (opts.count != null) {
           const n = parseInt(opts.count, 10);

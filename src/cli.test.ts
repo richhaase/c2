@@ -280,6 +280,14 @@ test("note add/list/show round-trip through the CLI", () => {
   const rollover = run(["note", "add", "--date", "2026-02-31", "x"]);
   expect(rollover.code).toBe(1);
   expect(rollover.stderr).toContain('invalid --date "2026-02-31"');
+
+  const partial = run(["note", "add", "--date", "2026-07", "x"]);
+  expect(partial.code).toBe(1);
+  expect(partial.stderr).toContain('invalid --date "2026-07"');
+
+  const badWorkout = run(["note", "list", "--workout", "banana"]);
+  expect(badWorkout.code).toBe(1);
+  expect(badWorkout.stderr).toContain('invalid --workout id "banana"');
 });
 
 test("first coaching write initializes a proper store", async () => {

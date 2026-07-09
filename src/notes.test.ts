@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { mkdir, mkdtemp, readdir, readFile, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -133,6 +133,30 @@ test("notes with invalid authors are skipped by the reader", async () => {
     }),
     "utf-8",
   );
+  await writeFile(
+    join(paths.notesDir, "BADTAGS.json"),
+    JSON.stringify({
+      id: "BADTAGS",
+      date: "2026-07-05T10:00:00-06:00",
+      type: "observation",
+      tags: "not-an-array",
+      body: "x",
+      author: "athlete",
+    }),
+    "utf-8",
+  );
+  await writeFile(
+    join(paths.notesDir, "BADWID.json"),
+    JSON.stringify({
+      id: "BADWID",
+      date: "2026-07-05T10:00:00-06:00",
+      type: "observation",
+      workout_id: "seven",
+      body: "x",
+      author: "athlete",
+    }),
+    "utf-8",
+  );
   const notes = await readAllNotes(paths);
   expect(notes.map((n) => n.id)).toEqual(["GOOD"]);
 });
@@ -157,11 +181,60 @@ test("compaction refuses to rewrite archives containing corrupt lines", async ()
   expect(looseFiles).toEqual(["OLDLOOSE.json"]);
 });
 
-test("parseNoteDate uses the target date's own offset", async () => {
+test("parseNoteDate uses the target date's own offset and rejects partial dates", async () => {
   const { parseNoteDate } = await import("./commands/note.ts");
   expect(parseNoteDate("2026-01-15")).toBe(localISO(new Date("2026-01-15T12:00:00")));
   expect(parseNoteDate("2026-07-15")).toBe(localISO(new Date("2026-07-15T12:00:00")));
   expect(parseNoteDate("2026-02-31")).toBeNull();
+  expect(parseNoteDate("2026-07")).toBeNull();
+  expect(parseNoteDate("2026")).toBeNull();
+  expect(parseNoteDate("2026-07-15T08:30:00")).toBe(localISO(new Date("2026-07-15T08:30:00")));
+});
+
+test("compaction deletes the files it read, including conflict copies", async () => {
+  const paths = await tempStore();
+  const old = record("OLDX", "2026-06-01T08:00:00-06:00", "original");
+  await writeNote(paths, old);
+  await writeFile(join(paths.notesDir, "OLDX conflict 2.json"), serializeNote(old), "utf-8");
+  await writeFile(
+    join(paths.notesDir, "WEIRD NAME.json"),
+    serializeNote(record("OLDY", "2026-06-02T08:00:00-06:00", "odd filename")),
+    "utf-8",
+  );
+
+  const result = await compactNotes(paths, NOW);
+  expect(result.archived).toBe(2);
+
+  const looseFiles = (await readdir(paths.notesDir)).filter((f) => f.endsWith(".json"));
+  expect(looseFiles).toEqual([]);
+  const all = await readAllNotes(paths);
+  expect(all.map((n) => n.id)).toEqual(["OLDX", "OLDY"]);
+
+  const again = await compactNotes(paths, NOW);
+  expect(again.archived).toBe(0);
+});
+
+test("compaction skips unreadable archives instead of truncating them", async () => {
+  const paths = await tempStore();
+  await writeFile(
+    paths.archiveFile(2026),
+    `${serializeNote(record("SAFE", "2026-01-01T08:00:00-07:00", "already archived"))}\n`,
+    "utf-8",
+  );
+  await chmod(paths.archiveFile(2026), 0o000);
+  await writeNote(paths, record("OLDLOOSE2", "2026-06-01T08:00:00-06:00", "wants archiving"));
+
+  try {
+    const result = await compactNotes(paths, NOW);
+    expect(result.archived).toBe(0);
+    expect(result.skippedYears).toEqual([2026]);
+  } finally {
+    await chmod(paths.archiveFile(2026), 0o644);
+  }
+  const archiveText = await readFile(paths.archiveFile(2026), "utf-8");
+  expect(archiveText).toContain("SAFE");
+  const looseFiles = (await readdir(paths.notesDir)).filter((f) => f.endsWith(".json"));
+  expect(looseFiles).toEqual(["OLDLOOSE2.json"]);
 });
 
 test("doctor flags unreadable note directories", async () => {

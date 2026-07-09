@@ -60,7 +60,11 @@ export function isNoteShaped(parsed: unknown): parsed is NoteRecord {
     typeof note?.date === "string" &&
     typeof note?.body === "string" &&
     (NOTE_TYPES as readonly string[]).includes(note?.type) &&
-    (NOTE_AUTHORS as readonly string[]).includes(note?.author)
+    (NOTE_AUTHORS as readonly string[]).includes(note?.author) &&
+    (note.workout_id === undefined ||
+      (typeof note.workout_id === "number" && Number.isFinite(note.workout_id))) &&
+    (note.tags === undefined ||
+      (Array.isArray(note.tags) && note.tags.every((t) => typeof t === "string")))
   );
 }
 
@@ -84,20 +88,33 @@ export async function writeNote(paths: DataPaths, note: NoteRecord): Promise<voi
   await writeFile(join(paths.notesDir, `${note.id}.json`), `${serializeNote(note)}\n`, "utf-8");
 }
 
-async function readLooseNotes(paths: DataPaths): Promise<Map<string, NoteRecord>> {
-  const notes = new Map<string, NoteRecord>();
+interface LooseEntry {
+  note: NoteRecord;
+  file: string;
+}
+
+async function readLooseEntries(paths: DataPaths): Promise<LooseEntry[]> {
+  const entries: LooseEntry[] = [];
   let files: string[];
   try {
     files = await readdir(paths.notesDir);
   } catch {
-    return notes;
+    return entries;
   }
-  for (const f of files) {
+  for (const f of files.sort()) {
     if (!f.endsWith(".json")) continue;
     try {
       const note = parseNote(await readFile(join(paths.notesDir, f), "utf-8"));
-      if (note != null) notes.set(note.id, note);
+      if (note != null) entries.push({ note, file: f });
     } catch {}
+  }
+  return entries;
+}
+
+async function readLooseNotes(paths: DataPaths): Promise<Map<string, NoteRecord>> {
+  const notes = new Map<string, NoteRecord>();
+  for (const entry of await readLooseEntries(paths)) {
+    notes.set(entry.note.id, entry.note);
   }
   return notes;
 }
@@ -156,22 +173,22 @@ const COMPACT_AGE_DAYS = 7;
 async function readArchiveYear(
   paths: DataPaths,
   year: number,
-): Promise<{ notes: NoteRecord[]; corruptLines: number }> {
+): Promise<{ notes: NoteRecord[]; safeToRewrite: boolean }> {
   const notes: NoteRecord[] = [];
-  let corruptLines = 0;
   let text: string;
   try {
     text = await readFile(paths.archiveFile(year), "utf-8");
-  } catch {
-    return { notes, corruptLines };
+  } catch (err: unknown) {
+    const code = (err as NodeJS.ErrnoException).code;
+    return { notes, safeToRewrite: code === "ENOENT" };
   }
   for (const line of text.split("\n")) {
     if (line.trim() === "") continue;
     const note = parseNote(line);
     if (note != null) notes.push(note);
-    else corruptLines++;
+    else return { notes, safeToRewrite: false };
   }
-  return { notes, corruptLines };
+  return { notes, safeToRewrite: true };
 }
 
 export interface CompactResult {
@@ -185,8 +202,12 @@ export async function compactNotes(paths: DataPaths, now: Date): Promise<Compact
   cutoff.setDate(cutoff.getDate() - COMPACT_AGE_DAYS);
   const cutoffKey = localISO(cutoff);
 
-  const loose = await readLooseNotes(paths);
-  const eligible = [...loose.values()].filter((n) => n.date < cutoffKey);
+  const entries = await readLooseEntries(paths);
+  const deduped = new Map<string, NoteRecord>();
+  for (const e of entries) {
+    deduped.set(e.note.id, e.note);
+  }
+  const eligible = [...deduped.values()].filter((n) => n.date < cutoffKey);
   if (eligible.length === 0) return { archived: 0, years: [], skippedYears: [] };
 
   const byYear = new Map<number, NoteRecord[]>();
@@ -202,7 +223,7 @@ export async function compactNotes(paths: DataPaths, now: Date): Promise<Compact
   const skippedYears: number[] = [];
   for (const [year, notes] of byYear) {
     const existing = await readArchiveYear(paths, year);
-    if (existing.corruptLines > 0) {
+    if (!existing.safeToRewrite) {
       skippedYears.push(year);
       continue;
     }
@@ -211,8 +232,11 @@ export async function compactNotes(paths: DataPaths, now: Date): Promise<Compact
     for (const n of notes) merged.set(n.id, n);
     const lines = [...merged.values()].sort(compareNotes).map(serializeNote);
     await writeFile(paths.archiveFile(year), `${lines.join("\n")}\n`, "utf-8");
-    for (const note of notes) {
-      await rm(join(paths.notesDir, `${note.id}.json`), { force: true });
+    const archivedIds = new Set(notes.map((n) => n.id));
+    for (const e of entries) {
+      if (archivedIds.has(e.note.id)) {
+        await rm(join(paths.notesDir, e.file), { force: true });
+      }
     }
     archivedCount += notes.length;
     years.push(year);
