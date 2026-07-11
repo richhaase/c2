@@ -68,17 +68,25 @@ export async function writeStrokeData(
 }
 
 export async function readStrokeData(paths: DataPaths, workoutId: number): Promise<StrokeData[]> {
+  let text: string;
   try {
-    const text = await readFile(paths.strokeFile(workoutId), "utf-8");
-    return text
-      .split("\n")
-      .filter((line) => line.trim() !== "")
-      .map((line) => JSON.parse(line) as StrokeData);
+    text = await readFile(paths.strokeFile(workoutId), "utf-8");
   } catch (err: unknown) {
     const code = (err as NodeJS.ErrnoException).code;
     if (code === "ENOENT" || code === "ENOTDIR") return [];
     throw err;
   }
+  const strokes: StrokeData[] = [];
+  for (const line of text.split("\n")) {
+    if (line.trim() === "") continue;
+    try {
+      const parsed = JSON.parse(line) as unknown;
+      if (parsed != null && typeof parsed === "object" && !Array.isArray(parsed)) {
+        strokes.push(parsed as StrokeData);
+      }
+    } catch {}
+  }
+  return strokes;
 }
 
 export async function readMeta(paths: DataPaths): Promise<StoreMeta | null> {

@@ -82,7 +82,9 @@ function parseNote(raw: string): NoteRecord | null {
 }
 
 function compareNotes(a: NoteRecord, b: NoteRecord): number {
-  if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+  const aMs = new Date(a.date).getTime();
+  const bMs = new Date(b.date).getTime();
+  if (aMs !== bMs) return aMs < bMs ? -1 : 1;
   if (a.id !== b.id) return a.id < b.id ? -1 : 1;
   return 0;
 }

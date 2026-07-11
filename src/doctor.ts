@@ -32,17 +32,12 @@ async function listDir(dir: string, label: string, issues: string[]): Promise<st
   }
 }
 
-function badLines(text: string): number[] {
-  const bad: number[] = [];
-  text.split("\n").forEach((line, i) => {
-    if (line.trim() === "") return;
-    try {
-      JSON.parse(line);
-    } catch {
-      bad.push(i + 1);
-    }
-  });
-  return bad;
+const STROKE_FIELDS = ["t", "d", "p", "spm", "hr"] as const;
+
+function isStrokeShaped(parsed: unknown): boolean {
+  if (parsed == null || typeof parsed !== "object" || Array.isArray(parsed)) return false;
+  const row = parsed as Record<string, unknown>;
+  return STROKE_FIELDS.every((k) => row[k] === undefined || typeof row[k] === "number");
 }
 
 export async function runDoctor(paths: DataPaths): Promise<DoctorReport> {
@@ -95,8 +90,20 @@ export async function runDoctor(paths: DataPaths): Promise<DoctorReport> {
     const text = await readOrNull(join(paths.strokesDir, f), `strokes/${f}`, issues);
     if (text == null) continue;
     checkedFiles++;
-    for (const line of badLines(text)) {
-      issues.push(`strokes/${f}: line ${line} is not valid JSON`);
+    let lineNo = 0;
+    for (const line of text.split("\n")) {
+      lineNo++;
+      if (line.trim() === "") continue;
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(line);
+      } catch {
+        issues.push(`strokes/${f}: line ${lineNo} is not valid JSON`);
+        continue;
+      }
+      if (!isStrokeShaped(parsed)) {
+        issues.push(`strokes/${f}: line ${lineNo} malformed stroke record`);
+      }
     }
   }
 
@@ -121,7 +128,8 @@ export async function runDoctor(paths: DataPaths): Promise<DoctorReport> {
     const text = await readOrNull(join(paths.archiveDir, f), `notes/archive/${f}`, issues);
     if (text == null) continue;
     checkedFiles++;
-    let prevKey = "";
+    let prevMs = Number.NEGATIVE_INFINITY;
+    let prevId = "";
     let lineNo = 0;
     for (const line of text.split("\n")) {
       lineNo++;
@@ -137,11 +145,12 @@ export async function runDoctor(paths: DataPaths): Promise<DoctorReport> {
         issues.push(`notes/archive/${f}: line ${lineNo} malformed note record`);
         continue;
       }
-      const key = `${parsed.date} ${parsed.id}`;
-      if (prevKey !== "" && key < prevKey) {
+      const ms = new Date(parsed.date).getTime();
+      if (ms < prevMs || (ms === prevMs && parsed.id < prevId)) {
         issues.push(`notes/archive/${f}: line ${lineNo} out of (date, id) order`);
       }
-      prevKey = key;
+      prevMs = ms;
+      prevId = parsed.id;
       if (archiveIds.has(parsed.id)) {
         issues.push(`notes/archive/${f}: duplicate note id ${parsed.id}`);
       }

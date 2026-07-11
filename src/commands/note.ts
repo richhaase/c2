@@ -5,6 +5,7 @@ import { printJSON } from "../envelope.ts";
 import { isValidYMD } from "../models.ts";
 import {
   filterNotes,
+  isNoteShaped,
   localISO,
   NOTE_AUTHORS,
   NOTE_TYPES,
@@ -29,9 +30,11 @@ export function parseNoteDate(raw: string): string | null {
   const prefix = /^(\d{4}-\d{2}-\d{2})([T ].+)?$/.exec(raw);
   if (prefix == null || !isValidYMD(prefix[1]!)) return null;
   if (/(?:[+-]\d{2}:\d{2}|Z)$/.test(raw)) {
-    if (Number.isNaN(new Date(raw).getTime())) return null;
-    const normalized = raw.replace(" ", "T");
-    return normalized.endsWith("Z") ? `${normalized.slice(0, -1)}+00:00` : normalized;
+    let normalized = raw.replace(" ", "T");
+    if (normalized.endsWith("Z")) normalized = `${normalized.slice(0, -1)}+00:00`;
+    if (!/^\d{4}-\d{2}-\d{2}T\S+$/.test(normalized)) return null;
+    if (Number.isNaN(new Date(normalized).getTime())) return null;
+    return normalized;
   }
   const d = prefix[2] == null ? new Date(`${raw}T12:00:00`) : new Date(raw);
   if (Number.isNaN(d.getTime())) return null;
@@ -119,6 +122,10 @@ export function registerNote(program: Command): void {
           body,
           author: opts.author as NoteAuthor,
         };
+        if (!isNoteShaped(record)) {
+          console.error("Error: note would not round-trip; check --date and field values.");
+          process.exit(1);
+        }
         await writeNote(paths, record);
         console.log(record.id);
       },

@@ -41,6 +41,25 @@ test("localISO renders the local calendar day with offset", () => {
   expect(/[+-]\d{2}:\d{2}$/.test(iso)).toBe(true);
 });
 
+test("notes sort by instant across mixed offsets", async () => {
+  const paths = await tempStore();
+  await writeNote(paths, record("MINUS6", "2026-07-05T23:30:00-06:00", "later instant"));
+  await writeNote(paths, record("PLUS2", "2026-07-06T01:00:00+02:00", "earlier instant"));
+  const notes = await readAllNotes(paths);
+  expect(notes.map((n) => n.id)).toEqual(["PLUS2", "MINUS6"]);
+});
+
+test("mixed-offset archives pass doctor after compaction", async () => {
+  const { runDoctor } = await import("./doctor.ts");
+  const paths = await tempStore();
+  await writeNote(paths, record("TZ1", "2026-06-05T23:30:00-06:00", "denver"));
+  await writeNote(paths, record("TZ2", "2026-06-06T01:00:00+02:00", "europe"));
+  const result = await compactNotes(paths, NOW);
+  expect(result.archived).toBe(2);
+  const report = await runDoctor(paths);
+  expect(report.issues).toEqual([]);
+});
+
 test("notes round-trip and sort by date then id", async () => {
   const paths = await tempStore();
   await writeNote(paths, record("B", "2026-07-05T10:00:00-06:00", "second"));
@@ -191,6 +210,26 @@ test("parseNoteDate uses the target date's own offset and rejects partial dates"
   expect(parseNoteDate("2026-07-15T08:30:00")).toBe(localISO(new Date("2026-07-15T08:30:00")));
   expect(parseNoteDate("2026-07-05T10:00:00+02:00")).toBe("2026-07-05T10:00:00+02:00");
   expect(parseNoteDate("2026-07-05T10:00:00Z")).toBe("2026-07-05T10:00:00+00:00");
+  expect(parseNoteDate("2026-07-05 10:00:00 +02:00")).toBeNull();
+});
+
+test("doctor validates stroke row shapes and reader skips junk rows", async () => {
+  const { runDoctor } = await import("./doctor.ts");
+  const { readStrokeData } = await import("./storage.ts");
+  const paths = await tempStore();
+  await mkdir(paths.strokesDir, { recursive: true });
+  await writeFile(
+    paths.strokeFile(42),
+    `${JSON.stringify({ t: 100, d: 500, p: 1750, spm: 24, hr: 110 })}\nnull\n${JSON.stringify({ t: "x" })}\n`,
+    "utf-8",
+  );
+  const report = await runDoctor(paths);
+  expect(report.issues).toContain("strokes/42.jsonl: line 2 malformed stroke record");
+  expect(report.issues).toContain("strokes/42.jsonl: line 3 malformed stroke record");
+
+  const strokes = await readStrokeData(paths, 42);
+  expect(strokes.length).toBe(2);
+  expect(strokes[0]!.p).toBe(1750);
 });
 
 test("compaction compares note age as instants, not offset strings", async () => {
