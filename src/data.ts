@@ -87,6 +87,14 @@ async function probeWritable(dir: string): Promise<boolean> {
   }
 }
 
+export async function rejectForeignStore(paths: DataPaths): Promise<string | null> {
+  const inspection = await inspectDataDir(paths);
+  if (inspection.state === "foreign") {
+    return `${paths.root} exists but is not a c2 data store. Fix data_dir via \`c2 setup\`.`;
+  }
+  return null;
+}
+
 export async function ensureStoreForWrite(paths: DataPaths, now: Date): Promise<string | null> {
   const inspection = await inspectDataDir(paths);
   if (inspection.state === "foreign") {

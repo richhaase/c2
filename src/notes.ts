@@ -188,11 +188,14 @@ async function readArchiveYear(
     const code = (err as NodeJS.ErrnoException).code;
     return { notes, safeToRewrite: code === "ENOENT" };
   }
+  const seen = new Set<string>();
   for (const line of text.split("\n")) {
     if (line.trim() === "") continue;
     const note = parseNote(line);
-    if (note != null) notes.push(note);
-    else return { notes, safeToRewrite: false };
+    if (note == null) return { notes, safeToRewrite: false };
+    if (seen.has(note.id)) return { notes, safeToRewrite: false };
+    seen.add(note.id);
+    notes.push(note);
   }
   return { notes, safeToRewrite: true };
 }
@@ -254,7 +257,9 @@ export async function compactNotes(paths: DataPaths, now: Date): Promise<Compact
     const archivedIds = new Set(notes.map((n) => n.id));
     for (const e of entries) {
       if (archivedIds.has(e.note.id)) {
-        await rm(join(paths.notesDir, e.file), { force: true });
+        try {
+          await rm(join(paths.notesDir, e.file), { force: true });
+        } catch {}
       }
     }
     archivedCount += notes.length;

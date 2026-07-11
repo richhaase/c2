@@ -309,6 +309,38 @@ test("doctor flags malformed workout records", async () => {
   expect(report.issues).toContain("workouts.jsonl: line 2 malformed workout record");
 });
 
+test("archives with duplicate ids are never rewritten", async () => {
+  const paths = await tempStore();
+  const dup = record("ARCHDUP", "2026-01-05T08:00:00-07:00", "version one");
+  await writeFile(
+    paths.archiveFile(2026),
+    `${serializeNote(dup)}\n${serializeNote({ ...dup, body: "version two" })}\n`,
+    "utf-8",
+  );
+  await writeNote(paths, record("NEWOLD", "2026-06-01T08:00:00-06:00", "wants archiving"));
+
+  const result = await compactNotes(paths, NOW);
+  expect(result.archived).toBe(0);
+  expect(result.skippedYears).toEqual([2026]);
+  const archiveText = await readFile(paths.archiveFile(2026), "utf-8");
+  expect(archiveText).toContain("version one");
+  expect(archiveText).toContain("version two");
+});
+
+test("loose-note deletion failures do not fail compaction", async () => {
+  const paths = await tempStore();
+  await writeNote(paths, record("LOCKED", "2026-06-01T08:00:00-06:00", "old note"));
+  await chmod(paths.notesDir, 0o555);
+  try {
+    const result = await compactNotes(paths, NOW);
+    expect(result.archived).toBe(1);
+  } finally {
+    await chmod(paths.notesDir, 0o755);
+  }
+  const all = await readAllNotes(paths);
+  expect(all.filter((n) => n.id === "LOCKED").length).toBe(1);
+});
+
 test("offset-less note timestamps are rejected everywhere", async () => {
   const { runDoctor } = await import("./doctor.ts");
   const paths = await tempStore();

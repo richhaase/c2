@@ -294,6 +294,43 @@ test("note add/list/show round-trip through the CLI", () => {
   expect(badFilter.stderr).toContain("--type must be one of");
 });
 
+test("failed workout links leave no store behind", async () => {
+  const home8 = await mkdtemp(join(tmpdir(), "c2-cli-noworkout-"));
+  await mkdir(join(home8, ".config", "c2"), { recursive: true });
+  await writeFile(join(home8, ".config", "c2", "config.json"), JSON.stringify({}), "utf-8");
+
+  const bad = run(["note", "add", "--workout", "999", "orphan note"], { home: home8 });
+  expect(bad.code).toBe(1);
+  expect(bad.stderr).toContain('no workout matching "999"');
+
+  const info = run(["data", "info"], { home: home8 });
+  expect(info.code).toBe(1);
+  expect(info.stderr).toContain("No data store");
+});
+
+test("coaching reads reject foreign directories", async () => {
+  const home9 = await mkdtemp(join(tmpdir(), "c2-cli-foreignread-"));
+  await mkdir(join(home9, ".config", "c2"), { recursive: true });
+  const foreignDir = join(home9, "someones-docs");
+  await mkdir(foreignDir);
+  await writeFile(join(foreignDir, "plan.md"), "# someone else's plan\n", "utf-8");
+  await writeFile(join(foreignDir, "novel.docx"), "chapter one", "utf-8");
+  await writeFile(
+    join(home9, ".config", "c2", "config.json"),
+    JSON.stringify({ data_dir: foreignDir }),
+    "utf-8",
+  );
+
+  const planShow = run(["plan", "show"], { home: home9 });
+  expect(planShow.code).toBe(1);
+  expect(planShow.stderr).toContain("not a c2 data store");
+  expect(planShow.stdout).not.toContain("someone else's plan");
+
+  const noteList = run(["note", "list"], { home: home9 });
+  expect(noteList.code).toBe(1);
+  expect(noteList.stderr).toContain("not a c2 data store");
+});
+
 test("invalid --date rejects before any store side effects", async () => {
   const home7 = await mkdtemp(join(tmpdir(), "c2-cli-nodate-"));
   await mkdir(join(home7, ".config", "c2"), { recursive: true });

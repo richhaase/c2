@@ -1,6 +1,6 @@
 import type { Command } from "commander";
 import { loadConfig } from "../config.ts";
-import { ensureStoreForWrite } from "../data.ts";
+import { ensureStoreForWrite, rejectForeignStore } from "../data.ts";
 import { printJSON } from "../envelope.ts";
 import { isValidYMD } from "../models.ts";
 import {
@@ -90,11 +90,6 @@ export function registerNote(program: Command): void {
         const cfg = await loadConfig();
         const paths = dataPaths(cfg);
         const now = new Date();
-        const storeError = await ensureStoreForWrite(paths, now);
-        if (storeError != null) {
-          console.error(storeError);
-          process.exit(1);
-        }
 
         let workoutId: number | undefined;
         if (opts.workout) {
@@ -105,6 +100,12 @@ export function registerNote(program: Command): void {
             process.exit(1);
           }
           workoutId = w.id;
+        }
+
+        const storeError = await ensureStoreForWrite(paths, now);
+        if (storeError != null) {
+          console.error(storeError);
+          process.exit(1);
         }
 
         const date = backdate ?? localISO(now);
@@ -166,6 +167,11 @@ export function registerNote(program: Command): void {
         }
         const cfg = await loadConfig();
         const paths = dataPaths(cfg);
+        const foreign = await rejectForeignStore(paths);
+        if (foreign != null) {
+          console.error(foreign);
+          process.exit(1);
+        }
         let notes = filterNotes(await readAllNotes(paths), {
           type: opts.type,
           since: opts.since,
@@ -201,6 +207,11 @@ export function registerNote(program: Command): void {
     .action(async (id: string, opts: { json?: boolean }) => {
       const cfg = await loadConfig();
       const paths = dataPaths(cfg);
+      const foreign = await rejectForeignStore(paths);
+      if (foreign != null) {
+        console.error(foreign);
+        process.exit(1);
+      }
       const match = (await readAllNotes(paths)).find((n) => n.id === id);
       if (match == null) {
         console.error(`No note with id ${id}.`);

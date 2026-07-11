@@ -1,7 +1,7 @@
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import type { Command } from "commander";
 import { loadConfig } from "../config.ts";
-import { ensureStoreForWrite } from "../data.ts";
+import { ensureStoreForWrite, rejectForeignStore } from "../data.ts";
 import { printJSON } from "../envelope.ts";
 import { isValidYMD } from "../models.ts";
 import type { DataPaths } from "../paths.ts";
@@ -37,7 +37,13 @@ function registerDoc(
     .description(`Print the ${name}`)
     .action(async () => {
       const cfg = await loadConfig();
-      const content = await readIfExists(pathOf(dataPaths(cfg)));
+      const paths = dataPaths(cfg);
+      const foreign = await rejectForeignStore(paths);
+      if (foreign != null) {
+        console.error(foreign);
+        process.exit(1);
+      }
+      const content = await readIfExists(pathOf(paths));
       if (content == null) {
         console.error(`No ${name} recorded yet. Set one with \`c2 ${name} set <file|->\`.`);
         process.exit(1);
@@ -112,6 +118,11 @@ export function registerDocs(program: Command): void {
     .action(async (date: string | undefined) => {
       const cfg = await loadConfig();
       const paths = dataPaths(cfg);
+      const foreign = await rejectForeignStore(paths);
+      if (foreign != null) {
+        console.error(foreign);
+        process.exit(1);
+      }
       let target = date;
       if (target != null && !isValidYMD(target)) {
         console.error(`Error: invalid date "${target}" (expected YYYY-MM-DD).`);
@@ -139,7 +150,13 @@ export function registerDocs(program: Command): void {
     .option("--json", "output as JSON")
     .action(async (opts: { json?: boolean }) => {
       const cfg = await loadConfig();
-      const dates = await listNarratives(dataPaths(cfg));
+      const paths = dataPaths(cfg);
+      const foreign = await rejectForeignStore(paths);
+      if (foreign != null) {
+        console.error(foreign);
+        process.exit(1);
+      }
+      const dates = await listNarratives(paths);
       if (opts.json) {
         printJSON("c2.narratives.v1", { count: dates.length, dates });
         return;
