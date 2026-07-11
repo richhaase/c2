@@ -95,8 +95,10 @@ export async function readMeta(paths: DataPaths): Promise<StoreMeta | null> {
     text = await readFile(paths.meta, "utf-8");
   } catch (err: unknown) {
     const code = (err as NodeJS.ErrnoException).code;
-    if (code === "ENOENT" || code === "ENOTDIR") return null;
-    throw err;
+    if (code !== "ENOENT" && code !== "ENOTDIR") {
+      console.error(`Warning: ${paths.meta} is unreadable and will be ignored.`);
+    }
+    return null;
   }
   try {
     return JSON.parse(text) as StoreMeta;

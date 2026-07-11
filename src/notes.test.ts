@@ -180,6 +180,23 @@ test("notes with invalid authors are skipped by the reader", async () => {
   expect(notes.map((n) => n.id)).toEqual(["GOOD"]);
 });
 
+test("unreadable meta.json degrades instead of crashing inspection", async () => {
+  const { inspectDataDir } = await import("./data.ts");
+  const { runDoctor } = await import("./doctor.ts");
+  const paths = await tempStore();
+  const { writeMeta } = await import("./storage.ts");
+  await writeMeta(paths, { schema_version: 1, created: NOW.toISOString() });
+  await chmod(paths.meta, 0o000);
+  try {
+    const insp = await inspectDataDir(paths);
+    expect(insp.state).toBe("store");
+    const report = await runDoctor(paths);
+    expect(report.issues.some((i) => i.startsWith("meta.json: unreadable"))).toBe(true);
+  } finally {
+    await chmod(paths.meta, 0o644);
+  }
+});
+
 test("compaction refuses to rewrite archives containing corrupt lines", async () => {
   const paths = await tempStore();
   const garbage = "{ this is not json";

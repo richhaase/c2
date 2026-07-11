@@ -329,6 +329,11 @@ test("coaching reads reject foreign directories", async () => {
   const noteList = run(["note", "list"], { home: home9 });
   expect(noteList.code).toBe(1);
   expect(noteList.stderr).toContain("not a c2 data store");
+
+  await writeFile(join(foreignDir, "workouts.jsonl"), "{ not json at all\n", "utf-8");
+  const linked = run(["note", "add", "--workout", "1", "x"], { home: home9 });
+  expect(linked.code).toBe(1);
+  expect(linked.stderr).toContain("not a c2 data store");
 });
 
 test("invalid --date rejects before any store side effects", async () => {

@@ -90,6 +90,11 @@ export function registerNote(program: Command): void {
         const cfg = await loadConfig();
         const paths = dataPaths(cfg);
         const now = new Date();
+        const foreign = await rejectForeignStore(paths);
+        if (foreign != null) {
+          console.error(foreign);
+          process.exit(1);
+        }
 
         let workoutId: number | undefined;
         if (opts.workout) {

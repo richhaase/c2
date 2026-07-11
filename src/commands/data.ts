@@ -84,16 +84,19 @@ export function registerData(program: Command): void {
       const result = await compactNotes(paths, new Date());
       for (const year of result.skippedYears) {
         console.error(
-          `Warning: notes/archive/${year}.jsonl has corrupt lines; left untouched (run \`c2 data doctor\`).`,
+          `Warning: notes/archive/${year}.jsonl could not be safely rewritten; notes left loose (run \`c2 data doctor\`).`,
         );
       }
-      if (result.archived === 0) {
+      if (result.archived > 0) {
+        console.log(
+          `Compacted ${result.archived} note${result.archived === 1 ? "" : "s"} into ${result.years.map((y) => `notes/archive/${y}.jsonl`).join(", ")}.`,
+        );
+      } else if (result.skippedYears.length === 0) {
         console.log("Nothing to compact.");
-        return;
       }
-      console.log(
-        `Compacted ${result.archived} note${result.archived === 1 ? "" : "s"} into ${result.years.map((y) => `notes/archive/${y}.jsonl`).join(", ")}.`,
-      );
+      if (result.skippedYears.length > 0) {
+        process.exit(1);
+      }
     });
 
   data
