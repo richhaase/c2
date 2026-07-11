@@ -1,5 +1,6 @@
 import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { isValidYMD } from "./models.ts";
 import type { DataPaths } from "./paths.ts";
 
 export const NOTE_TYPES = ["subjective", "observation", "lesson"] as const;
@@ -61,6 +62,8 @@ export function isNoteShaped(parsed: unknown): parsed is NoteRecord {
     typeof note?.body === "string" &&
     (NOTE_TYPES as readonly string[]).includes(note?.type) &&
     (NOTE_AUTHORS as readonly string[]).includes(note?.author) &&
+    /^\d{4}-\d{2}-\d{2}T/.test(note.date) &&
+    isValidYMD(note.date.slice(0, 10)) &&
     !Number.isNaN(new Date(note.date).getTime()) &&
     (note.workout_id === undefined ||
       (typeof note.workout_id === "number" && Number.isFinite(note.workout_id))) &&

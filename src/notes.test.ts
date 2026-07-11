@@ -189,6 +189,8 @@ test("parseNoteDate uses the target date's own offset and rejects partial dates"
   expect(parseNoteDate("2026-07")).toBeNull();
   expect(parseNoteDate("2026")).toBeNull();
   expect(parseNoteDate("2026-07-15T08:30:00")).toBe(localISO(new Date("2026-07-15T08:30:00")));
+  expect(parseNoteDate("2026-07-05T10:00:00+02:00")).toBe("2026-07-05T10:00:00+02:00");
+  expect(parseNoteDate("2026-07-05T10:00:00Z")).toBe("2026-07-05T10:00:00+00:00");
 });
 
 test("compaction compares note age as instants, not offset strings", async () => {
@@ -205,7 +207,7 @@ test("compaction compares note age as instants, not offset strings", async () =>
   expect(result.archived).toBe(1);
 });
 
-test("notes with unparseable dates are skipped and never reach compaction", async () => {
+test("notes with unparseable or non-ISO dates are skipped and never reach compaction", async () => {
   const paths = await tempStore();
   await writeFile(
     join(paths.notesDir, "BADDATE.json"),
@@ -218,12 +220,42 @@ test("notes with unparseable dates are skipped and never reach compaction", asyn
     }),
     "utf-8",
   );
+  await writeFile(
+    join(paths.notesDir, "PROSEDATE.json"),
+    JSON.stringify({
+      id: "PROSEDATE",
+      date: "July 1, 2026",
+      type: "observation",
+      body: "parseable but not ISO",
+      author: "athlete",
+    }),
+    "utf-8",
+  );
   expect((await readAllNotes(paths)).length).toBe(0);
   const result = await compactNotes(paths, NOW);
   expect(result.archived).toBe(0);
+  const looseFiles = (await readdir(paths.notesDir)).filter((f) => f.endsWith(".json"));
+  expect(looseFiles.sort()).toEqual(["BADDATE.json", "PROSEDATE.json"]);
+  const archives = await readdir(paths.archiveDir);
+  expect(archives).not.toContain("NaN.jsonl");
   const { runDoctor } = await import("./doctor.ts");
   const report = await runDoctor(paths);
   expect(report.issues).toContain("notes/BADDATE.json: malformed note record");
+  expect(report.issues).toContain("notes/PROSEDATE.json: malformed note record");
+});
+
+test("doctor accepts conflict-copy filenames and survives null workout rows", async () => {
+  const { runDoctor } = await import("./doctor.ts");
+  const paths = await tempStore();
+  const n = record("CONF", "2026-07-05T10:00:00-06:00", "conflict copy content");
+  await writeFile(join(paths.notesDir, "CONF conflict copy 2.json"), serializeNote(n), "utf-8");
+  const clean = await runDoctor(paths);
+  expect(clean.issues).toEqual([]);
+
+  await writeFile(paths.workouts, 'null\n"just a string"\n', "utf-8");
+  const report = await runDoctor(paths);
+  expect(report.issues).toContain("workouts.jsonl: line 1 malformed workout record");
+  expect(report.issues).toContain("workouts.jsonl: line 2 malformed workout record");
 });
 
 test("doctor flags malformed workout records", async () => {

@@ -69,18 +69,21 @@ export async function runDoctor(paths: DataPaths): Promise<DoctorReport> {
     for (const line of workouts.split("\n")) {
       lineNo++;
       if (line.trim() === "") continue;
-      let parsed: { id?: unknown; date?: unknown; distance?: unknown; time?: unknown };
+      let parsed: unknown;
       try {
         parsed = JSON.parse(line);
       } catch {
         issues.push(`workouts.jsonl: line ${lineNo} is not valid JSON`);
         continue;
       }
+      const w = parsed as { id?: unknown; date?: unknown; distance?: unknown; time?: unknown };
       if (
-        typeof parsed.id !== "number" ||
-        typeof parsed.date !== "string" ||
-        typeof parsed.distance !== "number" ||
-        typeof parsed.time !== "number"
+        parsed == null ||
+        typeof parsed !== "object" ||
+        typeof w.id !== "number" ||
+        typeof w.date !== "string" ||
+        typeof w.distance !== "number" ||
+        typeof w.time !== "number"
       ) {
         issues.push(`workouts.jsonl: line ${lineNo} malformed workout record`);
       }
@@ -103,11 +106,9 @@ export async function runDoctor(paths: DataPaths): Promise<DoctorReport> {
     if (text == null) continue;
     checkedFiles++;
     try {
-      const parsed = JSON.parse(text) as { id?: string };
+      const parsed = JSON.parse(text) as unknown;
       if (!isNoteShaped(parsed)) {
         issues.push(`notes/${f}: malformed note record`);
-      } else if (`${parsed.id}.json` !== f) {
-        issues.push(`notes/${f}: filename does not match note id ${parsed.id}`);
       }
     } catch {
       issues.push(`notes/${f}: not valid JSON`);

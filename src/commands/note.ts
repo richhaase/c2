@@ -28,6 +28,11 @@ async function readBody(bodyArg: string | undefined): Promise<string> {
 export function parseNoteDate(raw: string): string | null {
   const prefix = /^(\d{4}-\d{2}-\d{2})([T ].+)?$/.exec(raw);
   if (prefix == null || !isValidYMD(prefix[1]!)) return null;
+  if (/(?:[+-]\d{2}:\d{2}|Z)$/.test(raw)) {
+    if (Number.isNaN(new Date(raw).getTime())) return null;
+    const normalized = raw.replace(" ", "T");
+    return normalized.endsWith("Z") ? `${normalized.slice(0, -1)}+00:00` : normalized;
+  }
   const d = prefix[2] == null ? new Date(`${raw}T12:00:00`) : new Date(raw);
   if (Number.isNaN(d.getTime())) return null;
   return localISO(d);
