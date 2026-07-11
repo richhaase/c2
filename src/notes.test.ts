@@ -184,8 +184,8 @@ test("unreadable meta.json degrades instead of crashing inspection", async () =>
   const { inspectDataDir } = await import("./data.ts");
   const { runDoctor } = await import("./doctor.ts");
   const paths = await tempStore();
-  const { writeMeta } = await import("./storage.ts");
-  await writeMeta(paths, { schema_version: 1, created: NOW.toISOString() });
+  const { initStore } = await import("./data.ts");
+  await initStore(paths, NOW);
   await chmod(paths.meta, 0o000);
   try {
     const insp = await inspectDataDir(paths);
