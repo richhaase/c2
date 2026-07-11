@@ -72,6 +72,15 @@ export function registerNote(program: Command): void {
           process.exit(1);
         }
 
+        let backdate: string | null = null;
+        if (opts.date) {
+          backdate = parseNoteDate(opts.date);
+          if (backdate == null) {
+            console.error(`Error: invalid --date "${opts.date}".`);
+            process.exit(1);
+          }
+        }
+
         const body = await readBody(bodyArg);
         if (body === "") {
           console.error("Error: note body is empty.");
@@ -98,15 +107,7 @@ export function registerNote(program: Command): void {
           workoutId = w.id;
         }
 
-        let date = localISO(now);
-        if (opts.date) {
-          const parsed = parseNoteDate(opts.date);
-          if (parsed == null) {
-            console.error(`Error: invalid --date "${opts.date}".`);
-            process.exit(1);
-          }
-          date = parsed;
-        }
+        const date = backdate ?? localISO(now);
 
         const record: NoteRecord = {
           id: ulid(now),

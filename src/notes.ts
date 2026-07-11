@@ -62,7 +62,7 @@ export function isNoteShaped(parsed: unknown): parsed is NoteRecord {
     typeof note?.body === "string" &&
     (NOTE_TYPES as readonly string[]).includes(note?.type) &&
     (NOTE_AUTHORS as readonly string[]).includes(note?.author) &&
-    /^\d{4}-\d{2}-\d{2}T/.test(note.date) &&
+    /^\d{4}-\d{2}-\d{2}T.*(?:Z|[+-]\d{2}:\d{2})$/.test(note.date) &&
     isValidYMD(note.date.slice(0, 10)) &&
     !Number.isNaN(new Date(note.date).getTime()) &&
     (note.workout_id === undefined ||
@@ -210,10 +210,18 @@ export async function compactNotes(paths: DataPaths, now: Date): Promise<Compact
 
   const entries = await readLooseEntries(paths);
   const deduped = new Map<string, NoteRecord>();
+  const contentById = new Map<string, string>();
+  const divergent = new Set<string>();
   for (const e of entries) {
+    const content = serializeNote(e.note);
+    const prior = contentById.get(e.note.id);
+    if (prior != null && prior !== content) divergent.add(e.note.id);
+    contentById.set(e.note.id, content);
     deduped.set(e.note.id, e.note);
   }
-  const eligible = [...deduped.values()].filter((n) => new Date(n.date).getTime() < cutoffMs);
+  const eligible = [...deduped.values()].filter(
+    (n) => !divergent.has(n.id) && new Date(n.date).getTime() < cutoffMs,
+  );
   if (eligible.length === 0) return { archived: 0, years: [], skippedYears: [] };
 
   const byYear = new Map<number, NoteRecord[]>();
@@ -237,7 +245,12 @@ export async function compactNotes(paths: DataPaths, now: Date): Promise<Compact
     for (const n of existing.notes) merged.set(n.id, n);
     for (const n of notes) merged.set(n.id, n);
     const lines = [...merged.values()].sort(compareNotes).map(serializeNote);
-    await writeFile(paths.archiveFile(year), `${lines.join("\n")}\n`, "utf-8");
+    try {
+      await writeFile(paths.archiveFile(year), `${lines.join("\n")}\n`, "utf-8");
+    } catch {
+      skippedYears.push(year);
+      continue;
+    }
     const archivedIds = new Set(notes.map((n) => n.id));
     for (const e of entries) {
       if (archivedIds.has(e.note.id)) {

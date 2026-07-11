@@ -309,6 +309,65 @@ test("doctor flags malformed workout records", async () => {
   expect(report.issues).toContain("workouts.jsonl: line 2 malformed workout record");
 });
 
+test("offset-less note timestamps are rejected everywhere", async () => {
+  const { runDoctor } = await import("./doctor.ts");
+  const paths = await tempStore();
+  await writeFile(
+    join(paths.notesDir, "NOOFFSET.json"),
+    JSON.stringify({
+      id: "NOOFFSET",
+      date: "2026-07-05T10:00:00",
+      type: "observation",
+      body: "parses as local time",
+      author: "athlete",
+    }),
+    "utf-8",
+  );
+  expect((await readAllNotes(paths)).length).toBe(0);
+  const report = await runDoctor(paths);
+  expect(report.issues).toContain("notes/NOOFFSET.json: malformed note record");
+});
+
+test("compaction skips read-only archives without failing", async () => {
+  const paths = await tempStore();
+  await writeFile(
+    paths.archiveFile(2026),
+    `${serializeNote(record("RO", "2026-01-01T08:00:00-07:00", "existing"))}\n`,
+    "utf-8",
+  );
+  await chmod(paths.archiveFile(2026), 0o444);
+  await writeNote(paths, record("ROLOOSE", "2026-06-01T08:00:00-06:00", "wants in"));
+  try {
+    const result = await compactNotes(paths, NOW);
+    expect(result.archived).toBe(0);
+    expect(result.skippedYears).toEqual([2026]);
+  } finally {
+    await chmod(paths.archiveFile(2026), 0o644);
+  }
+  const looseFiles = (await readdir(paths.notesDir)).filter((f) => f.endsWith(".json"));
+  expect(looseFiles).toEqual(["ROLOOSE.json"]);
+});
+
+test("divergent conflict copies are preserved and flagged, identical ones compact", async () => {
+  const { runDoctor } = await import("./doctor.ts");
+  const paths = await tempStore();
+  const original = record("DIV", "2026-06-01T08:00:00-06:00", "original text");
+  await writeNote(paths, original);
+  await writeFile(
+    join(paths.notesDir, "DIV conflict.json"),
+    serializeNote({ ...original, body: "edited on the other machine" }),
+    "utf-8",
+  );
+
+  const report = await runDoctor(paths);
+  expect(report.issues.some((i) => i.includes("divergent copies of note DIV"))).toBe(true);
+
+  const result = await compactNotes(paths, NOW);
+  expect(result.archived).toBe(0);
+  const looseFiles = (await readdir(paths.notesDir)).filter((f) => f.endsWith(".json"));
+  expect(looseFiles.length).toBe(2);
+});
+
 test("compaction deletes the files it read, including conflict copies", async () => {
   const paths = await tempStore();
   const old = record("OLDX", "2026-06-01T08:00:00-06:00", "original");

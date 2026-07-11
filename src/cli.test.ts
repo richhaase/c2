@@ -294,6 +294,20 @@ test("note add/list/show round-trip through the CLI", () => {
   expect(badFilter.stderr).toContain("--type must be one of");
 });
 
+test("invalid --date rejects before any store side effects", async () => {
+  const home7 = await mkdtemp(join(tmpdir(), "c2-cli-nodate-"));
+  await mkdir(join(home7, ".config", "c2"), { recursive: true });
+  await writeFile(join(home7, ".config", "c2", "config.json"), JSON.stringify({}), "utf-8");
+
+  const bad = run(["note", "add", "--date", "2026-02-31", "x"], { home: home7 });
+  expect(bad.code).toBe(1);
+  expect(bad.stderr).toContain('invalid --date "2026-02-31"');
+
+  const info = run(["data", "info"], { home: home7 });
+  expect(info.code).toBe(1);
+  expect(info.stderr).toContain("No data store");
+});
+
 test("first coaching write initializes a proper store", async () => {
   const home5 = await mkdtemp(join(tmpdir(), "c2-cli-first-write-"));
   await mkdir(join(home5, ".config", "c2"), { recursive: true });

@@ -1,6 +1,6 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { isNoteShaped } from "./notes.ts";
+import { isNoteShaped, serializeNote } from "./notes.ts";
 import type { DataPaths } from "./paths.ts";
 
 export interface DoctorReport {
@@ -107,6 +107,8 @@ export async function runDoctor(paths: DataPaths): Promise<DoctorReport> {
     }
   }
 
+  const looseContent = new Map<string, { content: string; file: string }>();
+  const divergentIds = new Set<string>();
   for (const f of await listDir(paths.notesDir, "notes/", issues)) {
     if (!f.endsWith(".json")) continue;
     const text = await readOrNull(join(paths.notesDir, f), `notes/${f}`, issues);
@@ -116,6 +118,16 @@ export async function runDoctor(paths: DataPaths): Promise<DoctorReport> {
       const parsed = JSON.parse(text) as unknown;
       if (!isNoteShaped(parsed)) {
         issues.push(`notes/${f}: malformed note record`);
+      } else {
+        const content = serializeNote(parsed);
+        const prior = looseContent.get(parsed.id);
+        if (prior != null && prior.content !== content && !divergentIds.has(parsed.id)) {
+          divergentIds.add(parsed.id);
+          issues.push(
+            `notes: divergent copies of note ${parsed.id} (${prior.file}, ${f}); reconcile before they compact`,
+          );
+        }
+        looseContent.set(parsed.id, { content, file: f });
       }
     } catch {
       issues.push(`notes/${f}: not valid JSON`);
