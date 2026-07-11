@@ -171,7 +171,7 @@ export function registerDocs(program: Command): void {
     });
 }
 
-async function listNarratives(paths: DataPaths): Promise<string[]> {
+export async function listNarratives(paths: DataPaths): Promise<string[]> {
   try {
     return (await readdir(paths.reportsDir))
       .filter((f) => f.endsWith(".md"))

@@ -434,6 +434,88 @@ test("plan, playbook, and narrative round-trip", async () => {
   expect(badDate.code).toBe(1);
 });
 
+test("report renders coaching content from the store", async () => {
+  const evil = run([
+    "note",
+    "add",
+    "--type",
+    "observation",
+    "--author",
+    "coach",
+    "<script>alert(1)</script> & such",
+  ]);
+  expect(evil.code).toBe(0);
+
+  const out = join(home, "report.html");
+  const r = run(["report", "-o", out, "--no-open"]);
+  expect(r.code).toBe(0);
+  const html = await readFile(out, "utf-8");
+
+  expect(html).toContain("Coach's Report");
+  expect(html).toContain(RECENT);
+  expect(html).toContain("Solid week.");
+  expect(html).toContain("Recent Notes");
+  expect(html).toContain("felt slow early, opened up late");
+  expect(html).toContain("Training Plan");
+  expect(html).toContain("Every other day, 6K.");
+  expect(html).toContain("&lt;script&gt;alert(1)&lt;/script&gt; &amp; such");
+  expect(html).not.toContain("<script>alert(1)");
+});
+
+test("report --data emits the full report envelope", () => {
+  const r = run(["report", "--data"]);
+  expect(r.code).toBe(0);
+  const parsed = JSON.parse(r.stdout);
+  expect(parsed.schema).toBe("c2.report.v1");
+  expect(parsed.data.goal.totalMeters).toBe(14000);
+  expect(parsed.data.projection.projected_total_meters).toBeGreaterThan(0);
+  expect(parsed.data.weekly.length).toBe(12);
+  expect(parsed.data.recent_workouts.length).toBe(2);
+  expect(parsed.data.latest_splits.split_shape).toBe("negative");
+  expect(parsed.data.narrative.text).toContain("Solid week");
+  expect(parsed.data.notes.length).toBeGreaterThanOrEqual(2);
+  expect(parsed.data.plan_excerpt).toContain("Every other day");
+});
+
+test("report without coaching content has no coaching sections", async () => {
+  const home11 = await mkdtemp(join(tmpdir(), "c2-cli-plainreport-"));
+  const dataDir = join(home11, ".config", "c2", "data");
+  await mkdir(join(dataDir, "strokes"), { recursive: true });
+  await writeFile(
+    join(home11, ".config", "c2", "config.json"),
+    JSON.stringify({
+      goal: {
+        target_meters: 1_000_000,
+        start_date: ymd(daysFromNow(-180)),
+        end_date: ymd(daysFromNow(180)),
+      },
+    }),
+    "utf-8",
+  );
+  await writeFile(
+    join(dataDir, "workouts.jsonl"),
+    `${JSON.stringify({
+      id: 5,
+      user_id: 1,
+      date: `${RECENT} 08:00:00`,
+      distance: 5000,
+      type: "rower",
+      time: 9000,
+      time_formatted: "15:00.0",
+    })}\n`,
+    "utf-8",
+  );
+
+  const out = join(home11, "plain.html");
+  const r = run(["report", "-o", out, "--no-open"], { home: home11 });
+  expect(r.code).toBe(0);
+  const html = await readFile(out, "utf-8");
+  expect(html).toContain("Rowing Progress");
+  expect(html).not.toContain("Coach");
+  expect(html).not.toContain("Recent Notes");
+  expect(html).not.toContain("Training Plan");
+});
+
 test("data doctor reports corruption", async () => {
   const info = run(["data", "info", "--json"]);
   const root = JSON.parse(info.stdout).data.root;
