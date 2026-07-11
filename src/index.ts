@@ -3,8 +3,10 @@
 import { Command } from "commander";
 import pkg from "../package.json";
 import { registerData } from "./commands/data.ts";
+import { registerDocs } from "./commands/docs.ts";
 import { registerExport } from "./commands/export.ts";
 import { registerLog } from "./commands/log.ts";
+import { registerNote } from "./commands/note.ts";
 import { registerReport } from "./commands/report.ts";
 import { registerSetup } from "./commands/setup.ts";
 import { registerShow } from "./commands/show.ts";
@@ -28,6 +30,8 @@ registerReport(program);
 registerData(program);
 registerShow(program);
 registerStats(program);
+registerNote(program);
+registerDocs(program);
 
 if (process.argv.length <= 2) {
   program.outputHelp();

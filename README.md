@@ -150,6 +150,37 @@ c2 stats hr-pace -w 8     # avg HR by steady pace band, with early→late drift
 
 All of these accept `--json`.
 
+### Coaching Data
+
+The store holds coaching content alongside workout data, so any coach — human
+or AI, on any machine — reads and writes the same facts:
+
+```bash
+# Subjective report after a row (athlete voice, linked to the workout)
+c2 note add --type subjective --workout last "felt slow early, opened up late"
+
+# Coach observations and durable lessons
+c2 note add --type lesson --author coach "HR cap is the rule, not pace"
+
+# Review
+c2 note list --since 2026-06-01
+c2 note list --workout 118212501 --json
+c2 show last                     # linked notes appear in workout detail
+
+# Training plan and coaching playbook (whole-document set/show)
+c2 plan set plan.md
+c2 playbook show
+
+# Dated coaching report narratives
+c2 narrative add 2026-07-05 report.md
+c2 narrative show
+```
+
+Notes are stored one file each for the most recent 7 days (safe under iCloud/
+Dropbox sync), then automatically compacted into one archive file per year
+(`c2 data compact` runs after every sync). `c2 data doctor` validates the
+whole store.
+
 ### Machine-Readable Output
 
 `log`, `status`, `trend`, `show`, `stats`, and `data info` accept `--json` and emit a stable

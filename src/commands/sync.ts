@@ -3,6 +3,7 @@ import { C2Client } from "../api/client.ts";
 import { loadConfig } from "../config.ts";
 import { initStore, inspectDataDir } from "../data.ts";
 import type { Workout } from "../models.ts";
+import { compactNotes } from "../notes.ts";
 import type { DataPaths } from "../paths.ts";
 import { dataPaths } from "../paths.ts";
 import {
@@ -96,6 +97,18 @@ export function registerSync(program: Command): void {
         created: meta?.created ?? now.toISOString(),
         last_sync: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"),
       });
+
+      const compacted = await compactNotes(paths, now);
+      for (const year of compacted.skippedYears) {
+        console.error(
+          `Warning: notes/archive/${year}.jsonl has corrupt lines; left untouched (run \`c2 data doctor\`).`,
+        );
+      }
+      if (compacted.archived > 0) {
+        console.log(
+          `Compacted ${compacted.archived} note${compacted.archived === 1 ? "" : "s"} into ${compacted.years.map((y) => `${y}.jsonl`).join(", ")}.`,
+        );
+      }
 
       const total = await workoutCount(paths);
       console.log(`Total workouts: ${total}`);

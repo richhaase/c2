@@ -5,6 +5,7 @@ import { formatMeters, formatWorkoutLine, workoutJSON } from "../display.ts";
 import { printJSON } from "../envelope.ts";
 import type { Workout } from "../models.ts";
 import { formatSeconds } from "../models.ts";
+import { filterNotes, readAllNotes } from "../notes.ts";
 import { dataPaths } from "../paths.ts";
 import { readStrokeData, readWorkouts } from "../storage.ts";
 
@@ -41,6 +42,7 @@ export function registerShow(program: Command): void {
       const shape = splitShape(splits);
       const strokes = await readStrokeData(paths, w.id);
       const strokesSummary = strokes.length > 0 ? strokeSummary(strokes) : null;
+      const linkedNotes = filterNotes(await readAllNotes(paths), { workoutId: w.id });
 
       if (opts.json) {
         printJSON("c2.show.v1", {
@@ -50,6 +52,7 @@ export function registerShow(program: Command): void {
           splits,
           split_shape: shape,
           stroke_summary: strokesSummary,
+          notes: linkedNotes,
         });
         return;
       }
@@ -104,6 +107,14 @@ export function registerShow(program: Command): void {
         console.log(
           `Stroke data: ${strokesSummary.samples} samples, avg ${strokesSummary.avg_pace_500m ?? "-"}/500m, ${strokesSummary.avg_spm ?? "-"}spm, HR avg ${strokesSummary.avg_hr ?? "-"} max ${strokesSummary.max_hr ?? "-"}`,
         );
+      }
+
+      if (linkedNotes.length > 0) {
+        console.log();
+        console.log("Notes:");
+        for (const n of linkedNotes) {
+          console.log(`  ${n.date.slice(0, 10)} [${n.type}/${n.author}] ${n.body}`);
+        }
       }
     });
 }

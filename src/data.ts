@@ -1,6 +1,7 @@
 import { cp, mkdir, readdir, rm, stat, writeFile } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { calendarDay } from "./models.ts";
+import { readAllNotes } from "./notes.ts";
 import type { DataPaths } from "./paths.ts";
 import { readMeta, readWorkouts, SCHEMA_VERSION, writeMeta } from "./storage.ts";
 
@@ -86,6 +87,26 @@ async function probeWritable(dir: string): Promise<boolean> {
   }
 }
 
+export async function rejectForeignStore(paths: DataPaths): Promise<string | null> {
+  const inspection = await inspectDataDir(paths);
+  if (inspection.state === "foreign") {
+    return `${paths.root} exists but is not a c2 data store. Fix data_dir via \`c2 setup\`.`;
+  }
+  return null;
+}
+
+export async function ensureStoreForWrite(paths: DataPaths, now: Date): Promise<string | null> {
+  const inspection = await inspectDataDir(paths);
+  if (inspection.state === "foreign") {
+    return `${paths.root} exists but is not a c2 data store. Fix data_dir via \`c2 setup\`.`;
+  }
+  if (!inspection.writable) {
+    return `Cannot write to ${paths.root}.`;
+  }
+  await initStore(paths, now);
+  return null;
+}
+
 export async function initStore(paths: DataPaths, now: Date): Promise<void> {
   await mkdir(paths.strokesDir, { recursive: true });
   await mkdir(paths.archiveDir, { recursive: true });
@@ -112,7 +133,7 @@ export async function storeSummary(paths: DataPaths): Promise<StoreSummary> {
   const strokeFiles = (await listIfPresent(paths.strokesDir)).filter((f) =>
     f.endsWith(".jsonl"),
   ).length;
-  const notes = (await listIfPresent(paths.notesDir)).filter((f) => f.endsWith(".json")).length;
+  const notes = (await readAllNotes(paths)).length;
   const meta = await readMeta(paths);
   return {
     workouts: workouts.length,

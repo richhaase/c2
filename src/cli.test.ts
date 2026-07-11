@@ -1,5 +1,5 @@
 import { beforeAll, expect, test } from "bun:test";
-import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { isAbsolute, join, sep } from "node:path";
 
@@ -243,6 +243,208 @@ test("stats splits handles workouts without split data", () => {
   expect(r.stdout).toContain("no split data");
 });
 
+test("note add/list/show round-trip through the CLI", () => {
+  const added = run([
+    "note",
+    "add",
+    "--type",
+    "subjective",
+    "--workout",
+    "last",
+    "--tags",
+    "hr,ramp",
+    "felt slow early, opened up late",
+  ]);
+  expect(added.code).toBe(0);
+  const noteId = added.stdout.trim();
+  expect(noteId.length).toBe(26);
+
+  const list = run(["note", "list", "--json"]);
+  const parsed = JSON.parse(list.stdout);
+  expect(parsed.schema).toBe("c2.notes.v1");
+  expect(parsed.data.count).toBe(1);
+  expect(parsed.data.notes[0].workout_id).toBe(1);
+  expect(parsed.data.notes[0].tags).toEqual(["hr", "ramp"]);
+
+  const shown = run(["note", "show", noteId]);
+  expect(shown.code).toBe(0);
+  expect(shown.stdout).toContain("felt slow early");
+
+  const filtered = run(["note", "list", "--type", "lesson"]);
+  expect(filtered.stdout).toContain("No notes found");
+
+  const badType = run(["note", "add", "--type", "vibes", "x"]);
+  expect(badType.code).toBe(1);
+  expect(badType.stderr).toContain("--type must be one of");
+
+  const rollover = run(["note", "add", "--date", "2026-02-31", "x"]);
+  expect(rollover.code).toBe(1);
+  expect(rollover.stderr).toContain('invalid --date "2026-02-31"');
+
+  const partial = run(["note", "add", "--date", "2026-07", "x"]);
+  expect(partial.code).toBe(1);
+  expect(partial.stderr).toContain('invalid --date "2026-07"');
+
+  const badWorkout = run(["note", "list", "--workout", "banana"]);
+  expect(badWorkout.code).toBe(1);
+  expect(badWorkout.stderr).toContain('invalid --workout id "banana"');
+
+  const badFilter = run(["note", "list", "--type", "vibes"]);
+  expect(badFilter.code).toBe(1);
+  expect(badFilter.stderr).toContain("--type must be one of");
+});
+
+test("failed workout links leave no store behind", async () => {
+  const home8 = await mkdtemp(join(tmpdir(), "c2-cli-noworkout-"));
+  await mkdir(join(home8, ".config", "c2"), { recursive: true });
+  await writeFile(join(home8, ".config", "c2", "config.json"), JSON.stringify({}), "utf-8");
+
+  const bad = run(["note", "add", "--workout", "999", "orphan note"], { home: home8 });
+  expect(bad.code).toBe(1);
+  expect(bad.stderr).toContain('no workout matching "999"');
+
+  const info = run(["data", "info"], { home: home8 });
+  expect(info.code).toBe(1);
+  expect(info.stderr).toContain("No data store");
+});
+
+test("coaching reads reject foreign directories", async () => {
+  const home9 = await mkdtemp(join(tmpdir(), "c2-cli-foreignread-"));
+  await mkdir(join(home9, ".config", "c2"), { recursive: true });
+  const foreignDir = join(home9, "someones-docs");
+  await mkdir(foreignDir);
+  await writeFile(join(foreignDir, "plan.md"), "# someone else's plan\n", "utf-8");
+  await writeFile(join(foreignDir, "novel.docx"), "chapter one", "utf-8");
+  await writeFile(
+    join(home9, ".config", "c2", "config.json"),
+    JSON.stringify({ data_dir: foreignDir }),
+    "utf-8",
+  );
+
+  const planShow = run(["plan", "show"], { home: home9 });
+  expect(planShow.code).toBe(1);
+  expect(planShow.stderr).toContain("not a c2 data store");
+  expect(planShow.stdout).not.toContain("someone else's plan");
+
+  const noteList = run(["note", "list"], { home: home9 });
+  expect(noteList.code).toBe(1);
+  expect(noteList.stderr).toContain("not a c2 data store");
+
+  await writeFile(join(foreignDir, "workouts.jsonl"), "{ not json at all\n", "utf-8");
+  const linked = run(["note", "add", "--workout", "1", "x"], { home: home9 });
+  expect(linked.code).toBe(1);
+  expect(linked.stderr).toContain("not a c2 data store");
+});
+
+test("invalid --date rejects before any store side effects", async () => {
+  const home7 = await mkdtemp(join(tmpdir(), "c2-cli-nodate-"));
+  await mkdir(join(home7, ".config", "c2"), { recursive: true });
+  await writeFile(join(home7, ".config", "c2", "config.json"), JSON.stringify({}), "utf-8");
+
+  const bad = run(["note", "add", "--date", "2026-02-31", "x"], { home: home7 });
+  expect(bad.code).toBe(1);
+  expect(bad.stderr).toContain('invalid --date "2026-02-31"');
+
+  const info = run(["data", "info"], { home: home7 });
+  expect(info.code).toBe(1);
+  expect(info.stderr).toContain("No data store");
+});
+
+test("first coaching write initializes a proper store", async () => {
+  const home5 = await mkdtemp(join(tmpdir(), "c2-cli-first-write-"));
+  await mkdir(join(home5, ".config", "c2"), { recursive: true });
+  await writeFile(join(home5, ".config", "c2", "config.json"), JSON.stringify({}), "utf-8");
+
+  const planFile = join(home5, "p.md");
+  await writeFile(planFile, "# Plan\n", "utf-8");
+  expect(run(["plan", "set", planFile], { home: home5 }).code).toBe(0);
+
+  const info = run(["data", "info", "--json"], { home: home5 });
+  expect(info.code).toBe(0);
+  const parsed = JSON.parse(info.stdout);
+  expect(parsed.data.state).toBe("store");
+  expect(parsed.data.schema_version).toBe(1);
+
+  expect(run(["note", "add", "first note ever"], { home: home5 }).code).toBe(0);
+  expect(run(["data", "doctor"], { home: home5 }).code).toBe(0);
+});
+
+test("note add links into show output", () => {
+  const shown = run(["show", "1"]);
+  expect(shown.stdout).toContain("Notes:");
+  expect(shown.stdout).toContain("felt slow early");
+
+  const json = run(["show", "1", "--json"]);
+  expect(JSON.parse(json.stdout).data.notes.length).toBe(1);
+});
+
+test("backdated notes and compaction via data compact", async () => {
+  const old = run([
+    "note",
+    "add",
+    "--date",
+    ymd(daysFromNow(-30)),
+    "--type",
+    "lesson",
+    "--author",
+    "coach",
+    "old lesson to archive",
+  ]);
+  expect(old.code).toBe(0);
+
+  const compact = run(["data", "compact"]);
+  expect(compact.code).toBe(0);
+  expect(compact.stdout).toContain("Compacted 1 note");
+
+  const list = run(["note", "list", "--json"]);
+  expect(JSON.parse(list.stdout).data.count).toBe(2);
+
+  const again = run(["data", "compact"]);
+  expect(again.stdout).toContain("Nothing to compact");
+
+  const doctor = run(["data", "doctor"]);
+  expect(doctor.code).toBe(0);
+  expect(doctor.stdout).toContain("no problems found");
+
+  const info = run(["data", "info", "--json"]);
+  expect(JSON.parse(info.stdout).data.notes).toBe(2);
+});
+
+test("plan, playbook, and narrative round-trip", async () => {
+  const planFile = join(home, "plan-src.md");
+  await writeFile(planFile, "# Plan\nEvery other day, 6K.\n", "utf-8");
+  expect(run(["plan", "set", planFile]).code).toBe(0);
+  const plan = run(["plan", "show"]);
+  expect(plan.code).toBe(0);
+  expect(plan.stdout).toContain("Every other day");
+
+  const missing = run(["playbook", "show"]);
+  expect(missing.code).toBe(1);
+  expect(missing.stderr).toContain("No playbook recorded");
+
+  const narrFile = join(home, "narr.md");
+  await writeFile(narrFile, "Solid week.\n", "utf-8");
+  expect(run(["narrative", "add", RECENT, narrFile]).code).toBe(0);
+  expect(run(["narrative", "show"]).stdout).toContain("Solid week");
+  expect(run(["narrative", "show", RECENT]).stdout).toContain("Solid week");
+  const narrList = run(["narrative", "list", "--json"]);
+  expect(JSON.parse(narrList.stdout).data.dates).toEqual([RECENT]);
+
+  const badDate = run(["narrative", "add", "not-a-date", narrFile]);
+  expect(badDate.code).toBe(1);
+});
+
+test("data doctor reports corruption", async () => {
+  const info = run(["data", "info", "--json"]);
+  const root = JSON.parse(info.stdout).data.root;
+  await writeFile(join(root, "notes", "ZZBAD.json"), "{ nope", "utf-8");
+  const doctor = run(["data", "doctor"]);
+  expect(doctor.code).toBe(1);
+  expect(doctor.stderr).toContain("ZZBAD.json: not valid JSON");
+  await rm(join(root, "notes", "ZZBAD.json"));
+  expect(run(["data", "doctor"]).code).toBe(0);
+});
+
 test("export rejects invalid dates but allows empty ranges", () => {
   const bad = run(["export", "--from", "not-a-date"]);
   expect(bad.code).toBe(1);
@@ -365,6 +567,14 @@ test("foreign data_dir gets clean errors, not raw failures", async () => {
   expect(sync.code).toBe(1);
   expect(sync.stderr).toContain("not a c2 data store");
 
+  const noteAdd = run(["note", "add", "should not land here"], { home: home3 });
+  expect(noteAdd.code).toBe(1);
+  expect(noteAdd.stderr).toContain("not a c2 data store");
+
+  const compact = run(["data", "compact"], { home: home3 });
+  expect(compact.code).toBe(1);
+  expect(compact.stderr).toContain("nothing to compact");
+
   await writeFile(
     join(home3, ".config", "c2", "config.json"),
     JSON.stringify({ data_dir: join(filePath, "nested"), api: { token: "tok" } }),
@@ -388,6 +598,10 @@ test("foreign data_dir gets clean errors, not raw failures", async () => {
   const emptyInfo = run(["data", "info"], { home: home3 });
   expect(emptyInfo.code).toBe(1);
   expect(emptyInfo.stderr).toContain("empty directory");
+
+  const emptyDoctor = run(["data", "doctor"], { home: home3 });
+  expect(emptyDoctor.code).toBe(1);
+  expect(emptyDoctor.stderr).toContain("No data store");
 
   await writeFile(
     join(home3, ".config", "c2", "config.json"),
