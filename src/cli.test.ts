@@ -516,6 +516,79 @@ test("report without coaching content has no coaching sections", async () => {
   expect(html).not.toContain("Training Plan");
 });
 
+test("report --data stays machine-readable on empty stores and picks the session's main piece", async () => {
+  const home13 = await mkdtemp(join(tmpdir(), "c2-cli-datareport-"));
+  const dataDir = join(home13, ".config", "c2", "data");
+  await mkdir(join(dataDir, "strokes"), { recursive: true });
+  await writeFile(
+    join(home13, ".config", "c2", "config.json"),
+    JSON.stringify({
+      goal: {
+        target_meters: 1_000_000,
+        start_date: ymd(daysFromNow(-180)),
+        end_date: ymd(daysFromNow(180)),
+      },
+    }),
+    "utf-8",
+  );
+
+  const empty = run(["report", "--data"], { home: home13 });
+  expect(empty.code).toBe(0);
+  const emptyParsed = JSON.parse(empty.stdout);
+  expect(emptyParsed.schema).toBe("c2.report.v1");
+  expect(emptyParsed.data.goal.totalMeters).toBe(0);
+  expect(emptyParsed.data.recent_workouts).toEqual([]);
+  expect(emptyParsed.data.latest_splits).toBeNull();
+  expect(emptyParsed.data.period.to).toBeNull();
+
+  const main = {
+    id: 10,
+    user_id: 1,
+    date: `${RECENT} 08:00:00`,
+    distance: 6000,
+    type: "rower",
+    time: 20857,
+    time_formatted: "34:45.7",
+    workout: {
+      splits: [
+        { type: "distance", time: 6100, distance: 3000, stroke_rate: 24 },
+        { type: "distance", time: 5900, distance: 3000, stroke_rate: 25 },
+      ],
+    },
+  };
+  const cooldown = {
+    id: 11,
+    user_id: 1,
+    date: `${RECENT} 09:00:00`,
+    distance: 1000,
+    type: "rower",
+    time: 4000,
+    time_formatted: "6:40.0",
+  };
+  await writeFile(
+    join(dataDir, "workouts.jsonl"),
+    `${JSON.stringify(main)}\n${JSON.stringify(cooldown)}\n`,
+    "utf-8",
+  );
+
+  const withData = run(["report", "--data"], { home: home13 });
+  const parsed = JSON.parse(withData.stdout);
+  expect(parsed.data.latest_splits.workout_id).toBe(10);
+  expect(parsed.data.period.to).toBe(RECENT);
+
+  const planFile = join(home13, "titled-plan.md");
+  await writeFile(
+    planFile,
+    "# Training Plan\n\n## Current Block\nEvery other day, 6K steady.\n\n## Later\nRamp to 6.5K.\n",
+    "utf-8",
+  );
+  expect(run(["plan", "set", planFile], { home: home13 }).code).toBe(0);
+  const withPlan = run(["report", "--data"], { home: home13 });
+  const planParsed = JSON.parse(withPlan.stdout);
+  expect(planParsed.data.plan_excerpt).toContain("Every other day, 6K steady.");
+  expect(planParsed.data.plan_excerpt).not.toContain("Ramp to 6.5K");
+});
+
 test("data doctor reports corruption", async () => {
   const info = run(["data", "info", "--json"]);
   const root = JSON.parse(info.stdout).data.root;

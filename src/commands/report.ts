@@ -436,10 +436,20 @@ export async function gatherCoaching(paths: DataPaths, now: Date): Promise<Coach
   const plan = await readIfExists(paths.plan);
   if (plan != null && plan.trim() !== "") {
     const sections = plan.split(/\n(?=## )/);
+    const substantive = (s: string) =>
+      s.split("\n").some((l) => {
+        const t = l.trim();
+        return t !== "" && !/^#{1,4}\s/.test(t) && t !== "---";
+      });
+    let end = 1;
     let excerpt = sections[0]!.trim();
+    while (!substantive(excerpt) && end < sections.length) {
+      excerpt = `${excerpt}\n\n${sections[end]!.trim()}`;
+      end++;
+    }
     if (excerpt.length > PLAN_EXCERPT_MAX_CHARS) {
       excerpt = `${excerpt.slice(0, PLAN_EXCERPT_MAX_CHARS)}…`;
-    } else if (sections.length > 1) {
+    } else if (sections.length > end) {
       excerpt = `${excerpt}\n\n_(full plan: \`c2 plan show\`)_`;
     }
     planExcerpt = excerpt;
@@ -837,7 +847,7 @@ export function registerReport(program: Command): void {
       }
       const workouts = await readWorkouts(paths);
 
-      if (workouts.length === 0) {
+      if (workouts.length === 0 && !opts.data) {
         console.log("No workouts found. Run `c2 sync` first.");
         return;
       }
@@ -858,10 +868,18 @@ export function registerReport(program: Command): void {
 
       if (opts.data) {
         const sorted = [...workouts].sort((a, b) => b.date.localeCompare(a.date));
-        const latest = sorted[0]!;
-        const latestSplits = splitTable(latest);
+        const latest = sorted[0] ?? null;
+        let splitsSource: Workout | null = null;
+        if (latest != null) {
+          const day = calendarDay(latest);
+          splitsSource =
+            sorted
+              .filter((w) => calendarDay(w) === day && (w.workout?.splits?.length ?? 0) > 0)
+              .sort((a, b) => b.distance - a.distance)[0] ?? null;
+        }
+        const latestSplits = splitsSource != null ? splitTable(splitsSource) : [];
         printJSON("c2.report.v1", {
-          period: { weeks, to: calendarDay(latest) },
+          period: { weeks, to: latest != null ? calendarDay(latest) : null },
           summary: {
             total_meters: goal.totalMeters,
             sessions: sessionCount(windowedWorkouts),
@@ -874,10 +892,10 @@ export function registerReport(program: Command): void {
           weekly: summaries.map(weekSummaryData),
           recent_workouts: sorted.slice(0, 10).map(workoutJSON),
           latest_splits:
-            latestSplits.length > 0
+            splitsSource != null && latestSplits.length > 0
               ? {
-                  workout_id: latest.id,
-                  date: latest.date,
+                  workout_id: splitsSource.id,
+                  date: splitsSource.date,
                   split_shape: splitShape(latestSplits),
                   splits: latestSplits,
                 }
