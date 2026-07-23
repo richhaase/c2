@@ -195,7 +195,9 @@ versioned envelope for scripts and AI agents:
 { "schema": "c2.status.v1", "generated_at": "2026-07-05T18:00:00.000Z", "data": { } }
 ```
 
-`export -f json` remains a raw workout array for existing consumers.
+`export -f json` emits the same envelope (`c2.export.v1`) with the full
+workout records under `data.workouts`. `export -f jsonl` stays one raw
+workout per line for streaming.
 
 ### Data Store
 

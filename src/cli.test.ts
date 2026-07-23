@@ -612,7 +612,9 @@ test("export rejects invalid dates but allows empty ranges", () => {
   const empty = run(["export", "--from", FUTURE, "-f", "json"]);
   expect(empty.code).toBe(0);
   expect(empty.stderr).toContain("No workouts match");
-  expect(JSON.parse(empty.stdout)).toEqual([]);
+  const emptyParsed = JSON.parse(empty.stdout);
+  expect(emptyParsed.schema).toBe("c2.export.v1");
+  expect(emptyParsed.data).toEqual({ count: 0, workouts: [] });
 
   const emptyCSV = run(["export", "--from", FUTURE]);
   expect(emptyCSV.code).toBe(0);
@@ -648,12 +650,17 @@ test("--json emits envelopes even on an empty store", async () => {
   expect(JSON.parse(trend.stdout).data.weeks.length).toBe(2);
 });
 
-test("export json remains a raw array for legacy consumers", () => {
+test("export json emits a versioned envelope", () => {
   const r = run(["export", "-f", "json"]);
   expect(r.code).toBe(0);
   const parsed = JSON.parse(r.stdout);
-  expect(Array.isArray(parsed)).toBe(true);
-  expect(parsed.length).toBe(2);
+  expect(parsed.schema).toBe("c2.export.v1");
+  expect(parsed.data.count).toBe(2);
+  expect(Array.isArray(parsed.data.workouts)).toBe(true);
+  expect(parsed.data.workouts.length).toBe(2);
+  expect(parsed.data.workouts[0].date.slice(0, 10)).toBe(OLDER);
+  expect(parsed.data.workouts[0].id).toBeDefined();
+  expect(parsed.data.workouts[0].distance).toBeDefined();
 });
 
 test("data info reports the store", () => {

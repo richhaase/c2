@@ -1,5 +1,6 @@
 import type { Command } from "commander";
 import { loadConfig } from "../config.ts";
+import { printJSON } from "../envelope.ts";
 import type { Workout } from "../models.ts";
 import { isValidYMD, pace500m } from "../models.ts";
 import { dataPaths } from "../paths.ts";
@@ -74,7 +75,7 @@ function exportCSV(workouts: Workout[]): void {
 }
 
 function exportJSON(workouts: Workout[]): void {
-  console.log(JSON.stringify(workouts, null, 2));
+  printJSON("c2.export.v1", { count: workouts.length, workouts });
 }
 
 function exportJSONL(workouts: Workout[]): void {
