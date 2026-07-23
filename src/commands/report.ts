@@ -1,11 +1,16 @@
-import { mkdtemp, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { Command } from "commander";
-import { loadConfig } from "../config.ts";
-import { formatMeters } from "../display.ts";
+import { splitShape, splitTable } from "../analysis.ts";
+import { loadConfig, parseGoalDate } from "../config.ts";
+import { rejectForeignStore } from "../data.ts";
+import { formatMeters, workoutJSON } from "../display.ts";
+import { printJSON } from "../envelope.ts";
 import type { Workout } from "../models.ts";
 import { calendarDay, pace500m, pace500mSeconds } from "../models.ts";
+import { filterNotes, type NoteRecord, readAllNotes } from "../notes.ts";
+import type { DataPaths } from "../paths.ts";
 import { dataPaths } from "../paths.ts";
 import { sessionCount } from "../sessions.ts";
 import {
@@ -14,9 +19,12 @@ import {
   type GoalProgress,
   mondayOf,
   type WeekSummary,
+  weekSummaryData,
   workoutsInRange,
 } from "../stats.ts";
 import { readWorkouts } from "../storage.ts";
+import { listNarratives } from "./docs.ts";
+import { projectGoal } from "./stats.ts";
 
 const MONTH_NAMES = [
   "Jan",
@@ -386,12 +394,158 @@ function buildProjection(goal: GoalProgress, workouts: Workout[]): string {
 </div>`;
 }
 
+export interface CoachingContent {
+  narrative: { date: string; text: string } | null;
+  notes: NoteRecord[];
+  planExcerpt: string | null;
+}
+
+const EMPTY_COACHING: CoachingContent = { narrative: null, notes: [], planExcerpt: null };
+
+const RECENT_NOTE_DAYS = 14;
+const MAX_RECENT_NOTES = 20;
+const PLAN_EXCERPT_MAX_CHARS = 1500;
+
+async function readIfExists(path: string): Promise<string | null> {
+  try {
+    return await readFile(path, "utf-8");
+  } catch (err: unknown) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === "ENOENT" || code === "ENOTDIR") return null;
+    throw err;
+  }
+}
+
+export async function gatherCoaching(paths: DataPaths, now: Date): Promise<CoachingContent> {
+  const since = new Date(now);
+  since.setDate(since.getDate() - RECENT_NOTE_DAYS);
+  const sinceKey = `${since.getFullYear()}-${String(since.getMonth() + 1).padStart(2, "0")}-${String(since.getDate()).padStart(2, "0")}`;
+  const notes = filterNotes(await readAllNotes(paths), { since: sinceKey }).slice(
+    -MAX_RECENT_NOTES,
+  );
+
+  let narrative: CoachingContent["narrative"] = null;
+  const dates = await listNarratives(paths);
+  const latest = dates[dates.length - 1];
+  if (latest != null) {
+    const text = await readIfExists(paths.narrativeFile(latest));
+    if (text != null && text.trim() !== "") narrative = { date: latest, text };
+  }
+
+  let planExcerpt: string | null = null;
+  const plan = await readIfExists(paths.plan);
+  if (plan != null && plan.trim() !== "") {
+    const sections = plan.split(/\n(?=## )/);
+    const substantive = (s: string) =>
+      s.split("\n").some((l) => {
+        const t = l.trim();
+        return t !== "" && !/^#{1,4}\s/.test(t) && t !== "---";
+      });
+    let end = 1;
+    let excerpt = sections[0]!.trim();
+    while (!substantive(excerpt) && end < sections.length) {
+      excerpt = `${excerpt}\n\n${sections[end]!.trim()}`;
+      end++;
+    }
+    if (excerpt.length > PLAN_EXCERPT_MAX_CHARS) {
+      excerpt = `${excerpt.slice(0, PLAN_EXCERPT_MAX_CHARS)}…`;
+    } else if (sections.length > end) {
+      excerpt = `${excerpt}\n\n_(full plan: \`c2 plan show\`)_`;
+    }
+    planExcerpt = excerpt;
+  }
+
+  return { narrative, notes, planExcerpt };
+}
+
+function mdLite(text: string): string {
+  const blocks: string[] = [];
+  let paragraph: string[] = [];
+  let list: string[] = [];
+
+  const flushParagraph = () => {
+    if (paragraph.length > 0) {
+      blocks.push(`<p>${paragraph.join(" ")}</p>`);
+      paragraph = [];
+    }
+  };
+  const flushList = () => {
+    if (list.length > 0) {
+      blocks.push(`<ul>${list.map((i) => `<li>${i}</li>`).join("")}</ul>`);
+      list = [];
+    }
+  };
+
+  for (const rawLine of text.split("\n")) {
+    const line = esc(rawLine.trim());
+    if (line === "") {
+      flushParagraph();
+      flushList();
+      continue;
+    }
+    const heading = /^(#{1,4})\s+(.*)$/.exec(line);
+    if (heading != null) {
+      flushParagraph();
+      flushList();
+      const level = heading[1]!.length <= 2 ? "h3" : "h4";
+      blocks.push(`<${level}>${heading[2]}</${level}>`);
+      continue;
+    }
+    const item = /^[-*]\s+(.*)$/.exec(line);
+    if (item != null) {
+      flushParagraph();
+      list.push(item[1]!);
+      continue;
+    }
+    flushList();
+    paragraph.push(line);
+  }
+  flushParagraph();
+  flushList();
+  return blocks.join("\n");
+}
+
+function buildNarrativeSection(narrative: { date: string; text: string }): string {
+  return `<div class="section">
+  <h2>Coach's Report &mdash; ${esc(narrative.date)}</h2>
+  <div class="prose">
+${mdLite(narrative.text)}
+  </div>
+</div>`;
+}
+
+function buildNotesSection(notes: NoteRecord[]): string {
+  const rows = notes
+    .map((n) => {
+      const workout = n.workout_id != null ? ` &middot; workout ${n.workout_id}` : "";
+      return `  <div class="note-row">
+    <div class="note-meta">${esc(n.date.slice(0, 10))} &middot; ${esc(n.type)} (${esc(n.author)})${workout}</div>
+    <div class="note-body">${esc(n.body)}</div>
+  </div>`;
+    })
+    .join("\n");
+  return `<div class="section">
+  <h2>Recent Notes</h2>
+${rows}
+</div>`;
+}
+
+function buildPlanSection(excerpt: string): string {
+  return `<div class="section">
+  <h2>Training Plan</h2>
+  <div class="prose">
+${mdLite(excerpt)}
+  </div>
+</div>`;
+}
+
 function buildHTML(
   goal: GoalProgress,
   summaries: WeekSummary[],
   allWorkouts: Workout[],
   windowedWorkouts: Workout[],
   recentCount: number,
+  coaching: CoachingContent,
 ): string {
   const sessions = sessionCount(windowedWorkouts);
   const avgPace = avgPaceForWorkouts(windowedWorkouts);
@@ -463,6 +617,18 @@ function buildHTML(
     padding: 20px;
     margin-bottom: 24px;
   }
+
+  .prose { font-size: 14px; }
+  .prose p { margin-bottom: 10px; }
+  .prose h3 { color: #f0f6fc; font-size: 15px; font-weight: 600; margin: 14px 0 6px; }
+  .prose h4 { color: #c9d1d9; font-size: 13px; font-weight: 600; margin: 12px 0 4px; }
+  .prose ul { margin: 0 0 10px 20px; }
+  .prose li { margin-bottom: 4px; }
+
+  .note-row { padding: 10px 0; border-bottom: 1px solid #21262d; }
+  .note-row:last-child { border-bottom: none; }
+  .note-meta { color: #8b949e; font-size: 11px; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 3px; }
+  .note-body { font-size: 13px; }
 
   .progress-container {
     position: relative;
@@ -637,13 +803,19 @@ ${buildStatsCards(goal, sessions, avgPace, avgHR)}
 
 ${buildGoalProgress(goal)}
 
+${coaching.narrative != null ? buildNarrativeSection(coaching.narrative) : ""}
+
 ${buildWeeklyVolume(summaries, goal.requiredPace)}
 
 ${buildWeeklyTrends(summaries)}
 
 ${buildRecentWorkouts(allWorkouts, recentCount)}
 
+${coaching.notes.length > 0 ? buildNotesSection(coaching.notes) : ""}
+
 ${buildProjection(goal, allWorkouts)}
+
+${coaching.planExcerpt != null ? buildPlanSection(coaching.planExcerpt) : ""}
 
 <div style="text-align: center; color: #484f58; font-size: 12px; margin-top: 32px; padding-bottom: 16px;">
   Generated by c2 &middot; Data from Concept2 Logbook &middot; ${fullDate(today)}
@@ -659,33 +831,83 @@ export function registerReport(program: Command): void {
     .description("Generate HTML progress report and open in browser")
     .option("-o, --output <file>", "save to a specific file instead of a temp file")
     .option("-w, --weeks <n>", "weeks of history to show", "12")
+    .option("--data", "emit the report content as JSON instead of HTML")
     .option("--no-open", "don't open in browser")
-    .action(async (opts: { output?: string; weeks: string; open: boolean }) => {
+    .action(async (opts: { output?: string; weeks: string; data?: boolean; open: boolean }) => {
       const cfg = await loadConfig();
       if (!cfg.goal.start_date || !cfg.goal.end_date) {
         console.error("Goal dates not configured. Run `c2 setup` to set start and end dates.");
         process.exit(1);
       }
-      const workouts = await readWorkouts(dataPaths(cfg));
+      const paths = dataPaths(cfg);
+      const foreign = await rejectForeignStore(paths);
+      if (foreign != null) {
+        console.error(foreign);
+        process.exit(1);
+      }
+      const workouts = await readWorkouts(paths);
 
-      if (workouts.length === 0) {
+      if (workouts.length === 0 && !opts.data) {
         console.log("No workouts found. Run `c2 sync` first.");
         return;
       }
 
-      const goal = computeGoalProgress(workouts, cfg);
       const weeks = parseInt(opts.weeks, 10);
       if (Number.isNaN(weeks) || weeks < 1) {
         console.error("Error: --weeks must be a positive integer.");
         process.exit(1);
       }
       const now = new Date();
+      const goal = computeGoalProgress(workouts, cfg, now);
       const summaries = buildWeekSummaries(workouts, now, weeks);
       const thisMonday = mondayOf(now);
       const cutoff = new Date(thisMonday);
       cutoff.setDate(cutoff.getDate() - (weeks - 1) * 7);
       const windowedWorkouts = workoutsInRange(workouts, cutoff, now);
-      const html = buildHTML(goal, summaries, workouts, windowedWorkouts, 10);
+      const coaching = await gatherCoaching(paths, now);
+
+      if (opts.data) {
+        const sorted = [...workouts].sort((a, b) => b.date.localeCompare(a.date));
+        const latest = sorted[0] ?? null;
+        let splitsSource: Workout | null = null;
+        if (latest != null) {
+          const day = calendarDay(latest);
+          splitsSource =
+            sorted
+              .filter((w) => calendarDay(w) === day && (w.workout?.splits?.length ?? 0) > 0)
+              .sort((a, b) => b.distance - a.distance)[0] ?? null;
+        }
+        const latestSplits = splitsSource != null ? splitTable(splitsSource) : [];
+        printJSON("c2.report.v1", {
+          period: { weeks, to: latest != null ? calendarDay(latest) : null },
+          summary: {
+            total_meters: goal.totalMeters,
+            sessions: sessionCount(windowedWorkouts),
+            avg_pace_500m_seconds:
+              Math.round(avgPaceForWorkouts(windowedWorkouts) * 10) / 10 || null,
+            avg_hr: avgHRForWorkouts(windowedWorkouts) || null,
+          },
+          goal,
+          projection: projectGoal(goal, parseGoalDate(cfg.goal.end_date), now),
+          weekly: summaries.map(weekSummaryData),
+          recent_workouts: sorted.slice(0, 10).map(workoutJSON),
+          latest_splits:
+            splitsSource != null && latestSplits.length > 0
+              ? {
+                  workout_id: splitsSource.id,
+                  date: splitsSource.date,
+                  split_shape: splitShape(latestSplits),
+                  splits: latestSplits,
+                }
+              : null,
+          narrative: coaching.narrative,
+          notes: coaching.notes,
+          plan_excerpt: coaching.planExcerpt,
+        });
+        return;
+      }
+
+      const html = buildHTML(goal, summaries, workouts, windowedWorkouts, 10, coaching);
 
       let outPath: string;
       if (opts.output) {

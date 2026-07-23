@@ -96,7 +96,12 @@ c2 trend -w 12
 
 ### HTML Report
 
-Generate a self-contained HTML progress report:
+Generate a self-contained HTML progress report. Coaching content from the
+store renders automatically when present: the latest narrative (as "Coach's
+Report"), notes from the last 14 days, and the training-plan excerpt.
+`c2 report --data` emits the entire report as structured JSON
+(`c2.report.v1`) — the machine-readable twin of the HTML, for agents and
+custom rendering surfaces:
 
 ```bash
 # Generate report.html in current directory
