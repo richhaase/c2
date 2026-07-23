@@ -74,7 +74,7 @@ src/
 - Session grouping: workouts on the same calendar day form one session
 - Stroke data fields use abbreviated names from API (`t`, `d`, `p`, `spm`, `hr`)
 - Data store location is user-chosen (`data_dir` in config, validated by `c2 setup`); config with secrets stays machine-local at `~/.config/c2/` mode 600
-- Machine-readable output via `--json` with versioned envelopes (`c2.<command>.v1`); `export -f json` stays a raw array for legacy consumers
+- Machine-readable output via `--json` with versioned envelopes (`c2.<command>.v1`); `export -f json` emits `c2.export.v1` (the raw array retired with the last legacy consumer); `export -f jsonl` stays one workout per line for streaming
 - Bare `c2` prints help; unknown commands are errors (no default command)
 - Store state (`meta.json`: schema_version, last_sync) lives in the data dir, not config
 - Coaching notes: one JSON file per note (sync-conflict-safe) for the last 7 days, then deterministic compaction into `notes/archive/<year>.jsonl`; reads union both and dedup by id
