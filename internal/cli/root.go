@@ -44,6 +44,7 @@ func NewRoot(b build) *cobra.Command {
 		newStatsCmd(),
 		newShowCmd(),
 		newExportCmd(),
+		newReportCmd(),
 		newDataCmd(),
 		newNoteCmd(),
 		newDocCmd("plan", "Training plan (managed document)", func(p paths.DataPaths) string { return p.Plan }),
