@@ -27,7 +27,7 @@ bun src/index.ts    # run directly during dev
 ```
 src/
 ├── index.ts              # CLI entry point (binary: c2)
-├── models.ts             # Data types + helpers
+├── models.ts             # Data types + workout helpers (filter/resolve)
 ├── config.ts             # JSON config load/save (machine-local, holds data_dir)
 ├── paths.ts              # Data-store path resolution from data_dir
 ├── storage.ts            # JSONL read/write + store meta.json
@@ -35,10 +35,10 @@ src/
 ├── envelope.ts           # Versioned JSON output envelope
 ├── analysis.ts           # Split/stroke/HR-at-pace analysis
 ├── notes.ts              # Coaching notes: ULID ids, per-file hot set, yearly archives
+├── documents.ts          # plan / playbook / narrative reads from the store
 ├── doctor.ts             # Store validation checks
 ├── display.ts            # Formatting helpers
-├── sessions.ts           # Session grouping (same-day merge)
-├── stats.ts              # Weekly summaries + goal progress
+├── stats.ts              # Weekly summaries, sessions, goal progress + projection
 ├── api/
 │   └── client.ts         # Concept2 API client
 ├── commands/
@@ -80,3 +80,6 @@ src/
 - Coaching notes: one JSON file per note (sync-conflict-safe) for the last 7 days, then deterministic compaction into `notes/archive/<year>.jsonl`; reads union both and dedup by id
 - Note dates use local-offset ISO timestamps so calendar days display correctly
 - plan.md / playbook.md / reports/<date>.md are whole-file managed documents
+- `commands/` is a leaf layer: commands import library modules, never each other
+- Goal projection has one implementation (`projectGoal`), shared by the HTML report, `report --data`, and `stats goal`
+- `display.date_format` accepts `%m/%d` (default) and `%Y-%m-%d`

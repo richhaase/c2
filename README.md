@@ -104,14 +104,14 @@ Report"), notes from the last 14 days, and the training-plan excerpt.
 custom rendering surfaces:
 
 ```bash
-# Generate report.html in current directory
+# Write to a temp file and open it in your browser
 c2 report
 
 # Custom output path
 c2 report -o ~/Desktop/rowing.html
 
-# Generate and open in browser
-c2 report --open
+# Write the file but don't open it
+c2 report --no-open
 
 # Show more weeks of history
 c2 report -w 16
@@ -201,7 +201,7 @@ workout per line for streaming.
 
 ### Data Store
 
-Workout data and (soon) coaching data live in a single data directory,
+Workout data and coaching data live in a single data directory,
 chosen during `c2 setup` and stored as `data_dir` in config. Point it at a
 synced folder (iCloud, Dropbox, a git repo) to share one store across
 machines — the config file with your API token always stays machine-local
@@ -232,9 +232,6 @@ Config lives at `~/.config/c2/config.json`. Created automatically on `c2 setup`.
   "api": {
     "base_url": "https://log.concept2.com",
     "token": "YOUR_TOKEN"
-  },
-  "sync": {
-    "machine_type": "rower"
   },
   "goal": {
     "target_meters": 1000000,
