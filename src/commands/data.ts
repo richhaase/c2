@@ -38,15 +38,13 @@ export function registerData(program: Command): void {
       }
 
       const summary = await storeSummary(paths);
-      const legacyStore = summary.schemaVersion == null && summary.workouts > 0;
-      const lastSync = summary.lastSync ?? (legacyStore ? (cfg.sync.last_sync ?? null) : null);
       if (opts.json) {
         printJSON("c2.data.info.v1", {
           root: paths.root,
           state: inspection.state,
           writable: inspection.writable,
           schema_version: summary.schemaVersion,
-          last_sync: lastSync,
+          last_sync: summary.lastSync,
           workouts: summary.workouts,
           first_date: summary.firstDate || null,
           last_date: summary.lastDate || null,
@@ -57,8 +55,10 @@ export function registerData(program: Command): void {
       }
 
       console.log(`Data store: ${paths.root}`);
-      console.log(`Schema version: ${summary.schemaVersion ?? "(no meta.json — legacy store)"}`);
-      console.log(`Last sync: ${lastSync ?? "never"}`);
+      console.log(
+        `Schema version: ${summary.schemaVersion ?? "(unknown — meta.json missing or corrupt)"}`,
+      );
+      console.log(`Last sync: ${summary.lastSync ?? "never"}`);
       console.log(
         `Workouts: ${formatMeters(summary.workouts)}${summary.firstDate ? ` (${summary.firstDate} → ${summary.lastDate})` : ""}`,
       );

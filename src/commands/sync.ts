@@ -72,10 +72,7 @@ export function registerSync(program: Command): void {
 
       const client = C2Client.fromConfig(cfg);
       const meta = await readMeta(paths);
-      let from = meta?.last_sync ?? "";
-      if (!from && cfg.sync.last_sync && (await workoutCount(paths)) > 0) {
-        from = cfg.sync.last_sync;
-      }
+      const from = meta?.last_sync ?? "";
 
       if (from) {
         console.log(`Syncing workouts since ${from}...`);

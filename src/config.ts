@@ -5,7 +5,6 @@ import { join } from "node:path";
 export interface Config {
   data_dir: string;
   api: { base_url: string; token: string };
-  sync: { last_sync?: string; machine_type: string };
   goal: { target_meters: number; start_date: string; end_date: string };
   display: { date_format: string };
 }
@@ -22,7 +21,6 @@ export function defaultConfig(): Config {
   return {
     data_dir: defaultDataDir(),
     api: { base_url: "https://log.concept2.com", token: "" },
-    sync: { machine_type: "rower" },
     goal: { target_meters: 1_000_000, start_date: "", end_date: "" },
     display: { date_format: "%m/%d" },
   };
@@ -41,7 +39,6 @@ export async function loadConfig(): Promise<Config> {
     return {
       data_dir: dataDir,
       api: { ...defaults.api, ...parsed.api },
-      sync: { ...defaults.sync, ...parsed.sync },
       goal: { ...defaults.goal, ...parsed.goal },
       display: { ...defaults.display, ...parsed.display },
     };

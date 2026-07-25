@@ -117,10 +117,6 @@ export function restSeconds(w: Workout): number {
   return (w.rest_time ?? 0) / TENTHS_PER_SECOND;
 }
 
-export function workSeconds(w: Workout): number {
-  return w.time / TENTHS_PER_SECOND;
-}
-
 export function formatSeconds(totalSeconds: number): string {
   if (totalSeconds <= 0) return "0:00.0";
   const mins = Math.floor(totalSeconds / 60);

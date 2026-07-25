@@ -12,12 +12,12 @@ import { calendarDay, pace500m, pace500mSeconds } from "../models.ts";
 import { filterNotes, type NoteRecord, readAllNotes } from "../notes.ts";
 import type { DataPaths } from "../paths.ts";
 import { dataPaths } from "../paths.ts";
-import { sessionCount } from "../sessions.ts";
 import {
   buildWeekSummaries,
   computeGoalProgress,
   type GoalProgress,
   mondayOf,
+  sessionCount,
   type WeekSummary,
   weekSummaryData,
   workoutsInRange,
@@ -399,8 +399,6 @@ export interface CoachingContent {
   notes: NoteRecord[];
   planExcerpt: string | null;
 }
-
-const EMPTY_COACHING: CoachingContent = { narrative: null, notes: [], planExcerpt: null };
 
 const RECENT_NOTE_DAYS = 14;
 const MAX_RECENT_NOTES = 20;

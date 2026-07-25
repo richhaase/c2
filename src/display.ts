@@ -21,19 +21,9 @@ export function formatMetersPerWeek(m: number): string {
 }
 
 export function formatDate(d: Date, fmt: string): string {
-  if (fmt === "01/02" || fmt === "%m/%d") {
-    const mm = String(d.getMonth() + 1).padStart(2, "0");
-    const dd = String(d.getDate()).padStart(2, "0");
-    return `${mm}/${dd}`;
-  }
-  if (fmt === "%Y-%m-%d") {
-    const y = d.getFullYear();
-    const mm = String(d.getMonth() + 1).padStart(2, "0");
-    const dd = String(d.getDate()).padStart(2, "0");
-    return `${y}-${mm}-${dd}`;
-  }
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const dd = String(d.getDate()).padStart(2, "0");
+  if (fmt === "%Y-%m-%d") return `${d.getFullYear()}-${mm}-${dd}`;
   return `${mm}/${dd}`;
 }
 

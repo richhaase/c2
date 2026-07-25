@@ -62,7 +62,7 @@ export function buildCSVRow(w: Workout): string[] {
     w.workout_type ?? "",
     w.rest_time != null ? String(w.rest_time) : "",
     w.rest_distance != null ? String(w.rest_distance) : "",
-    w.type ?? "",
+    w.type,
     escapeCSV(w.comments ?? ""),
   ];
 }

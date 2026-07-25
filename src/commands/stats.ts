@@ -3,7 +3,6 @@ import { hrAtPace, splitShape, splitTable } from "../analysis.ts";
 import { loadConfig, parseGoalDate } from "../config.ts";
 import { formatMeters } from "../display.ts";
 import { printJSON } from "../envelope.ts";
-import { formatSeconds } from "../models.ts";
 import { dataPaths } from "../paths.ts";
 import type { GoalProgress } from "../stats.ts";
 import {
@@ -99,7 +98,7 @@ export function registerStats(program: Command): void {
         return;
       }
       console.log(
-        `Progress: ${formatMeters(goal.totalMeters)} / ${formatMeters(goal.target)} (${((goal.progress ?? 0) * 100).toFixed(1)}%)`,
+        `Progress: ${formatMeters(goal.totalMeters)} / ${formatMeters(goal.target)} (${(goal.progress * 100).toFixed(1)}%)`,
       );
       console.log(`Required pace: ${formatMeters(goal.requiredPace)} m/wk`);
       console.log(`Recent average: ${formatMeters(goal.currentAvgPace)} m/wk`);

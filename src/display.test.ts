@@ -143,7 +143,7 @@ describe("formatWorkoutLine", () => {
       heart_rate: { average: 112 },
       drag_factor: 107,
     });
-    const line = formatWorkoutLine(w, "01/02");
+    const line = formatWorkoutLine(w, "%m/%d");
     expect(line).toContain("04/09");
     expect(line).toContain("5,000m");
     expect(line).toContain("28:35.4");
@@ -167,7 +167,7 @@ describe("formatWorkoutLine", () => {
       heart_rate: { average: 152 },
       drag_factor: 108,
     });
-    const line = formatWorkoutLine(w, "01/02");
+    const line = formatWorkoutLine(w, "%m/%d");
     expect(line).toContain("[IVL rest 6:00.0]");
     expect(line).toContain("2:23.8/500m");
   });
@@ -178,7 +178,7 @@ describe("formatWorkoutLine", () => {
       heart_rate: undefined,
       drag_factor: undefined,
     });
-    const line = formatWorkoutLine(w, "01/02");
+    const line = formatWorkoutLine(w, "%m/%d");
     expect(line).toContain("    -");
   });
 });

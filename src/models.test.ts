@@ -8,7 +8,6 @@ import {
   pace500mSeconds,
   parsedDate,
   restSeconds,
-  workSeconds,
 } from "./models.ts";
 
 function makeWorkout(overrides: Partial<Workout> = {}): Workout {
@@ -142,13 +141,6 @@ describe("restSeconds", () => {
   test("converts tenths to seconds", () => {
     const w = makeWorkout({ rest_time: 3600 });
     expect(restSeconds(w)).toBe(360);
-  });
-});
-
-describe("workSeconds", () => {
-  test("converts time tenths to seconds", () => {
-    const w = makeWorkout({ time: 8626 });
-    expect(workSeconds(w)).toBe(862.6);
   });
 });
 

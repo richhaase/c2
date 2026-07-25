@@ -30,6 +30,10 @@ export interface GoalProgress {
 
 const RECENT_WEEKS = 4;
 
+export function sessionCount(workouts: Workout[]): number {
+  return new Set(workouts.map(calendarDay)).size;
+}
+
 export function mondayOf(t: Date): Date {
   const d = new Date(t.getFullYear(), t.getMonth(), t.getDate());
   const offset = (d.getDay() + 6) % 7;

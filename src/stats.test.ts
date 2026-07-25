@@ -2,7 +2,13 @@ import { describe, expect, test } from "bun:test";
 import type { Config } from "./config.ts";
 import { defaultConfig } from "./config.ts";
 import type { Workout } from "./models.ts";
-import { buildWeekSummaries, computeGoalProgress, mondayOf, workoutsInRange } from "./stats.ts";
+import {
+  buildWeekSummaries,
+  computeGoalProgress,
+  mondayOf,
+  sessionCount,
+  workoutsInRange,
+} from "./stats.ts";
 
 function makeWorkout(id: number, date: string, distance: number, time?: number): Workout {
   return {
@@ -196,5 +202,21 @@ describe("computeGoalProgress", () => {
     const now = new Date(2026, 3, 13, 18);
     const goal = computeGoalProgress(workouts, cfg, now);
     expect(goal.currentAvgPace).toBe(5_000);
+  });
+});
+
+describe("sessionCount", () => {
+  test("counts unique calendar days", () => {
+    const workouts = [
+      makeWorkout(1, "2026-03-07 09:21:00", 1000),
+      makeWorkout(2, "2026-03-07 09:45:00", 2500),
+      makeWorkout(3, "2026-03-07 09:53:00", 1000),
+      makeWorkout(4, "2026-03-05 14:00:00", 5000),
+    ];
+    expect(sessionCount(workouts)).toBe(2);
+  });
+
+  test("returns 0 for empty list", () => {
+    expect(sessionCount([])).toBe(0);
   });
 });

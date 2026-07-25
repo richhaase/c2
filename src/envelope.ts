@@ -4,10 +4,10 @@ export interface Envelope<T> {
   data: T;
 }
 
-export function envelope<T>(schema: string, data: T, now?: Date): Envelope<T> {
+export function envelope<T>(schema: string, data: T): Envelope<T> {
   return {
     schema,
-    generated_at: (now ?? new Date()).toISOString(),
+    generated_at: new Date().toISOString(),
     data,
   };
 }
