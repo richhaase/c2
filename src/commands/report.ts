@@ -16,7 +16,9 @@ import {
   buildWeekSummaries,
   computeGoalProgress,
   type GoalProgress,
+  type GoalProjection,
   mondayOf,
+  projectGoal,
   sessionCount,
   type WeekSummary,
   weekSummaryData,
@@ -24,7 +26,6 @@ import {
 } from "../stats.ts";
 import { readWorkouts } from "../storage.ts";
 import { listNarratives } from "./docs.ts";
-import { projectGoal } from "./stats.ts";
 
 const MONTH_NAMES = [
   "Jan",
@@ -352,10 +353,11 @@ ${rows}
 </div>`;
 }
 
-function buildProjection(goal: GoalProgress, workouts: Workout[]): string {
-  const projectedAtCurrent = goal.currentAvgPace * goal.remainingWeeks + goal.totalMeters;
-  const projectedPct = ((projectedAtCurrent / goal.target) * 100).toFixed(1);
-  const shortfall = goal.target - projectedAtCurrent;
+function buildProjection(
+  goal: GoalProgress,
+  projection: GoalProjection,
+  workouts: Workout[],
+): string {
   const avgSessionDist =
     workouts.length > 0
       ? Math.round(workouts.reduce((s, w) => s + w.distance, 0) / workouts.length)
@@ -367,18 +369,18 @@ function buildProjection(goal: GoalProgress, workouts: Workout[]): string {
       ? (((goal.requiredPace - goal.currentAvgPace) / goal.currentAvgPace) * 100).toFixed(0)
       : "-";
 
-  const currentClass = projectedAtCurrent >= goal.target ? "green" : "red";
+  const currentClass = projection.shortfall_meters === 0 ? "green" : "red";
 
   return `<div class="section">
   <h2>Year-End Projection</h2>
   <div class="projection-grid">
     <div class="projection-card">
       <h3 class="${currentClass}">At Current Pace</h3>
-      <div class="big-num ${currentClass}">~${formatMeters(Math.round(projectedAtCurrent / 1000) * 1000)}m</div>
+      <div class="big-num ${currentClass}">~${formatMeters(Math.round(projection.projected_total_meters / 1000) * 1000)}m</div>
       <div class="detail">
-        ${formatMeters(goal.currentAvgPace)} m/wk &times; ${goal.remainingWeeks} remaining + ${formatMeters(goal.totalMeters)}<br>
-        ${shortfall > 0 ? `${formatMeters(Math.round(shortfall))}m short of goal` : "On track to exceed goal"}<br>
-        <span class="${currentClass}" style="font-weight:600;">${projectedPct}% of target</span>
+        ${formatMeters(goal.currentAvgPace)} m/wk &times; ${projection.remaining_weeks} weeks remaining + ${formatMeters(goal.totalMeters)}<br>
+        ${projection.shortfall_meters > 0 ? `${formatMeters(projection.shortfall_meters)}m short of goal` : "On track to exceed goal"}<br>
+        <span class="${currentClass}" style="font-weight:600;">${projection.projected_pct}% of target</span>
       </div>
     </div>
     <div class="projection-card">
@@ -539,6 +541,7 @@ ${mdLite(excerpt)}
 
 function buildHTML(
   goal: GoalProgress,
+  projection: GoalProjection,
   summaries: WeekSummary[],
   allWorkouts: Workout[],
   windowedWorkouts: Workout[],
@@ -811,7 +814,7 @@ ${buildRecentWorkouts(allWorkouts, recentCount)}
 
 ${coaching.notes.length > 0 ? buildNotesSection(coaching.notes) : ""}
 
-${buildProjection(goal, allWorkouts)}
+${buildProjection(goal, projection, allWorkouts)}
 
 ${coaching.planExcerpt != null ? buildPlanSection(coaching.planExcerpt) : ""}
 
@@ -857,6 +860,7 @@ export function registerReport(program: Command): void {
       }
       const now = new Date();
       const goal = computeGoalProgress(workouts, cfg, now);
+      const projection = projectGoal(goal, parseGoalDate(cfg.goal.end_date), now);
       const summaries = buildWeekSummaries(workouts, now, weeks);
       const thisMonday = mondayOf(now);
       const cutoff = new Date(thisMonday);
@@ -886,7 +890,7 @@ export function registerReport(program: Command): void {
             avg_hr: avgHRForWorkouts(windowedWorkouts) || null,
           },
           goal,
-          projection: projectGoal(goal, parseGoalDate(cfg.goal.end_date), now),
+          projection,
           weekly: summaries.map(weekSummaryData),
           recent_workouts: sorted.slice(0, 10).map(workoutJSON),
           latest_splits:
@@ -905,7 +909,7 @@ export function registerReport(program: Command): void {
         return;
       }
 
-      const html = buildHTML(goal, summaries, workouts, windowedWorkouts, 10, coaching);
+      const html = buildHTML(goal, projection, summaries, workouts, windowedWorkouts, 10, coaching);
 
       let outPath: string;
       if (opts.output) {

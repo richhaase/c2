@@ -1,8 +1,8 @@
 import { expect, test } from "bun:test";
 import { hrAtPace, splitShape, splitTable, strokeSummary } from "./analysis.ts";
-import { projectGoal } from "./commands/stats.ts";
 import type { StrokeData, Workout, WorkoutSplit } from "./models.ts";
 import type { GoalProgress } from "./stats.ts";
+import { projectGoal } from "./stats.ts";
 
 function split(timeTenths: number, distance: number, spm: number, hr: number): WorkoutSplit {
   return {

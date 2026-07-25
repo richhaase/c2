@@ -4,34 +4,16 @@ import { loadConfig, parseGoalDate } from "../config.ts";
 import { formatMeters } from "../display.ts";
 import { printJSON } from "../envelope.ts";
 import { dataPaths } from "../paths.ts";
-import type { GoalProgress } from "../stats.ts";
 import {
   buildWeekSummaries,
   computeGoalProgress,
   localYMD,
+  projectGoal,
   recentWeeks,
   weekSummaryData,
 } from "../stats.ts";
 import { readWorkouts } from "../storage.ts";
 import { resolveWorkout } from "./show.ts";
-
-export interface GoalProjection {
-  projected_total_meters: number;
-  projected_pct: number;
-  shortfall_meters: number;
-}
-
-const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
-
-export function projectGoal(goal: GoalProgress, end: Date, now: Date): GoalProjection {
-  const weeksLeft = Math.max(0, (end.getTime() - now.getTime()) / WEEK_MS);
-  const projected = Math.round(goal.totalMeters + goal.currentAvgPace * weeksLeft);
-  return {
-    projected_total_meters: projected,
-    projected_pct: Math.round((projected / goal.target) * 1000) / 10,
-    shortfall_meters: Math.max(0, goal.target - projected),
-  };
-}
 
 function parseWeeks(raw: string): number {
   const weeks = parseInt(raw, 10);

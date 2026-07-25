@@ -161,6 +161,26 @@ export function weekSummaryData(ws: WeekSummary): WeekSummaryData {
   };
 }
 
+export interface GoalProjection {
+  remaining_weeks: number;
+  projected_total_meters: number;
+  projected_pct: number;
+  shortfall_meters: number;
+}
+
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
+export function projectGoal(goal: GoalProgress, end: Date, now: Date): GoalProjection {
+  const weeksLeft = Math.max(0, (end.getTime() - now.getTime()) / WEEK_MS);
+  const projected = Math.round(goal.totalMeters + goal.currentAvgPace * weeksLeft);
+  return {
+    remaining_weeks: Math.round(weeksLeft * 10) / 10,
+    projected_total_meters: projected,
+    projected_pct: Math.round((projected / goal.target) * 1000) / 10,
+    shortfall_meters: Math.max(0, goal.target - projected),
+  };
+}
+
 export function computeGoalProgress(workouts: Workout[], cfg: Config, now?: Date): GoalProgress {
   const target = cfg.goal.target_meters;
   const start = parseGoalDate(cfg.goal.start_date);
