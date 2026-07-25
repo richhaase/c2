@@ -21,7 +21,6 @@ repos:
 
       - id: go-imports
         name: goimports
-        # Version pinned via the tool directive in go.mod
         entry: sh -c 'go tool goimports -w .'
         language: system
         types: [go]
@@ -36,7 +35,6 @@ repos:
 
       - id: go-lint
         name: golangci-lint
-        # Runs the version pinned in the Makefile
         entry: sh -c 'make lint'
         language: system
         types: [go]

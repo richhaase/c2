@@ -28,8 +28,6 @@ jobs:
       - name: Run tests
         run: go test -race -covermode=atomic -coverprofile=coverage.out ./...
 
-      # Set the CODECOV_TOKEN secret for reliable uploads
-      # (tokenless upload works only for some public-repo setups).
       - name: Upload coverage
         uses: codecov/codecov-action@v7
         with:
@@ -49,7 +47,6 @@ jobs:
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
-          # Keep in sync with GOLANGCI_LINT_VERSION in the Makefile
           version: v2.12.2
 
   vuln:
@@ -79,7 +76,6 @@ jobs:
       - name: Build
         run: go build -v ./cmd/c2
 
-  # Cross-platform build verification
   build-matrix:
     runs-on: ubuntu-latest
     needs: [test, lint]

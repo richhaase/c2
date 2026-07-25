@@ -53,11 +53,16 @@ internal/
 
 ## Hard Rules
 
-- **No comments in source code, ever.** No exceptions. Not `//`, not `/* */`, not
-  doc comments on exported symbols — Go convention does not override this. If
-  code needs explanation, rename the variable, extract a function, or write a
-  test that encodes the invariant. If context is load-bearing, put it in the
-  commit message. Rich does not read comments.
+- **No comments in code, ever.** No exceptions. Not `//`, not `/* */`, not doc
+  comments on exported symbols — Go convention does not override this. If code
+  needs explanation, rename the variable, extract a function, or write a test
+  that encodes the invariant. Rich does not read comments.
+- **Repo tooling config is code.** CI workflows, `.golangci.yml`, the Makefile,
+  goreleaser, pre-commit, dependabot and the dotfiles get the same rule: no `#`
+  comments, no commented-out blocks. GitHub Actions especially. If a config
+  choice needs justification it goes in Tooling below, or in the commit message.
+  The one exception is example or sample configuration shipped to document c2
+  itself, which may carry explanatory comments for the reader's benefit.
 - **All JSON encoding goes through `internal/jsonx`.** Go's `encoding/json`
   escapes `<`, `>` and `&` by default, which corrupts note bodies and comments.
   jsonx disables that.
@@ -70,6 +75,30 @@ internal/
   2:54.25 would display as 2:54.2 rather than 2:54.3. ToFixed rounds the
   shortest decimal that identifies the float, not its exact binary expansion,
   so a percentage computed as 11500/1000000 shows 1.2% rather than 1.1%.
+
+## Tooling
+
+These are the things the config files cannot say for themselves.
+
+- The golangci-lint version appears in both `Makefile` (`GOLANGCI_LINT_VERSION`)
+  and `.github/workflows/ci.yml`. They must match, or local and CI lint disagree.
+- `.golangci.yml` sets `staticcheck.checks` explicitly. Providing that list
+  **replaces** golangci-lint's defaults rather than adding to them, so the
+  default exclusions are repeated there. ST1000 and ST1020-22 demand doc
+  comments and must stay off.
+- `ST1005` is off because the error strings are user-facing copy printed
+  verbatim to stderr, not fragments a caller wraps.
+- gosec `G301`/`G302`/`G306` are off because the data store holds training data
+  rather than secrets and is meant to be readable by whatever syncs it, so it
+  stays 0644/0755. The config file is the one holding a token, and it is written
+  0600.
+- gosec `G204` is off because `report` opens the generated file with one of
+  three GOOS-chosen literals, passing the path as an argv element, so no shell
+  is involved.
+- The pre-commit `goimports` hook relies on the `tool` directive in `go.mod`,
+  and its lint hook shells out to `make lint` to pick up the pinned version.
+- Coverage upload wants a `CODECOV_TOKEN` secret; tokenless upload only works
+  for some public-repo setups.
 
 ## Key Decisions
 

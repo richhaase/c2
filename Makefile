@@ -1,18 +1,16 @@
 .PHONY: help build install run test test-coverage fmt fmt-check vet lint vuln check release-snapshot clean deps deps-list deps-update generate
 
-# Project configuration
 BINARY := c2
 CMD_PATH := ./cmd/c2
 BIN_DIR := bin
 
-# Pinned tool versions (keep the golangci-lint version in sync with .github/workflows/ci.yml)
 GOLANGCI_LINT_VERSION := v2.12.2
 
 help:
 	@echo "Available targets:"
 	@echo "  build            - Build the $(BINARY) binary with version information"
 	@echo "  install          - Install to GOBIN with version information"
-	@echo "  run              - Build and run (make run ARGS=\"example --name Dev\")"
+	@echo "  run              - Build and run (make run ARGS=\"log -n 5\")"
 	@echo "  test             - Run all tests with -race"
 	@echo "  test-coverage    - Run tests with coverage report"
 	@echo "  fmt              - Format code (rewrites files)"
