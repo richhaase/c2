@@ -156,6 +156,10 @@ func ReadStrokeData(p paths.DataPaths, workoutID int64) ([]models.StrokeData, er
 	}
 	var strokes []models.StrokeData
 	for _, line := range nonEmptyLines(data) {
+		var probe map[string]any
+		if err := json.Unmarshal(line, &probe); err != nil || probe == nil {
+			continue
+		}
 		var s models.StrokeData
 		if err := json.Unmarshal(line, &s); err != nil {
 			continue

@@ -64,9 +64,11 @@ internal/
 - **JSON payloads are structs, never `map[string]any`.** Go sorts map keys
   alphabetically; struct fields marshal in declaration order, and the envelope
   schemas depend on field order being stable.
-- **User-visible decimals go through `models.ToFixed`.** It rounds halves away
-  from zero via `math/big.Rat`. Go's `strconv` rounds half-to-even, which shifts
-  displayed paces on exact ties.
+- **User-visible decimals go through `models.ToFixed`.** Paces and split times
+  round halves away from zero, which is what a reader expects from a stopwatch
+  figure. Go's `strconv` rounds half-to-even, so a pace landing exactly on
+  2:54.25 would display as 2:54.2 rather than 2:54.3. ToFixed uses
+  `math/big.Rat` to round on the exact decimal value.
 
 ## Key Decisions
 

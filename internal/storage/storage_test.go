@@ -186,3 +186,23 @@ func TestReadMetaForeignJSONHasNoSchemaVersion(t *testing.T) {
 		t.Fatalf("absent schema_version must stay nil, got %d", *got.SchemaVersion)
 	}
 }
+
+func TestReadStrokeDataSkipsNullAndNonObjectLines(t *testing.T) {
+	p := tempPaths(t)
+	body := "{\"t\":1}\nnull\n[1,2]\n\"str\"\n123\n{\"t\":2}\n"
+	if err := os.WriteFile(p.StrokeFile(9), []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	got, err := ReadStrokeData(p, 9)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("got %d records, want 2 (null and non-objects must be skipped)", len(got))
+	}
+	for i, s := range got {
+		if s.T == nil {
+			t.Fatalf("record %d has no t; a phantom stroke leaked through", i)
+		}
+	}
+}

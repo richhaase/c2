@@ -52,7 +52,7 @@ func (c *checker) listDir(dir, label string) []os.DirEntry {
 
 func isStrokeShaped(raw []byte) bool {
 	var parsed map[string]any
-	if err := json.Unmarshal(raw, &parsed); err != nil {
+	if err := json.Unmarshal(raw, &parsed); err != nil || parsed == nil {
 		return false
 	}
 	for _, key := range strokeFields {

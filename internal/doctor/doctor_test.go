@@ -160,3 +160,35 @@ func TestArchiveOrderingAndDuplicatesAreReported(t *testing.T) {
 		t.Fatalf("issues: %v", report.Issues)
 	}
 }
+
+func TestNullStrokeRecordIsRejected(t *testing.T) {
+	p := tempStore(t)
+	if err := os.WriteFile(p.StrokeFile(5), []byte("{\"t\":1}\nnull\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	report := Run(p)
+	if !hasIssueContaining(report, "line 2 malformed stroke record") {
+		t.Fatalf("null stroke line must be reported: %v", report.Issues)
+	}
+}
+
+func TestStrokeShapeAcceptsOnlyObjects(t *testing.T) {
+	cases := []struct {
+		in   string
+		want bool
+	}{
+		{`{"t":1,"d":2,"p":3,"spm":4,"hr":5}`, true},
+		{`{}`, true},
+		{`{"t":1,"extra":"ok"}`, true},
+		{`null`, false},
+		{`[1,2]`, false},
+		{`"str"`, false},
+		{`123`, false},
+		{`{"t":"bad"}`, false},
+	}
+	for _, tc := range cases {
+		if got := isStrokeShaped([]byte(tc.in)); got != tc.want {
+			t.Errorf("isStrokeShaped(%s) = %v want %v", tc.in, got, tc.want)
+		}
+	}
+}
