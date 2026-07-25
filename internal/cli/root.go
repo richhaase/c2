@@ -33,7 +33,12 @@ func NewRoot(b build) *cobra.Command {
 		return cmd.Help()
 	}
 
-	root.AddCommand(newVersionCmd(b))
+	root.AddCommand(
+		newLogCmd(),
+		newStatusCmd(),
+		newTrendCmd(),
+		newVersionCmd(b),
+	)
 
 	return root
 }

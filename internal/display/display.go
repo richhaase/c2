@@ -36,10 +36,10 @@ func FormatMeters(m int) string {
 }
 
 func FormatPercent(ratio float64) string {
-	return toFixed(ratio*100, 1) + "%"
+	return ToFixed(ratio*100, 1) + "%"
 }
 
-func toFixed(v float64, digits int) string {
+func ToFixed(v float64, digits int) string {
 	r := new(big.Rat).SetFloat64(v)
 	if r == nil {
 		return strconv.FormatFloat(v, 'f', digits, 64)

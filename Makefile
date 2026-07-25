@@ -1,4 +1,4 @@
-.PHONY: help build install run test test-coverage fmt fmt-check vet lint vuln check release-snapshot clean deps deps-list deps-update generate
+.PHONY: help build install run parity test test-coverage fmt fmt-check vet lint vuln check release-snapshot clean deps deps-list deps-update generate
 
 # Project configuration
 BINARY := c2
@@ -13,6 +13,7 @@ help:
 	@echo "  build            - Build the $(BINARY) binary with version information"
 	@echo "  install          - Install to GOBIN with version information"
 	@echo "  run              - Build and run (make run ARGS=\"example --name Dev\")"
+	@echo "  parity           - Diff the Go build against the TypeScript build on the real store"
 	@echo "  test             - Run all tests with -race"
 	@echo "  test-coverage    - Run tests with coverage report"
 	@echo "  fmt              - Format code (rewrites files)"
@@ -46,6 +47,9 @@ install:
 
 run: build
 	@./$(BIN_DIR)/$(BINARY) $(ARGS)
+
+parity: build
+	@./scripts/parity.sh $(ARGS)
 
 test:
 	@go test -race ./...
