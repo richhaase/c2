@@ -5,13 +5,25 @@ A CLI tool for syncing and analyzing rowing data from your [Concept2 Logbook](ht
 ## Install
 
 ```bash
-# From source
+go install github.com/richhaase/c2/cmd/c2@latest
+```
+
+Or pin a release:
+
+```bash
+go install github.com/richhaase/c2/cmd/c2@v0.5.0
+```
+
+Binaries for macOS and Linux are also attached to each
+[release](https://github.com/richhaase/c2/releases).
+
+To build from a checkout:
+
+```bash
 git clone https://github.com/richhaase/c2.git
 cd c2
 make install
 ```
-
-Or grab a binary from the [releases page](https://github.com/richhaase/c2/releases).
 
 ## Quick Start
 
