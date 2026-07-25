@@ -64,7 +64,7 @@ func TestFormatPercent(t *testing.T) {
 		{0.131, "13.1%"},
 		{0.1225, "12.3%"},
 		{0.0625, "6.3%"},
-		{0.7055, "70.5%"},
+		{0.7055, "70.6%"},
 	}
 	for _, c := range cases {
 		if got := FormatPercent(c.in); got != c.want {

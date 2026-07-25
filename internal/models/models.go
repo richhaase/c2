@@ -205,8 +205,8 @@ func RestSeconds(w Workout) float64 {
 }
 
 func ToFixed(v float64, digits int) string {
-	r := new(big.Rat).SetFloat64(v)
-	if r == nil {
+	r, ok := new(big.Rat).SetString(strconv.FormatFloat(v, 'f', -1, 64))
+	if !ok {
 		return strconv.FormatFloat(v, 'f', digits, 64)
 	}
 	return r.FloatString(digits)

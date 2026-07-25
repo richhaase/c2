@@ -67,8 +67,9 @@ internal/
 - **User-visible decimals go through `models.ToFixed`.** Paces and split times
   round halves away from zero, which is what a reader expects from a stopwatch
   figure. Go's `strconv` rounds half-to-even, so a pace landing exactly on
-  2:54.25 would display as 2:54.2 rather than 2:54.3. ToFixed uses
-  `math/big.Rat` to round on the exact decimal value.
+  2:54.25 would display as 2:54.2 rather than 2:54.3. ToFixed rounds the
+  shortest decimal that identifies the float, not its exact binary expansion,
+  so a percentage computed as 11500/1000000 shows 1.2% rather than 1.1%.
 
 ## Key Decisions
 

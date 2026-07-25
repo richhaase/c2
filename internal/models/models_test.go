@@ -284,3 +284,24 @@ func TestStrokeDataPreservesRawFieldOrderAndUnknownFields(t *testing.T) {
 		t.Fatalf("stroke round trip changed:\n got %s\nwant %s", out, line)
 	}
 }
+
+func TestToFixedRoundsTheDecimalTheFloatIdentifies(t *testing.T) {
+	cases := []struct {
+		in     float64
+		digits int
+		want   string
+	}{
+		{(11500.0 / 1000000.0) * 100, 1, "1.2"},
+		{(449375.0 / 1000000.0) * 100, 1, "44.9"},
+		{1.25, 1, "1.3"},
+		{2.675, 2, "2.68"},
+		{54.25, 1, "54.3"},
+		{54.349999999999994, 1, "54.3"},
+		{0.05, 1, "0.1"},
+	}
+	for _, tc := range cases {
+		if got := ToFixed(tc.in, tc.digits); got != tc.want {
+			t.Errorf("ToFixed(%v, %d) = %q want %q", tc.in, tc.digits, got, tc.want)
+		}
+	}
+}
