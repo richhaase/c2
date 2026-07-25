@@ -266,3 +266,21 @@ func TestWorkoutWithRawIsUnescapedThroughJSONX(t *testing.T) {
 		t.Fatalf("raw round trip changed:\n got %s\nwant %s", out, line)
 	}
 }
+
+func TestStrokeDataPreservesRawFieldOrderAndUnknownFields(t *testing.T) {
+	line := `{"d":17,"p":0,"hr":72,"spm":0,"t":8,"future_field":1}`
+	var s StrokeData
+	if err := json.Unmarshal([]byte(line), &s); err != nil {
+		t.Fatal(err)
+	}
+	if s.HR == nil || *s.HR != 72 {
+		t.Fatalf("parsed fields wrong: %+v", s)
+	}
+	out, err := jsonx.Compact(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(out) != line {
+		t.Fatalf("stroke round trip changed:\n got %s\nwant %s", out, line)
+	}
+}

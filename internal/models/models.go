@@ -88,11 +88,31 @@ func (w Workout) MarshalJSON() ([]byte, error) {
 }
 
 type StrokeData struct {
-	T   *float64 `json:"t,omitempty"`
-	D   *float64 `json:"d,omitempty"`
-	P   *float64 `json:"p,omitempty"`
-	SPM *float64 `json:"spm,omitempty"`
-	HR  *float64 `json:"hr,omitempty"`
+	T   *float64        `json:"t,omitempty"`
+	D   *float64        `json:"d,omitempty"`
+	P   *float64        `json:"p,omitempty"`
+	SPM *float64        `json:"spm,omitempty"`
+	HR  *float64        `json:"hr,omitempty"`
+	Raw json.RawMessage `json:"-"`
+}
+
+func (s *StrokeData) UnmarshalJSON(data []byte) error {
+	type plain StrokeData
+	var p plain
+	if err := json.Unmarshal(data, &p); err != nil {
+		return err
+	}
+	*s = StrokeData(p)
+	s.Raw = append(json.RawMessage(nil), data...)
+	return nil
+}
+
+func (s StrokeData) MarshalJSON() ([]byte, error) {
+	if len(s.Raw) > 0 {
+		return s.Raw, nil
+	}
+	type plain StrokeData
+	return jsonx.Compact(plain(s))
 }
 
 type UserProfile struct {

@@ -75,8 +75,13 @@ internal/
 - Static personal access token (no OAuth2 flow — C2 provides one at log.concept2.com)
 - Custom goal dates independent of C2 season (May 1 – Apr 30)
 - `time` field from API is in tenths of a second
-- Workout records keep their raw JSON and re-marshal it verbatim, so fields the
-  struct does not model survive a sync round-trip
+- Workout and stroke records keep their raw JSON and re-marshal it verbatim, so
+  fields the struct does not model survive a sync round-trip. The API currently
+  sends `date_utc`, `privacy`, `ranked`, `real_time` and `verified` on workouts,
+  none of which are modelled. A consequence: records written by a sync keep the
+  API's escaping, so `"America\/Denver"` is stored with the escaped slash. That
+  is the same string once parsed, and normalising it would mean re-encoding,
+  which would reorder keys and drop the unmodelled fields — a worse trade
 - Dates parse in `time.Local` throughout; week bucketing and calendar-day
   grouping depend on it
 - Session grouping: workouts on the same calendar day form one session
