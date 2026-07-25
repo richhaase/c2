@@ -27,12 +27,12 @@ linters:
         - os.RemoveAll
     gosec:
       excludes:
-        - G104 # Unhandled errors (covered by errcheck)
-        - G304 # File path from variable (often intentional in CLIs)
-        - G301 # Directory permissions (store dirs are 0755)
-        - G302 # File permissions (store files are 0644)
-        - G306 # WriteFile permissions (same)
-        - G204 # Subprocess launched with a variable
+        - G104
+        - G304
+        - G301
+        - G302
+        - G306
+        - G204
     staticcheck:
       checks:
         - all

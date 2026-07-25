@@ -88,6 +88,8 @@ These are the things the config files cannot say for themselves.
   comments and must stay off.
 - `ST1005` is off because the error strings are user-facing copy printed
   verbatim to stderr, not fragments a caller wraps.
+- gosec `G104` is off because errcheck already covers unhandled errors, and
+  `G304` because a CLI opening a file path from a flag is the whole point.
 - gosec `G301`/`G302`/`G306` are off because the data store holds training data
   rather than secrets and is meant to be readable by whatever syncs it, so it
   stays 0644/0755. The config file is the one holding a token, and it is written
