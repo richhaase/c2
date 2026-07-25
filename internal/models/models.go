@@ -9,6 +9,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/richhaase/c2/internal/jsonx"
 )
 
 const (
@@ -82,7 +84,7 @@ func (w Workout) MarshalJSON() ([]byte, error) {
 		return w.Raw, nil
 	}
 	type plain Workout
-	return json.Marshal(plain(w))
+	return jsonx.Compact(plain(w))
 }
 
 type StrokeData struct {

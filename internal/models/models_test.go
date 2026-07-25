@@ -3,7 +3,10 @@ package models
 import (
 	"encoding/json"
 	"math"
+	"strings"
 	"testing"
+
+	"github.com/richhaase/c2/internal/jsonx"
 )
 
 func makeWorkout(mutate func(*Workout)) Workout {
@@ -235,5 +238,31 @@ func TestFormatSecondsRoundsHalvesAwayFromZero(t *testing.T) {
 		if got := FormatSeconds(tc.in); got != tc.want {
 			t.Errorf("FormatSeconds(%v) = %q want %q", tc.in, got, tc.want)
 		}
+	}
+}
+
+func TestWorkoutWithoutRawDoesNotHTMLEscape(t *testing.T) {
+	w := Workout{ID: 1, Date: "2026-01-01 08:00:00", Comments: "pace < 2:00 & HR > 150"}
+	out, err := jsonx.Compact(w)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(out), "pace < 2:00 & HR > 150") {
+		t.Fatalf("comments were HTML-escaped through jsonx: %s", out)
+	}
+}
+
+func TestWorkoutWithRawIsUnescapedThroughJSONX(t *testing.T) {
+	line := `{"id":1,"user_id":1,"date":"2026-01-01 08:00:00","distance":1,"type":"rower","time":1,"time_formatted":"0:00.1","comments":"pace < 2:00 & HR > 150"}`
+	var w Workout
+	if err := json.Unmarshal([]byte(line), &w); err != nil {
+		t.Fatal(err)
+	}
+	out, err := jsonx.Compact(w)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(out) != line {
+		t.Fatalf("raw round trip changed:\n got %s\nwant %s", out, line)
 	}
 }
