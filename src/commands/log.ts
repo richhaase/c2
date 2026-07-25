@@ -2,10 +2,9 @@ import type { Command } from "commander";
 import { loadConfig } from "../config.ts";
 import { formatWorkoutLine, workoutJSON } from "../display.ts";
 import { printJSON } from "../envelope.ts";
-import { isValidYMD } from "../models.ts";
+import { filterByDate, isValidYMD } from "../models.ts";
 import { dataPaths } from "../paths.ts";
 import { readWorkouts } from "../storage.ts";
-import { filterByDate } from "./export.ts";
 
 export function registerLog(program: Command): void {
   program

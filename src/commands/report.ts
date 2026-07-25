@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import type { Command } from "commander";
@@ -6,6 +6,7 @@ import { splitShape, splitTable } from "../analysis.ts";
 import { loadConfig, parseGoalDate } from "../config.ts";
 import { rejectForeignStore } from "../data.ts";
 import { formatMeters, workoutJSON } from "../display.ts";
+import { listNarratives, readDocument } from "../documents.ts";
 import { printJSON } from "../envelope.ts";
 import type { Workout } from "../models.ts";
 import { calendarDay, pace500m, pace500mSeconds } from "../models.ts";
@@ -25,7 +26,6 @@ import {
   workoutsInRange,
 } from "../stats.ts";
 import { readWorkouts } from "../storage.ts";
-import { listNarratives } from "./docs.ts";
 
 const MONTH_NAMES = [
   "Jan",
@@ -406,16 +406,6 @@ const RECENT_NOTE_DAYS = 14;
 const MAX_RECENT_NOTES = 20;
 const PLAN_EXCERPT_MAX_CHARS = 1500;
 
-async function readIfExists(path: string): Promise<string | null> {
-  try {
-    return await readFile(path, "utf-8");
-  } catch (err: unknown) {
-    const code = (err as NodeJS.ErrnoException).code;
-    if (code === "ENOENT" || code === "ENOTDIR") return null;
-    throw err;
-  }
-}
-
 export async function gatherCoaching(paths: DataPaths, now: Date): Promise<CoachingContent> {
   const since = new Date(now);
   since.setDate(since.getDate() - RECENT_NOTE_DAYS);
@@ -428,12 +418,12 @@ export async function gatherCoaching(paths: DataPaths, now: Date): Promise<Coach
   const dates = await listNarratives(paths);
   const latest = dates[dates.length - 1];
   if (latest != null) {
-    const text = await readIfExists(paths.narrativeFile(latest));
+    const text = await readDocument(paths.narrativeFile(latest));
     if (text != null && text.trim() !== "") narrative = { date: latest, text };
   }
 
   let planExcerpt: string | null = null;
-  const plan = await readIfExists(paths.plan);
+  const plan = await readDocument(paths.plan);
   if (plan != null && plan.trim() !== "") {
     const sections = plan.split(/\n(?=## )/);
     const substantive = (s: string) =>

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { buildCSVRow, CSV_HEADER, escapeCSV, filterByDate } from "./commands/export.ts";
+import { buildCSVRow, CSV_HEADER, escapeCSV } from "./commands/export.ts";
 import type { Workout } from "./models.ts";
+import { filterByDate } from "./models.ts";
 
 function makeWorkout(id: number, date: string, distance: number): Workout {
   return {

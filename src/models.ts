@@ -135,3 +135,23 @@ export function isValidYMD(s: string): boolean {
     d.getDate() === Number(m[3])
   );
 }
+
+export function filterByDate(workouts: Workout[], from: string, to: string): Workout[] {
+  if (!from && !to) return workouts;
+  return workouts.filter((w) => {
+    const date = w.date.slice(0, 10);
+    if (from && date < from) return false;
+    if (to && date > to) return false;
+    return true;
+  });
+}
+
+export function resolveWorkout(workouts: Workout[], ref: string): Workout | null {
+  if (ref === "last") {
+    if (workouts.length === 0) return null;
+    return workouts.reduce((latest, w) => (w.date > latest.date ? w : latest));
+  }
+  const id = Number(ref);
+  if (!Number.isInteger(id)) return null;
+  return workouts.find((w) => w.id === id) ?? null;
+}

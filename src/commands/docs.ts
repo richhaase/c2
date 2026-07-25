@@ -1,7 +1,8 @@
-import { readdir, readFile, writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import type { Command } from "commander";
 import { loadConfig } from "../config.ts";
 import { ensureStoreForWrite, rejectForeignStore } from "../data.ts";
+import { listNarratives, readDocument } from "../documents.ts";
 import { printJSON } from "../envelope.ts";
 import { isValidYMD } from "../models.ts";
 import type { DataPaths } from "../paths.ts";
@@ -12,16 +13,6 @@ async function readContent(source: string | undefined): Promise<string> {
     return readFile(source, "utf-8");
   }
   return new Response(Bun.stdin.stream()).text();
-}
-
-async function readIfExists(path: string): Promise<string | null> {
-  try {
-    return await readFile(path, "utf-8");
-  } catch (err: unknown) {
-    const code = (err as NodeJS.ErrnoException).code;
-    if (code === "ENOENT" || code === "ENOTDIR") return null;
-    throw err;
-  }
 }
 
 function registerDoc(
@@ -43,7 +34,7 @@ function registerDoc(
         console.error(foreign);
         process.exit(1);
       }
-      const content = await readIfExists(pathOf(paths));
+      const content = await readDocument(pathOf(paths));
       if (content == null) {
         console.error(`No ${name} recorded yet. Set one with \`c2 ${name} set <file|->\`.`);
         process.exit(1);
@@ -136,7 +127,7 @@ export function registerDocs(program: Command): void {
           process.exit(1);
         }
       }
-      const content = await readIfExists(paths.narrativeFile(target));
+      const content = await readDocument(paths.narrativeFile(target));
       if (content == null) {
         console.error(`No narrative for ${target}.`);
         process.exit(1);
@@ -169,16 +160,4 @@ export function registerDocs(program: Command): void {
         console.log(d);
       }
     });
-}
-
-export async function listNarratives(paths: DataPaths): Promise<string[]> {
-  try {
-    return (await readdir(paths.reportsDir))
-      .filter((f) => f.endsWith(".md"))
-      .map((f) => f.slice(0, -3))
-      .filter((d) => isValidYMD(d))
-      .sort();
-  } catch {
-    return [];
-  }
 }

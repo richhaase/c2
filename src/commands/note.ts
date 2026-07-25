@@ -2,7 +2,7 @@ import type { Command } from "commander";
 import { loadConfig } from "../config.ts";
 import { ensureStoreForWrite, rejectForeignStore } from "../data.ts";
 import { printJSON } from "../envelope.ts";
-import { isValidYMD } from "../models.ts";
+import { isValidYMD, resolveWorkout } from "../models.ts";
 import {
   filterNotes,
   isNoteShaped,
@@ -18,7 +18,6 @@ import {
 } from "../notes.ts";
 import { dataPaths } from "../paths.ts";
 import { readWorkouts } from "../storage.ts";
-import { resolveWorkout } from "./show.ts";
 
 async function readBody(bodyArg: string | undefined): Promise<string> {
   if (bodyArg != null && bodyArg !== "-") return bodyArg.trim();

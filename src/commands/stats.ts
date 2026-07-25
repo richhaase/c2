@@ -3,6 +3,7 @@ import { hrAtPace, splitShape, splitTable } from "../analysis.ts";
 import { loadConfig, parseGoalDate } from "../config.ts";
 import { formatMeters } from "../display.ts";
 import { printJSON } from "../envelope.ts";
+import { resolveWorkout } from "../models.ts";
 import { dataPaths } from "../paths.ts";
 import {
   buildWeekSummaries,
@@ -13,7 +14,6 @@ import {
   weekSummaryData,
 } from "../stats.ts";
 import { readWorkouts } from "../storage.ts";
-import { resolveWorkout } from "./show.ts";
 
 function parseWeeks(raw: string): number {
   const weeks = parseInt(raw, 10);

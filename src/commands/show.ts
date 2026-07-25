@@ -3,21 +3,10 @@ import { splitShape, splitTable, strokeSummary } from "../analysis.ts";
 import { loadConfig } from "../config.ts";
 import { formatMeters, formatWorkoutLine, workoutJSON } from "../display.ts";
 import { printJSON } from "../envelope.ts";
-import type { Workout } from "../models.ts";
-import { formatSeconds } from "../models.ts";
+import { formatSeconds, resolveWorkout } from "../models.ts";
 import { filterNotes, readAllNotes } from "../notes.ts";
 import { dataPaths } from "../paths.ts";
 import { readStrokeData, readWorkouts } from "../storage.ts";
-
-export function resolveWorkout(workouts: Workout[], ref: string): Workout | null {
-  if (ref === "last") {
-    if (workouts.length === 0) return null;
-    return workouts.reduce((latest, w) => (w.date > latest.date ? w : latest));
-  }
-  const id = Number(ref);
-  if (!Number.isInteger(id)) return null;
-  return workouts.find((w) => w.id === id) ?? null;
-}
 
 export function registerShow(program: Command): void {
   program
