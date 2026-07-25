@@ -9,7 +9,6 @@ import (
 	"github.com/richhaase/c2/internal/display"
 	"github.com/richhaase/c2/internal/envelope"
 	"github.com/richhaase/c2/internal/models"
-	"github.com/richhaase/c2/internal/storage"
 )
 
 type logPayload struct {
@@ -30,10 +29,6 @@ func newLogCmd() *cobra.Command {
 		Short: "Show recent workouts",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, p, err := loadStore()
-			if err != nil {
-				return err
-			}
 			if err := validateDateFlag(cmd, "--from", from); err != nil {
 				return err
 			}
@@ -45,7 +40,7 @@ func newLogCmd() *cobra.Command {
 				return err
 			}
 
-			all, err := storage.ReadWorkouts(p)
+			cfg, _, all, err := loadWorkouts(cmd)
 			if err != nil {
 				return err
 			}
@@ -62,7 +57,7 @@ func newLogCmd() *cobra.Command {
 			if asJSON {
 				payload := make([]display.WorkoutOutput, 0, len(shown))
 				for _, w := range shown {
-					payload = append(payload, display.WorkoutJSON(w))
+					payload = append(payload, display.WorkoutOutputOf(w))
 				}
 				return envelope.Print(out, "c2.log.v1", logPayload{
 					Count:    len(shown),

@@ -68,7 +68,7 @@ func run(t *testing.T, args ...string) result {
 
 func runWithStdin(t *testing.T, stdin string, args ...string) result {
 	t.Helper()
-	root := NewRoot(build{version: "test", commit: "none", date: "unknown"})
+	root := newRoot(build{version: "test", commit: "none", date: "unknown"})
 	var out, errBuf bytes.Buffer
 	root.SetOut(&out)
 	root.SetErr(&errBuf)
@@ -406,9 +406,19 @@ func TestForeignDataDirGivesCleanErrors(t *testing.T) {
 	}
 	pointConfigAt(t, home, foreign)
 
-	got := run(t, "data", "info")
-	if !got.failed || !strings.Contains(got.stderr, "is not a c2 data store") {
-		t.Fatalf("stderr=%q", got.stderr)
+	for _, args := range [][]string{
+		{"data", "info"},
+		{"log"},
+		{"status"},
+		{"trend"},
+		{"export"},
+		{"show", "last"},
+		{"stats", "weekly"},
+	} {
+		got := run(t, args...)
+		if !got.failed || !strings.Contains(got.stderr, "is not a c2 data store") {
+			t.Fatalf("%v stderr=%q", args, got.stderr)
+		}
 	}
 }
 

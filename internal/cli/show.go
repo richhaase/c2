@@ -46,11 +46,7 @@ func newShowCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ref := args[0]
-			cfg, p, err := loadStore()
-			if err != nil {
-				return err
-			}
-			workouts, err := storage.ReadWorkouts(p)
+			cfg, p, workouts, err := loadWorkouts(cmd)
 			if err != nil {
 				return err
 			}
@@ -73,7 +69,11 @@ func newShowCmd() *cobra.Command {
 				summary := analysis.StrokeSummary(strokes)
 				strokeSummary = &summary
 			}
-			linked := notes.Apply(notes.ReadAll(p), notes.Filter{WorkoutID: &w.ID})
+			allNotes, err := notes.ReadAll(p)
+			if err != nil {
+				return err
+			}
+			linked := notes.Apply(allNotes, notes.Filter{WorkoutID: &w.ID})
 
 			out := cmd.OutOrStdout()
 			if asJSON {
@@ -91,7 +91,7 @@ func newShowCmd() *cobra.Command {
 					linked = []notes.Record{}
 				}
 				return envelope.Print(out, "c2.show.v1", showPayload{
-					Workout:               display.WorkoutJSON(*w),
+					Workout:               display.WorkoutOutputOf(*w),
 					Raw:                   raw,
 					TargetPace500mSeconds: targetPaceSeconds(*w),
 					Splits:                splits,
@@ -179,9 +179,9 @@ func newShowCmd() *cobra.Command {
 				fmt.Fprintf(out, "Stroke data: %d samples, avg %s/500m, %sspm, HR avg %s max %s\n",
 					strokeSummary.Samples,
 					orDash(strokeSummary.AvgPace500m, func(v string) string { return v }),
-					orDash(strokeSummary.AvgSPM, jsNumber),
+					orDash(strokeSummary.AvgSPM, formatNumber),
 					orDash(strokeSummary.AvgHR, strconv.Itoa),
-					orDash(strokeSummary.MaxHR, jsNumber))
+					orDash(strokeSummary.MaxHR, formatNumber))
 			}
 
 			if len(linked) > 0 {

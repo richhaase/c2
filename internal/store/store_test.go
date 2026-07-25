@@ -3,6 +3,7 @@ package store
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -88,6 +89,23 @@ func TestInitCreatesDirectoriesAndMetaOnce(t *testing.T) {
 	}
 }
 
+func TestInitRejectsUnsupportedSchemaVersion(t *testing.T) {
+	p := paths.For(t.TempDir())
+	version := storage.SchemaVersion + 1
+	if err := storage.WriteMeta(p, storage.StoreMeta{
+		SchemaVersion: &version,
+		Created:       "2026-01-01T00:00:00.000Z",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := Init(p, testNow, nil); err == nil || !strings.Contains(err.Error(), "unsupported") {
+		t.Fatalf("Init error = %v", err)
+	}
+	if _, err := os.Stat(p.StrokesDir); !os.IsNotExist(err) {
+		t.Fatalf("strokes stat error = %v", err)
+	}
+}
+
 func TestSummarizeCountsContents(t *testing.T) {
 	p := paths.For(filepath.Join(t.TempDir(), "sum"))
 	if err := os.MkdirAll(p.Root, 0o755); err != nil {
@@ -116,6 +134,16 @@ func TestSummarizeCountsContents(t *testing.T) {
 	}
 	if got.SchemaVersion == nil || *got.SchemaVersion != 1 {
 		t.Fatalf("schema version %+v", got.SchemaVersion)
+	}
+}
+
+func TestSummarizePropagatesStrokeDirectoryErrors(t *testing.T) {
+	p := paths.For(t.TempDir())
+	if err := os.WriteFile(p.StrokesDir, []byte("not a directory"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Summarize(p, nil); err == nil {
+		t.Fatal("Summarize error = nil")
 	}
 }
 
@@ -245,7 +273,7 @@ func TestMoveCopiesVerifiesAndRefusesNonEmptyTargets(t *testing.T) {
 	}
 
 	to := paths.For(filepath.Join(base, "dst"))
-	copied, err := Move(from, to, nil)
+	copied, err := Copy(from, to, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -267,7 +295,7 @@ func TestMoveCopiesVerifiesAndRefusesNonEmptyTargets(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(occupied.Root, "file.txt"), []byte("x"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := Move(from, occupied, nil); err == nil {
+	if _, err := Copy(from, occupied, nil); err == nil {
 		t.Fatal("expected refusal for non-empty target")
 	}
 }
@@ -305,7 +333,7 @@ func TestMoveNeverCopiesDotfilesAndPreservesTargetVCSMetadata(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := Move(from, to, nil); err != nil {
+	if _, err := Copy(from, to, nil); err != nil {
 		t.Fatal(err)
 	}
 	head, err := os.ReadFile(filepath.Join(to.Root, ".git", "HEAD"))
@@ -321,5 +349,45 @@ func TestMoveNeverCopiesDotfilesAndPreservesTargetVCSMetadata(t *testing.T) {
 	}
 	if string(ds) != "different pre-existing junk!" {
 		t.Fatalf("target dotfile clobbered: %q", ds)
+	}
+}
+
+func TestMoveRejectsSymbolicLinks(t *testing.T) {
+	root := t.TempDir()
+	from := paths.For(filepath.Join(root, "from"))
+	to := paths.For(filepath.Join(root, "to"))
+	if err := Init(from, time.Now(), nil); err != nil {
+		t.Fatal(err)
+	}
+	outside := filepath.Join(root, "outside.json")
+	if err := os.WriteFile(outside, []byte("outside\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(from.Root, "linked.json")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Copy(from, to, nil); err == nil || !strings.Contains(err.Error(), "symbolic link") {
+		t.Fatalf("Copy error = %v", err)
+	}
+}
+
+func TestVerifyCopyRejectsSameSizeContentChanges(t *testing.T) {
+	root := t.TempDir()
+	from := filepath.Join(root, "from")
+	to := filepath.Join(root, "to")
+	if err := os.MkdirAll(from, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(to, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(from, "data"), []byte("alpha"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(to, "data"), []byte("bravo"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := verifyCopy(from, to); err == nil || !strings.Contains(err.Error(), "content differs") {
+		t.Fatalf("verifyCopy error = %v", err)
 	}
 }

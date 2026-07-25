@@ -19,7 +19,7 @@ type build struct {
 	date    string
 }
 
-func NewRoot(b build) *cobra.Command {
+func newRoot(b build) *cobra.Command {
 	root := &cobra.Command{
 		Use:           "c2",
 		Short:         "Concept2 Logbook CLI",
@@ -57,7 +57,7 @@ func NewRoot(b build) *cobra.Command {
 }
 
 func Execute(ctx context.Context, version, commit, date string) int {
-	root := NewRoot(build{version: version, commit: commit, date: date})
+	root := newRoot(build{version: version, commit: commit, date: date})
 	if err := root.ExecuteContext(ctx); err != nil {
 		if !errors.Is(err, errReported) {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)

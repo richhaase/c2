@@ -110,6 +110,12 @@ func TestSparkBar(t *testing.T) {
 	if half != wantHalf {
 		t.Errorf("SparkBar(50, 100) = %q, want %q", half, wantHalf)
 	}
+	if got := SparkBar(150, 100); got != want {
+		t.Errorf("SparkBar(150, 100) = %q, want %q", got, want)
+	}
+	if got := SparkBar(-10, 100); got != strings.Repeat("░", 20) {
+		t.Errorf("SparkBar(-10, 100) = %q", got)
+	}
 }
 
 func TestTrendArrow(t *testing.T) {
@@ -328,12 +334,12 @@ func TestWorkoutJSON(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			encoded, err := json.Marshal(WorkoutJSON(c.workout()))
+			encoded, err := json.Marshal(WorkoutOutputOf(c.workout()))
 			if err != nil {
 				t.Fatalf("json.Marshal: %v", err)
 			}
 			if string(encoded) != c.want {
-				t.Errorf("WorkoutJSON =\n%s\nwant\n%s", encoded, c.want)
+				t.Errorf("WorkoutOutputOf =\n%s\nwant\n%s", encoded, c.want)
 			}
 		})
 	}

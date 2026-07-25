@@ -111,7 +111,7 @@ type WorkoutOutput struct {
 	HasStrokeData   bool     `json:"has_stroke_data"`
 }
 
-func WorkoutJSON(w models.Workout) WorkoutOutput {
+func WorkoutOutputOf(w models.Workout) WorkoutOutput {
 	out := WorkoutOutput{
 		ID:            w.ID,
 		Date:          w.Date,
@@ -153,10 +153,16 @@ func WorkoutJSON(w models.Workout) WorkoutOutput {
 }
 
 func SparkBar(value, max float64) string {
-	if max == 0 {
+	if max <= 0 {
 		return ""
 	}
 	filled := int(math.Round(value / max * barWidth))
+	if filled < 0 {
+		filled = 0
+	}
+	if filled > barWidth {
+		filled = barWidth
+	}
 	return strings.Repeat("█", filled) + strings.Repeat("░", barWidth-filled)
 }
 

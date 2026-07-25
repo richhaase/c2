@@ -39,14 +39,44 @@ func ids(records []Record) []string {
 	return out
 }
 
+func readAll(t *testing.T, p paths.DataPaths) []Record {
+	t.Helper()
+	records, err := ReadAll(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return records
+}
+
+func serialize(t *testing.T, n Record) string {
+	t.Helper()
+	out, err := Serialize(n)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return out
+}
+
 func TestULIDIsTwentySixCharsAndTimeOrdered(t *testing.T) {
-	a := ULID(time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC))
-	b := ULID(time.Date(2026, 7, 2, 0, 0, 0, 0, time.UTC))
+	a, err := ULID(time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := ULID(time.Date(2026, 7, 2, 0, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(a) != 26 || len(b) != 26 {
 		t.Fatalf("lengths %d %d", len(a), len(b))
 	}
 	if a >= b {
 		t.Fatalf("expected %q < %q", a, b)
+	}
+}
+
+func TestULIDRejectsDatesOutsideItsTimestampRange(t *testing.T) {
+	if _, err := ULID(time.UnixMilli(-1)); err == nil {
+		t.Fatal("ULID succeeded")
 	}
 }
 
@@ -64,7 +94,7 @@ func TestNotesSortByInstantAcrossMixedOffsets(t *testing.T) {
 	p := tempStore(t)
 	mustWrite(t, p, record("MINUS6", "2026-07-05T23:30:00-06:00", "later instant"))
 	mustWrite(t, p, record("PLUS2", "2026-07-06T01:00:00+02:00", "earlier instant"))
-	if got := ids(ReadAll(p)); !slices.Equal(got, []string{"PLUS2", "MINUS6"}) {
+	if got := ids(readAll(t, p)); !slices.Equal(got, []string{"PLUS2", "MINUS6"}) {
 		t.Fatalf("got %v", got)
 	}
 }
@@ -74,7 +104,7 @@ func TestNotesRoundTripAndSortByDateThenID(t *testing.T) {
 	mustWrite(t, p, record("B", "2026-07-05T10:00:00-06:00", "second"))
 	mustWrite(t, p, record("A", "2026-07-05T10:00:00-06:00", "first"))
 	mustWrite(t, p, record("C", "2026-07-01T08:00:00-06:00", "oldest"))
-	if got := ids(ReadAll(p)); !slices.Equal(got, []string{"C", "A", "B"}) {
+	if got := ids(readAll(t, p)); !slices.Equal(got, []string{"C", "A", "B"}) {
 		t.Fatalf("got %v", got)
 	}
 }
@@ -84,8 +114,24 @@ func TestCorruptLooseNotesAreSkipped(t *testing.T) {
 	mustWrite(t, p, record("GOOD", "2026-07-05T10:00:00-06:00", "fine"))
 	writeRaw(t, p, "BAD.json", "{ nope")
 	writeRaw(t, p, "SHAPE.json", `{"id":"SHAPE"}`)
-	if got := ids(ReadAll(p)); !slices.Equal(got, []string{"GOOD"}) {
+	if got := ids(readAll(t, p)); !slices.Equal(got, []string{"GOOD"}) {
 		t.Fatalf("got %v", got)
+	}
+}
+
+func TestReadAllReturnsOperationalErrors(t *testing.T) {
+	p := paths.For(t.TempDir())
+	if err := os.MkdirAll(p.NotesDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(p.NotesDir, "blocked.json"), nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(filepath.Join(p.NotesDir, "directory.json"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ReadAll(p); err == nil {
+		t.Fatal("ReadAll succeeded")
 	}
 }
 
@@ -95,7 +141,7 @@ func TestInvalidAuthorsTagsAndWorkoutIDsAreSkipped(t *testing.T) {
 	writeRaw(t, p, "LLM.json", `{"id":"LLM","date":"2026-07-05T10:00:00-06:00","type":"observation","body":"x","author":"llm"}`)
 	writeRaw(t, p, "BADTAGS.json", `{"id":"BADTAGS","date":"2026-07-05T10:00:00-06:00","type":"observation","tags":"not-an-array","body":"x","author":"athlete"}`)
 	writeRaw(t, p, "BADWID.json", `{"id":"BADWID","date":"2026-07-05T10:00:00-06:00","type":"observation","workout_id":"seven","body":"x","author":"athlete"}`)
-	if got := ids(ReadAll(p)); !slices.Equal(got, []string{"GOOD"}) {
+	if got := ids(readAll(t, p)); !slices.Equal(got, []string{"GOOD"}) {
 		t.Fatalf("got %v", got)
 	}
 }
@@ -140,7 +186,7 @@ func TestCompactionArchivesByYearAndKeepsHotSet(t *testing.T) {
 	if !slices.Equal(loose, []string{"NEW1.json"}) {
 		t.Fatalf("loose %v", loose)
 	}
-	if got := ids(ReadAll(p)); !slices.Equal(got, []string{"OLD2", "OLD1", "NEW1"}) {
+	if got := ids(readAll(t, p)); !slices.Equal(got, []string{"OLD2", "OLD1", "NEW1"}) {
 		t.Fatalf("all %v", got)
 	}
 
@@ -189,7 +235,7 @@ func TestCompactionIsDeterministicAndMergeIdempotent(t *testing.T) {
 		t.Fatal(err)
 	}
 	june := 0
-	for _, n := range ReadAll(storeA) {
+	for _, n := range readAll(t, storeA) {
 		if strings.HasPrefix(n.Date, "2026-06") {
 			june++
 		}
@@ -201,20 +247,21 @@ func TestCompactionIsDeterministicAndMergeIdempotent(t *testing.T) {
 
 func TestSerializeOmitsEmptyOptionalFieldsAndKeepsOrder(t *testing.T) {
 	n := record("01A", "2026-07-05T10:00:00-06:00", "plain")
-	if got := Serialize(n); got != `{"id":"01A","date":"2026-07-05T10:00:00-06:00","type":"observation","body":"plain","author":"athlete"}` {
+	if got := serialize(t, n); got != `{"id":"01A","date":"2026-07-05T10:00:00-06:00","type":"observation","body":"plain","author":"athlete"}` {
 		t.Fatalf("got %s", got)
 	}
 	n.WorkoutID = new(int64(7))
 	n.Tags = []string{"a", "b"}
-	if got := Serialize(n); got != `{"id":"01A","date":"2026-07-05T10:00:00-06:00","type":"observation","workout_id":7,"tags":["a","b"],"body":"plain","author":"athlete"}` {
+	if got := serialize(t, n); got != `{"id":"01A","date":"2026-07-05T10:00:00-06:00","type":"observation","workout_id":7,"tags":["a","b"],"body":"plain","author":"athlete"}` {
 		t.Fatalf("got %s", got)
 	}
 }
 
 func TestSerializeDoesNotEscapeHTML(t *testing.T) {
 	n := record("01A", "2026-07-05T10:00:00-06:00", "held pace < 2:00 & HR > 150")
-	if !strings.Contains(Serialize(n), "pace < 2:00 & HR > 150") {
-		t.Fatalf("body was escaped: %s", Serialize(n))
+	serialized := serialize(t, n)
+	if !strings.Contains(serialized, "pace < 2:00 & HR > 150") {
+		t.Fatalf("body was escaped: %s", serialized)
 	}
 }
 

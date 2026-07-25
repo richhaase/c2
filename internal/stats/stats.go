@@ -194,7 +194,16 @@ func WeekSummaryDataOf(ws WeekSummary) WeekSummaryData {
 }
 
 func ProjectGoal(goal GoalProgress, end, now time.Time) GoalProjection {
+	weeksLeft := calendarDaysBetween(now, end) / daysPerWeek
+	return projectGoal(goal, weeksLeft)
+}
+
+func ProjectGoalByElapsedTime(goal GoalProgress, end, now time.Time) GoalProjection {
 	weeksLeft := end.Sub(now).Hours() / hoursPerWeek
+	return projectGoal(goal, weeksLeft)
+}
+
+func projectGoal(goal GoalProgress, weeksLeft float64) GoalProjection {
 	if weeksLeft < 0 {
 		weeksLeft = 0
 	}
@@ -203,16 +212,23 @@ func ProjectGoal(goal GoalProgress, end, now time.Time) GoalProjection {
 	if shortfall < 0 {
 		shortfall = 0
 	}
+	projectedPct := 0.0
+	if goal.Target > 0 {
+		projectedPct = math.Round(float64(projected)/float64(goal.Target)*1000) / 10
+	}
 	return GoalProjection{
 		RemainingWeeks:       math.Round(weeksLeft*10) / 10,
 		ProjectedTotalMeters: projected,
-		ProjectedPct:         math.Round(float64(projected)/float64(goal.Target)*1000) / 10,
+		ProjectedPct:         projectedPct,
 		ShortfallMeters:      shortfall,
 	}
 }
 
 func ComputeGoalProgress(workouts []models.Workout, cfg config.Config, now time.Time) (GoalProgress, error) {
 	target := cfg.Goal.TargetMeters
+	if target <= 0 {
+		return GoalProgress{}, fmt.Errorf("Goal target must be a positive number of meters.")
+	}
 	start, err := config.ParseGoalDate(cfg.Goal.StartDate)
 	if err != nil {
 		return GoalProgress{}, err
@@ -221,6 +237,10 @@ func ComputeGoalProgress(workouts []models.Workout, cfg config.Config, now time.
 	if err != nil {
 		return GoalProgress{}, err
 	}
+	if end.Before(start) {
+		return GoalProgress{}, fmt.Errorf("Goal end date must not be before start date.")
+	}
+	endExclusive := end.AddDate(0, 0, 1)
 	today := now
 	if today.IsZero() {
 		today = time.Now()
@@ -229,18 +249,21 @@ func ComputeGoalProgress(workouts []models.Workout, cfg config.Config, now time.
 	totalMeters := 0
 	for _, w := range workouts {
 		t := models.ParsedDate(w)
-		if !t.Before(start) && !t.After(end) {
+		if !t.Before(start) && t.Before(endExclusive) {
 			totalMeters += w.Distance
 		}
 	}
 
 	progress := float64(totalMeters) / float64(target)
-	totalDays := dayNumber(end) - dayNumber(start)
+	totalDays := dayNumber(endExclusive) - dayNumber(start)
 	totalWeeks := int(math.Ceil(float64(totalDays) / daysPerWeek))
 
 	weeksElapsed := 0
 	if today.After(start) {
-		weeksElapsed = int(math.Floor(today.Sub(start).Hours() / hoursPerWeek))
+		weeksElapsed = floorDiv(dayNumber(today)-dayNumber(start), daysPerWeek)
+		if weeksElapsed > totalWeeks {
+			weeksElapsed = totalWeeks
+		}
 	}
 
 	remainingMeters := target - totalMeters
@@ -300,4 +323,14 @@ func floorDiv(a, b int) int {
 		q--
 	}
 	return q
+}
+
+func calendarDaysBetween(from, to time.Time) float64 {
+	return float64(dayNumber(to)-dayNumber(from)) + dayFraction(to) - dayFraction(from)
+}
+
+func dayFraction(t time.Time) float64 {
+	local := t.In(time.Local)
+	seconds := local.Hour()*60*60 + local.Minute()*60 + local.Second()
+	return (float64(seconds) + float64(local.Nanosecond())/float64(time.Second)) / secondsPerDay
 }

@@ -9,7 +9,6 @@ import (
 	"github.com/richhaase/c2/internal/display"
 	"github.com/richhaase/c2/internal/envelope"
 	"github.com/richhaase/c2/internal/stats"
-	"github.com/richhaase/c2/internal/storage"
 )
 
 type weekPayload struct {
@@ -40,17 +39,12 @@ func newStatusCmd() *cobra.Command {
 		Short: "Show progress toward your distance goal",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, p, err := loadStore()
+			cfg, _, workouts, err := loadWorkouts(cmd)
 			if err != nil {
 				return err
 			}
 			if cfg.Goal.StartDate == "" || cfg.Goal.EndDate == "" {
 				return reportf(cmd, "Goal dates not configured. Run `c2 setup` to set start and end dates.")
-			}
-
-			workouts, err := storage.ReadWorkouts(p)
-			if err != nil {
-				return err
 			}
 			now := time.Now()
 			goal, err := stats.ComputeGoalProgress(workouts, cfg, now)

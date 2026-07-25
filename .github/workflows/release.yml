@@ -21,6 +21,12 @@ jobs:
         with:
           go-version: stable
 
+      - name: Run quality checks
+        run: make check
+
+      - name: Run vulnerability scan
+        run: make vuln
+
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v7
         with:

@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/richhaase/c2/internal/atomicfile"
 	"github.com/richhaase/c2/internal/jsonx"
 )
 
@@ -35,25 +36,34 @@ type Config struct {
 	Display DisplayConfig `json:"display"`
 }
 
-func Dir() string {
+func Dir() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return filepath.Join(".config", "c2")
+		return "", fmt.Errorf("Cannot locate home directory: %w", err)
 	}
-	return filepath.Join(home, ".config", "c2")
+	return filepath.Join(home, ".config", "c2"), nil
 }
 
-func File() string {
-	return filepath.Join(Dir(), "config.json")
+func File() (string, error) {
+	dir, err := Dir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "config.json"), nil
 }
 
-func DefaultDataDir() string {
-	return filepath.Join(Dir(), "data")
+func DefaultDataDir() (string, error) {
+	dir, err := Dir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "data"), nil
 }
 
 func Default() Config {
+	dataDir, _ := DefaultDataDir()
 	return Config{
-		DataDir: DefaultDataDir(),
+		DataDir: dataDir,
 		API:     APIConfig{BaseURL: "https://log.concept2.com"},
 		Goal:    GoalConfig{TargetMeters: 1_000_000},
 		Display: DisplayConfig{DateFormat: "%m/%d"},
@@ -62,7 +72,11 @@ func Default() Config {
 
 func Load() (Config, error) {
 	cfg := Default()
-	data, err := os.ReadFile(File())
+	path, err := File()
+	if err != nil {
+		return cfg, err
+	}
+	data, err := os.ReadFile(path)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return cfg, nil
@@ -73,13 +87,24 @@ func Load() (Config, error) {
 		return Default(), err
 	}
 	if cfg.DataDir == "" {
-		cfg.DataDir = DefaultDataDir()
+		cfg.DataDir, err = DefaultDataDir()
+		if err != nil {
+			return Default(), err
+		}
 	}
 	return cfg, nil
 }
 
 func Save(cfg Config) error {
-	if err := os.MkdirAll(Dir(), 0o700); err != nil {
+	dir, err := Dir()
+	if err != nil {
+		return err
+	}
+	path, err := File()
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
 	data, err := jsonx.Indent(cfg)
@@ -87,10 +112,7 @@ func Save(cfg Config) error {
 		return err
 	}
 	data = append(data, '\n')
-	if err := os.WriteFile(File(), data, 0o600); err != nil {
-		return err
-	}
-	return os.Chmod(File(), 0o600)
+	return atomicfile.Write(path, data, 0o600)
 }
 
 func ParseGoalDate(s string) (time.Time, error) {

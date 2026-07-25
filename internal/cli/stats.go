@@ -8,14 +8,14 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/richhaase/c2/internal/analysis"
+	"github.com/richhaase/c2/internal/config"
 	"github.com/richhaase/c2/internal/display"
 	"github.com/richhaase/c2/internal/envelope"
 	"github.com/richhaase/c2/internal/models"
 	"github.com/richhaase/c2/internal/stats"
-	"github.com/richhaase/c2/internal/storage"
 )
 
-func jsNumber(v float64) string {
+func formatNumber(v float64) string {
 	return strconv.FormatFloat(v, 'f', -1, 64)
 }
 
@@ -73,15 +73,11 @@ func newStatsWeeklyCmd() *cobra.Command {
 		Short: "Weekly volume, sessions, pace, SPM, and HR",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			weeks, err := positiveInt(cmd, weeksFlag, "Error: --weeks must be a positive integer.")
+			weeks, err := weekCount(cmd, weeksFlag)
 			if err != nil {
 				return err
 			}
-			_, p, err := loadStore()
-			if err != nil {
-				return err
-			}
-			workouts, err := storage.ReadWorkouts(p)
+			_, _, workouts, err := loadWorkouts(cmd)
 			if err != nil {
 				return err
 			}
@@ -101,7 +97,7 @@ func newStatsWeeklyCmd() *cobra.Command {
 					display.FormatMeters(s.Meters),
 					s.Sessions,
 					orDash(s.AvgPace500m, func(v string) string { return v }),
-					orDash(s.AvgSPM, jsNumber),
+					orDash(s.AvgSPM, formatNumber),
 					orDash(s.AvgHR, strconv.Itoa))
 			}
 			return nil
@@ -119,27 +115,23 @@ func newStatsGoalCmd() *cobra.Command {
 		Short: "Goal trajectory and projection",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, p, err := loadStore()
+			cfg, _, workouts, err := loadWorkouts(cmd)
 			if err != nil {
 				return err
 			}
 			if cfg.Goal.StartDate == "" || cfg.Goal.EndDate == "" {
 				return reportf(cmd, "Goal dates not configured. Run `c2 setup` to set start and end dates.")
 			}
-			workouts, err := storage.ReadWorkouts(p)
-			if err != nil {
-				return err
-			}
 			now := time.Now()
 			goal, err := stats.ComputeGoalProgress(workouts, cfg, now)
 			if err != nil {
 				return err
 			}
-			end, err := configGoalEnd(cfg.Goal.EndDate)
+			end, err := config.ParseGoalDate(cfg.Goal.EndDate)
 			if err != nil {
 				return err
 			}
-			projection := stats.ProjectGoal(goal, end, now)
+			projection := stats.ProjectGoal(goal, end.AddDate(0, 0, 1), now)
 			weeks := stats.RecentWeeks(workouts, now, 4)
 			thisWeek := weeks[0]
 
@@ -159,7 +151,7 @@ func newStatsGoalCmd() *cobra.Command {
 			fmt.Fprintf(out, "Required pace: %s m/wk\n", display.FormatMeters(goal.RequiredPace))
 			fmt.Fprintf(out, "Recent average: %s m/wk\n", display.FormatMeters(goal.CurrentAvgPace))
 			fmt.Fprintf(out, "Projection at current pace: %s m (%s%%)\n",
-				display.FormatMeters(projection.ProjectedTotalMeters), jsNumber(projection.ProjectedPct))
+				display.FormatMeters(projection.ProjectedTotalMeters), formatNumber(projection.ProjectedPct))
 			if projection.ShortfallMeters > 0 {
 				fmt.Fprintf(out, "Projected shortfall: %s m\n", display.FormatMeters(projection.ShortfallMeters))
 			} else {
@@ -182,11 +174,7 @@ func newStatsSplitsCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ref := args[0]
-			_, p, err := loadStore()
-			if err != nil {
-				return err
-			}
-			workouts, err := storage.ReadWorkouts(p)
+			_, _, workouts, err := loadWorkouts(cmd)
 			if err != nil {
 				return err
 			}
@@ -245,15 +233,11 @@ func newStatsHRPaceCmd() *cobra.Command {
 		Short: "Average heart rate by steady pace band (fitness proxy)",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			weeks, err := positiveInt(cmd, weeksFlag, "Error: --weeks must be a positive integer.")
+			weeks, err := weekCount(cmd, weeksFlag)
 			if err != nil {
 				return err
 			}
-			_, p, err := loadStore()
-			if err != nil {
-				return err
-			}
-			workouts, err := storage.ReadWorkouts(p)
+			_, _, workouts, err := loadWorkouts(cmd)
 			if err != nil {
 				return err
 			}

@@ -1,6 +1,8 @@
 package store
 
 import (
+	"bytes"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"io"
@@ -166,7 +168,25 @@ func EnsureForWrite(p paths.DataPaths, now time.Time, warn func(string)) error {
 	return Init(p, now, warn)
 }
 
+func CheckSchema(p paths.DataPaths, warn func(string)) error {
+	meta := storage.ReadMeta(p, warn)
+	if meta == nil || meta.SchemaVersion == nil {
+		return nil
+	}
+	if *meta.SchemaVersion != storage.SchemaVersion {
+		return fmt.Errorf(
+			"unsupported data store schema_version %d; this c2 build supports version %d",
+			*meta.SchemaVersion,
+			storage.SchemaVersion,
+		)
+	}
+	return nil
+}
+
 func Init(p paths.DataPaths, now time.Time, warn func(string)) error {
+	if err := CheckSchema(p, warn); err != nil {
+		return err
+	}
 	for _, dir := range []string{p.StrokesDir, p.ArchiveDir, p.ReportsDir} {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return err
@@ -181,16 +201,19 @@ func Init(p paths.DataPaths, now time.Time, warn func(string)) error {
 	return nil
 }
 
-func listIfPresent(dir string) []string {
+func listIfPresent(dir string) ([]string, error) {
 	items, err := os.ReadDir(dir)
 	if err != nil {
-		return nil
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
 	}
 	out := make([]string, 0, len(items))
 	for _, item := range items {
 		out = append(out, item.Name())
 	}
-	return out
+	return out, nil
 }
 
 func Summarize(p paths.DataPaths, warn func(string)) (Summary, error) {
@@ -204,17 +227,25 @@ func Summarize(p paths.DataPaths, warn func(string)) (Summary, error) {
 	}
 	sort.Strings(days)
 
+	strokeNames, err := listIfPresent(p.StrokesDir)
+	if err != nil {
+		return Summary{}, err
+	}
 	strokeFiles := 0
-	for _, f := range listIfPresent(p.StrokesDir) {
+	for _, f := range strokeNames {
 		if strings.HasSuffix(f, ".jsonl") {
 			strokeFiles++
 		}
 	}
 
+	allNotes, err := notes.ReadAll(p)
+	if err != nil {
+		return Summary{}, err
+	}
 	summary := Summary{
 		Workouts:    len(workouts),
 		StrokeFiles: strokeFiles,
-		Notes:       len(notes.ReadAll(p)),
+		Notes:       len(allNotes),
 	}
 	if len(days) > 0 {
 		summary.FirstDate = days[0]
@@ -232,7 +263,7 @@ type CopyStats struct {
 	Bytes int64
 }
 
-func Move(from, to paths.DataPaths, warn func(string)) (CopyStats, error) {
+func Copy(from, to paths.DataPaths, warn func(string)) (CopyStats, error) {
 	target, err := Inspect(to, warn)
 	if err != nil {
 		return CopyStats{}, err
@@ -263,6 +294,9 @@ func copyTree(src, dst string) error {
 		}
 		srcPath := filepath.Join(src, item.Name())
 		dstPath := filepath.Join(dst, item.Name())
+		if item.Type()&os.ModeSymlink != 0 {
+			return fmt.Errorf("source contains symbolic link: %s", srcPath)
+		}
 		if item.IsDir() {
 			if err := os.MkdirAll(dstPath, 0o755); err != nil {
 				return err
@@ -312,6 +346,9 @@ func verifyCopy(fromDir, toDir string) (CopyStats, error) {
 		}
 		src := filepath.Join(fromDir, item.Name())
 		dst := filepath.Join(toDir, item.Name())
+		if item.Type()&os.ModeSymlink != 0 {
+			return stats, fmt.Errorf("source contains symbolic link: %s", src)
+		}
 		if item.IsDir() {
 			sub, err := verifyCopy(src, dst)
 			if err != nil {
@@ -332,8 +369,32 @@ func verifyCopy(fromDir, toDir string) (CopyStats, error) {
 		if dstInfo.Size() != srcInfo.Size() {
 			return stats, fmt.Errorf("copy verification failed: %s has %d bytes, expected %d", dst, dstInfo.Size(), srcInfo.Size())
 		}
+		srcDigest, err := fileDigest(src)
+		if err != nil {
+			return stats, err
+		}
+		dstDigest, err := fileDigest(dst)
+		if err != nil {
+			return stats, err
+		}
+		if !bytes.Equal(srcDigest, dstDigest) {
+			return stats, fmt.Errorf("copy verification failed: %s content differs", dst)
+		}
 		stats.Files++
 		stats.Bytes += srcInfo.Size()
 	}
 	return stats, nil
+}
+
+func fileDigest(path string) ([]byte, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = file.Close() }()
+	hash := sha256.New()
+	if _, err := io.Copy(hash, file); err != nil {
+		return nil, err
+	}
+	return hash.Sum(nil), nil
 }

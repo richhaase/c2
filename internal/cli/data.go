@@ -144,6 +144,9 @@ func newDataCompactCmd() *cobra.Command {
 			if !inspection.Writable {
 				return reportf(cmd, "Cannot write to %s.", p.Root)
 			}
+			if err := store.CheckSchema(p, warn); err != nil {
+				return reportf(cmd, "%v.", err)
+			}
 			result, err := notes.Compact(p, time.Now())
 			if err != nil {
 				return err
@@ -240,7 +243,7 @@ func newDataMoveCmd() *cobra.Command {
 				return reportf(cmd, "Target must not be inside the current data directory (or contain it).")
 			}
 
-			copied, err := store.Move(from, to, warn)
+			copied, err := store.Copy(from, to, warn)
 			if err != nil {
 				return reportf(cmd, "Error: %v", err)
 			}

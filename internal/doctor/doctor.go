@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/richhaase/c2/internal/models"
 	"github.com/richhaase/c2/internal/notes"
 	"github.com/richhaase/c2/internal/paths"
 	"github.com/richhaase/c2/internal/storage"
@@ -17,8 +18,6 @@ type Report struct {
 	Issues       []string
 	CheckedFiles int
 }
-
-var strokeFields = []string{"t", "d", "p", "spm", "hr"}
 
 type checker struct {
 	report *Report
@@ -50,17 +49,37 @@ func (c *checker) listDir(dir, label string) []os.DirEntry {
 	return entries
 }
 
+type strokeShape struct {
+	T   json.RawMessage `json:"t"`
+	D   json.RawMessage `json:"d"`
+	P   json.RawMessage `json:"p"`
+	SPM json.RawMessage `json:"spm"`
+	HR  json.RawMessage `json:"hr"`
+}
+
+func isJSONObject(raw []byte) bool {
+	trimmed := bytes.TrimSpace(raw)
+	return len(trimmed) >= 2 && trimmed[0] == '{' && trimmed[len(trimmed)-1] == '}'
+}
+
 func isStrokeShaped(raw []byte) bool {
-	var parsed map[string]any
-	if err := json.Unmarshal(raw, &parsed); err != nil || parsed == nil {
+	if !isJSONObject(raw) {
 		return false
 	}
-	for _, key := range strokeFields {
-		value, present := parsed[key]
-		if !present {
+	var parsed strokeShape
+	if err := json.Unmarshal(raw, &parsed); err != nil {
+		return false
+	}
+	fields := []json.RawMessage{parsed.T, parsed.D, parsed.P, parsed.SPM, parsed.HR}
+	for _, value := range fields {
+		if len(value) == 0 {
 			continue
 		}
-		if _, ok := value.(float64); !ok {
+		if bytes.Equal(bytes.TrimSpace(value), []byte("null")) {
+			return false
+		}
+		var number float64
+		if err := json.Unmarshal(value, &number); err != nil {
 			return false
 		}
 	}
@@ -94,13 +113,24 @@ func (c *checker) checkMeta(p paths.DataPaths) {
 		return
 	}
 	c.report.CheckedFiles++
-	var parsed map[string]any
+	if !isJSONObject(data) {
+		c.issue("meta.json: not valid JSON")
+		return
+	}
+	var parsed struct {
+		SchemaVersion json.RawMessage `json:"schema_version"`
+	}
 	if err := json.Unmarshal(data, &parsed); err != nil {
 		c.issue("meta.json: not valid JSON")
 		return
 	}
-	if _, ok := parsed["schema_version"].(float64); !ok {
+	var version int
+	if len(parsed.SchemaVersion) == 0 || json.Unmarshal(parsed.SchemaVersion, &version) != nil {
 		c.issue("meta.json: missing numeric schema_version")
+		return
+	}
+	if version != storage.SchemaVersion {
+		c.issue("meta.json: unsupported schema_version %d (expected %d)", version, storage.SchemaVersion)
 	}
 }
 
@@ -110,23 +140,32 @@ func (c *checker) checkWorkouts(p paths.DataPaths) {
 		return
 	}
 	c.report.CheckedFiles++
+	seen := map[int64]bool{}
 	for i, line := range nonEmptyLines(data) {
 		lineNo := i + 1
 		if len(bytes.TrimSpace(line)) == 0 {
 			continue
 		}
-		var parsed map[string]any
-		if err := json.Unmarshal(line, &parsed); err != nil {
+		if !json.Valid(line) {
 			c.issue("workouts.jsonl: line %d is not valid JSON", lineNo)
 			continue
 		}
-		_, idOK := parsed["id"].(float64)
-		_, dateOK := parsed["date"].(string)
-		_, distanceOK := parsed["distance"].(float64)
-		_, timeOK := parsed["time"].(float64)
-		if !idOK || !dateOK || !distanceOK || !timeOK {
-			c.issue("workouts.jsonl: line %d malformed workout record", lineNo)
+		var parsed struct {
+			ID       *int64  `json:"id"`
+			Date     *string `json:"date"`
+			Distance *int    `json:"distance"`
+			Time     *int    `json:"time"`
 		}
+		if !isJSONObject(line) || json.Unmarshal(line, &parsed) != nil ||
+			parsed.ID == nil || parsed.Date == nil || parsed.Distance == nil || parsed.Time == nil ||
+			models.ParseLocal(*parsed.Date).IsZero() {
+			c.issue("workouts.jsonl: line %d malformed workout record", lineNo)
+			continue
+		}
+		if seen[*parsed.ID] {
+			c.issue("workouts.jsonl: line %d duplicate workout id %d", lineNo, *parsed.ID)
+		}
+		seen[*parsed.ID] = true
 	}
 }
 
@@ -186,7 +225,11 @@ func (c *checker) checkLooseNotes(p paths.DataPaths) {
 			c.issue("%s: malformed note record", label)
 			continue
 		}
-		content := notes.Serialize(note)
+		content, err := notes.Serialize(note)
+		if err != nil {
+			c.issue("%s: malformed note record", label)
+			continue
+		}
 		if prior, exists := looseContent[note.ID]; exists && prior.content != content && !divergent[note.ID] {
 			divergent[note.ID] = true
 			c.issue("notes: divergent copies of note %s (%s, %s); reconcile before they compact", note.ID, prior.file, name)

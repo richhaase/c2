@@ -60,7 +60,7 @@ jobs:
           go-version: stable
 
       - name: Run govulncheck
-        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+        run: make vuln
 
   build:
     runs-on: ubuntu-latest

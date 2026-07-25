@@ -1,19 +1,20 @@
 package documents
 
 import (
+	"errors"
+	"io/fs"
 	"os"
 	"sort"
 	"strings"
 
 	"github.com/richhaase/c2/internal/models"
 	"github.com/richhaase/c2/internal/paths"
-	"github.com/richhaase/c2/internal/storage"
 )
 
 func Read(path string) (string, bool, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		if storage.IsMissing(err) {
+		if errors.Is(err, fs.ErrNotExist) {
 			return "", false, nil
 		}
 		return "", false, err
@@ -21,10 +22,13 @@ func Read(path string) (string, bool, error) {
 	return string(data), true, nil
 }
 
-func ListNarratives(p paths.DataPaths) []string {
+func ListNarratives(p paths.DataPaths) ([]string, error) {
 	entries, err := os.ReadDir(p.ReportsDir)
 	if err != nil {
-		return nil
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil, nil
+		}
+		return nil, err
 	}
 	var dates []string
 	for _, e := range entries {
@@ -38,5 +42,5 @@ func ListNarratives(p paths.DataPaths) []string {
 		}
 	}
 	sort.Strings(dates)
-	return dates
+	return dates, nil
 }

@@ -3,7 +3,12 @@ package jsonx
 import "testing"
 
 func TestCompactDoesNotEscapeHTML(t *testing.T) {
-	got, err := Compact(map[string]string{"body": "pace < 2:00 & HR > 150"})
+	payload := struct {
+		Body string `json:"body"`
+	}{
+		Body: "pace < 2:00 & HR > 150",
+	}
+	got, err := Compact(payload)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -14,7 +19,12 @@ func TestCompactDoesNotEscapeHTML(t *testing.T) {
 }
 
 func TestIndentMatchesTwoSpaceStyle(t *testing.T) {
-	got, err := Indent(map[string]any{"a": 1})
+	payload := struct {
+		A int `json:"a"`
+	}{
+		A: 1,
+	}
+	got, err := Indent(payload)
 	if err != nil {
 		t.Fatal(err)
 	}

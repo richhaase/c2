@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math"
 	"math/big"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -218,7 +217,12 @@ func FormatSeconds(totalSeconds float64) string {
 	}
 	mins := int(math.Floor(totalSeconds / 60))
 	rem := totalSeconds - float64(mins)*60
-	return fmt.Sprintf("%d:%s", mins, padStart(ToFixed(rem, 1), 4, '0'))
+	formatted := ToFixed(rem, 1)
+	if formatted == "60.0" {
+		mins++
+		formatted = "0.0"
+	}
+	return fmt.Sprintf("%d:%s", mins, padStart(formatted, 4, '0'))
 }
 
 func padStart(s string, width int, pad byte) string {
@@ -228,21 +232,15 @@ func padStart(s string, width int, pad byte) string {
 	return strings.Repeat(string(pad), width-len(s)) + s
 }
 
-var ymdPattern = regexp.MustCompile(`^(\d{4})-(\d{2})-(\d{2})$`)
-
 func IsValidYMD(s string) bool {
-	m := ymdPattern.FindStringSubmatch(s)
-	if m == nil {
+	if len(s) != len("2006-01-02") {
 		return false
 	}
 	t, err := time.ParseInLocation("2006-01-02", s, time.Local)
 	if err != nil {
 		return false
 	}
-	year, _ := strconv.Atoi(m[1])
-	month, _ := strconv.Atoi(m[2])
-	day, _ := strconv.Atoi(m[3])
-	return t.Year() == year && int(t.Month()) == month && t.Day() == day
+	return t.Format("2006-01-02") == s
 }
 
 func FilterByDate(workouts []Workout, from, to string) []Workout {

@@ -21,3 +21,11 @@ func IsStdoutTTY() bool {
 func IsStderrTTY() bool {
 	return IsTerminal(int(os.Stderr.Fd()))
 }
+
+func ReadPassword(fd int) (string, error) {
+	data, err := term.ReadPassword(fd)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}

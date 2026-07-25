@@ -116,6 +116,22 @@ func TestMissingSchemaVersionIsReported(t *testing.T) {
 	}
 }
 
+func TestUnsupportedAndFractionalSchemaVersionsAreReported(t *testing.T) {
+	for _, body := range []string{
+		`{"schema_version":999}`,
+		`{"schema_version":1.5}`,
+	} {
+		p := tempStore(t)
+		if err := os.WriteFile(p.Meta, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		report := Run(p)
+		if len(report.Issues) == 0 {
+			t.Fatalf("body %s produced no issues", body)
+		}
+	}
+}
+
 func TestCorruptMetaIsReportedAsInvalidJSON(t *testing.T) {
 	p := tempStore(t)
 	if err := os.WriteFile(p.Meta, []byte("{ truncated"), 0o644); err != nil {
@@ -169,6 +185,25 @@ func TestNullStrokeRecordIsRejected(t *testing.T) {
 	report := Run(p)
 	if !hasIssueContaining(report, "line 2 malformed stroke record") {
 		t.Fatalf("null stroke line must be reported: %v", report.Issues)
+	}
+}
+
+func TestMalformedWorkoutDatesAndDuplicateIDsAreReported(t *testing.T) {
+	p := tempStore(t)
+	body := strings.Join([]string{
+		`{"id":1,"date":"not-a-date","distance":1000,"time":1000}`,
+		`{"id":2,"date":"2026-01-01","distance":1000,"time":1000}`,
+		`{"id":2,"date":"2026-01-02","distance":1000,"time":1000}`,
+	}, "\n") + "\n"
+	if err := os.WriteFile(p.Workouts, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	report := Run(p)
+	if !hasIssueContaining(report, "malformed workout record") {
+		t.Fatalf("issues = %v", report.Issues)
+	}
+	if !hasIssueContaining(report, "duplicate workout id 2") {
+		t.Fatalf("issues = %v", report.Issues)
 	}
 }
 

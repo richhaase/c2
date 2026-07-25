@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/richhaase/c2/internal/atomicfile"
 	"github.com/richhaase/c2/internal/documents"
 	"github.com/richhaase/c2/internal/envelope"
 	"github.com/richhaase/c2/internal/models"
@@ -40,7 +41,7 @@ func writeDocument(path, content string) error {
 	if !strings.HasSuffix(content, "\n") {
 		content += "\n"
 	}
-	return os.WriteFile(path, []byte(content), 0o644)
+	return atomicfile.Write(path, []byte(content), 0o644)
 }
 
 func newDocCmd(name, short string, pathOf func(paths.DataPaths) string) *cobra.Command {
@@ -164,7 +165,10 @@ func newNarrativeCmd() *cobra.Command {
 					return reportf(cmd, "Error: invalid date %q (expected YYYY-MM-DD).", target)
 				}
 			} else {
-				dates := documents.ListNarratives(p)
+				dates, err := documents.ListNarratives(p)
+				if err != nil {
+					return err
+				}
 				if len(dates) == 0 {
 					return reportf(cmd, "No narratives recorded yet.")
 				}
@@ -195,7 +199,10 @@ func newNarrativeCmd() *cobra.Command {
 			if err := store.RejectForeign(p, warner(cmd)); err != nil {
 				return reportf(cmd, "%v", err)
 			}
-			dates := documents.ListNarratives(p)
+			dates, err := documents.ListNarratives(p)
+			if err != nil {
+				return err
+			}
 			out := cmd.OutOrStdout()
 			if asJSON {
 				if dates == nil {
