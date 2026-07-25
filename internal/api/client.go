@@ -11,27 +11,28 @@ import (
 
 	"github.com/richhaase/c2/internal/config"
 	"github.com/richhaase/c2/internal/models"
-	"github.com/richhaase/c2/internal/version"
 )
 
 const requestTimeout = 30 * time.Second
 
 type Client struct {
-	baseURL string
-	token   string
-	http    *http.Client
+	baseURL   string
+	token     string
+	userAgent string
+	http      *http.Client
 }
 
-func New(baseURL, token string) *Client {
+func New(baseURL, token, version string) *Client {
 	return &Client{
-		baseURL: baseURL,
-		token:   token,
-		http:    &http.Client{Timeout: requestTimeout},
+		baseURL:   baseURL,
+		token:     token,
+		userAgent: "c2/" + version,
+		http:      &http.Client{Timeout: requestTimeout},
 	}
 }
 
-func FromConfig(cfg config.Config) *Client {
-	return New(cfg.API.BaseURL, cfg.API.Token)
+func FromConfig(cfg config.Config, version string) *Client {
+	return New(cfg.API.BaseURL, cfg.API.Token, version)
 }
 
 func (c *Client) get(ctx context.Context, path string, out any) error {
@@ -40,7 +41,7 @@ func (c *Client) get(ctx context.Context, path string, out any) error {
 		return err
 	}
 	req.Header.Set("Authorization", "Bearer "+c.token)
-	req.Header.Set("User-Agent", "c2/"+version.Version)
+	req.Header.Set("User-Agent", c.userAgent)
 
 	resp, err := c.http.Do(req)
 	if err != nil {

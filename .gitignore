@@ -1,7 +1,40 @@
+# Node / Bun
 node_modules/
-.worktrees/
+
+# Binaries
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test artifacts
+*.test
+coverage.out
+coverage.html
+
+# Build artifacts
+dist/
+
+# IDE
+.idea/
+.vscode/
 *.swp
 *.swo
+*~
+
+# OS
 .DS_Store
-/c2
-dist/
+Thumbs.db
+
+# Go workspace
+go.work
+go.work.sum
+
+# Local env
+.env
+.env.local
+
+# Worktrees
+.worktrees/

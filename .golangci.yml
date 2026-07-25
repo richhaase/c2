@@ -1,0 +1,71 @@
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  default: none
+  enable:
+    # Default linters (gosimple is part of staticcheck in v2)
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    # Additional useful linters
+    - misspell
+    - gosec
+    - unconvert
+    - unparam
+  settings:
+    errcheck:
+      exclude-functions:
+        - fmt.Fprintf
+        - fmt.Fprintln
+        - (io.Closer).Close
+        - os.Remove
+        - os.RemoveAll
+    gosec:
+      excludes:
+        - G104 # Unhandled errors (covered by errcheck)
+        - G304 # File path from variable (often intentional in CLIs)
+        # The data store deliberately keeps Node's default permissions so a
+        # store written by the Go and TypeScript builds looks identical.
+        # Secrets live in ~/.config/c2/config.json, which is written 0600.
+        - G301 # Directory permissions (store dirs are 0755, as Node created them)
+        - G302 # File permissions (store files are 0644, as Node created them)
+        - G306 # WriteFile permissions (same)
+    staticcheck:
+      # The ST1000/ST1003/ST1016/ST1020/ST1021/ST1022 entries are golangci-lint's
+      # own defaults, repeated because setting this list replaces them. ST1000 and
+      # ST1020-22 demand doc comments, which this project does not use.
+      checks:
+        - all
+        - -ST1000
+        - -ST1003
+        - -ST1016
+        - -ST1020
+        - -ST1021
+        - -ST1022
+        # ST1005 forbids capitalized error strings ending in punctuation, but
+        # these errors are user-facing copy printed verbatim to stderr and must
+        # match the TypeScript messages exactly.
+        - -ST1005
+    misspell:
+      locale: US
+  exclusions:
+    rules:
+      # Allow unused parameters in test helpers
+      - path: _test\.go
+        linters:
+          - unparam
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/richhaase/c2

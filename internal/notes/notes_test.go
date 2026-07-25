@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -38,25 +39,13 @@ func ids(records []Record) []string {
 	return out
 }
 
-func equalStrings(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
-}
-
 func TestULIDIsTwentySixCharsAndTimeOrdered(t *testing.T) {
 	a := ULID(time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC))
 	b := ULID(time.Date(2026, 7, 2, 0, 0, 0, 0, time.UTC))
 	if len(a) != 26 || len(b) != 26 {
 		t.Fatalf("lengths %d %d", len(a), len(b))
 	}
-	if !(a < b) {
+	if a >= b {
 		t.Fatalf("expected %q < %q", a, b)
 	}
 }
@@ -75,7 +64,7 @@ func TestNotesSortByInstantAcrossMixedOffsets(t *testing.T) {
 	p := tempStore(t)
 	mustWrite(t, p, record("MINUS6", "2026-07-05T23:30:00-06:00", "later instant"))
 	mustWrite(t, p, record("PLUS2", "2026-07-06T01:00:00+02:00", "earlier instant"))
-	if got := ids(ReadAll(p)); !equalStrings(got, []string{"PLUS2", "MINUS6"}) {
+	if got := ids(ReadAll(p)); !slices.Equal(got, []string{"PLUS2", "MINUS6"}) {
 		t.Fatalf("got %v", got)
 	}
 }
@@ -85,7 +74,7 @@ func TestNotesRoundTripAndSortByDateThenID(t *testing.T) {
 	mustWrite(t, p, record("B", "2026-07-05T10:00:00-06:00", "second"))
 	mustWrite(t, p, record("A", "2026-07-05T10:00:00-06:00", "first"))
 	mustWrite(t, p, record("C", "2026-07-01T08:00:00-06:00", "oldest"))
-	if got := ids(ReadAll(p)); !equalStrings(got, []string{"C", "A", "B"}) {
+	if got := ids(ReadAll(p)); !slices.Equal(got, []string{"C", "A", "B"}) {
 		t.Fatalf("got %v", got)
 	}
 }
@@ -95,7 +84,7 @@ func TestCorruptLooseNotesAreSkipped(t *testing.T) {
 	mustWrite(t, p, record("GOOD", "2026-07-05T10:00:00-06:00", "fine"))
 	writeRaw(t, p, "BAD.json", "{ nope")
 	writeRaw(t, p, "SHAPE.json", `{"id":"SHAPE"}`)
-	if got := ids(ReadAll(p)); !equalStrings(got, []string{"GOOD"}) {
+	if got := ids(ReadAll(p)); !slices.Equal(got, []string{"GOOD"}) {
 		t.Fatalf("got %v", got)
 	}
 }
@@ -106,7 +95,7 @@ func TestInvalidAuthorsTagsAndWorkoutIDsAreSkipped(t *testing.T) {
 	writeRaw(t, p, "LLM.json", `{"id":"LLM","date":"2026-07-05T10:00:00-06:00","type":"observation","body":"x","author":"llm"}`)
 	writeRaw(t, p, "BADTAGS.json", `{"id":"BADTAGS","date":"2026-07-05T10:00:00-06:00","type":"observation","tags":"not-an-array","body":"x","author":"athlete"}`)
 	writeRaw(t, p, "BADWID.json", `{"id":"BADWID","date":"2026-07-05T10:00:00-06:00","type":"observation","workout_id":"seven","body":"x","author":"athlete"}`)
-	if got := ids(ReadAll(p)); !equalStrings(got, []string{"GOOD"}) {
+	if got := ids(ReadAll(p)); !slices.Equal(got, []string{"GOOD"}) {
 		t.Fatalf("got %v", got)
 	}
 }
@@ -119,13 +108,13 @@ func TestApplyFiltersByTypeSinceAndWorkout(t *testing.T) {
 		record("B", "2026-07-03T08:00:00-06:00", "y", "lesson"),
 		record("C", "2026-07-05T08:00:00-06:00", "z", "observation"),
 	}
-	if got := ids(Apply(records, Filter{Type: "lesson"})); !equalStrings(got, []string{"B"}) {
+	if got := ids(Apply(records, Filter{Type: "lesson"})); !slices.Equal(got, []string{"B"}) {
 		t.Fatalf("type: got %v", got)
 	}
-	if got := ids(Apply(records, Filter{Since: "2026-07-03"})); !equalStrings(got, []string{"B", "C"}) {
+	if got := ids(Apply(records, Filter{Since: "2026-07-03"})); !slices.Equal(got, []string{"B", "C"}) {
 		t.Fatalf("since: got %v", got)
 	}
-	if got := ids(Apply(records, Filter{WorkoutID: new(int64(7))})); !equalStrings(got, []string{"A"}) {
+	if got := ids(Apply(records, Filter{WorkoutID: new(int64(7))})); !slices.Equal(got, []string{"A"}) {
 		t.Fatalf("workout: got %v", got)
 	}
 }
@@ -148,10 +137,10 @@ func TestCompactionArchivesByYearAndKeepsHotSet(t *testing.T) {
 	}
 
 	loose := looseFiles(t, p)
-	if !equalStrings(loose, []string{"NEW1.json"}) {
+	if !slices.Equal(loose, []string{"NEW1.json"}) {
 		t.Fatalf("loose %v", loose)
 	}
-	if got := ids(ReadAll(p)); !equalStrings(got, []string{"OLD2", "OLD1", "NEW1"}) {
+	if got := ids(ReadAll(p)); !slices.Equal(got, []string{"OLD2", "OLD1", "NEW1"}) {
 		t.Fatalf("all %v", got)
 	}
 

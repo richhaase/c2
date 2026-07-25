@@ -1,0 +1,76 @@
+version: 2
+
+before:
+  hooks:
+    - go mod tidy
+    - go test ./...
+
+builds:
+  - main: ./cmd/c2
+    binary: c2
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      # - windows  # Uncomment if you need Windows support
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.ShortCommit}}
+      - -X main.date={{.Date}}
+
+archives:
+  - name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    formats:
+      - tar.gz
+    # Windows gets zip format if enabled
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - "^chore:"
+      - "^style:"
+      - Merge pull request
+      - Merge branch
+
+release:
+  github:
+    owner: richhaase
+    name: c2
+  draft: false
+  prerelease: auto
+  name_template: "{{.ProjectName}} v{{.Version}}"
+
+# Uncomment for Homebrew tap publishing.
+# (`brews` is deprecated since GoReleaser v2.10; casks are the current mechanism.)
+# homebrew_casks:
+#   - name: c2
+#     repository:
+#       owner: richhaase
+#       name: homebrew-tap
+#     homepage: https://github.com/richhaase/c2
+#     description: "Brief description of your CLI"
+#     license: MIT
+#     # If the binary is not signed/notarized, uncomment this hook so
+#     # Gatekeeper does not quarantine it:
+#     # hooks:
+#     #   post:
+#     #     install: |
+#     #       if system_command("/usr/bin/xattr", args: ["-h"]).exit_status == 0
+#     #         system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/c2"]
+#     #       end

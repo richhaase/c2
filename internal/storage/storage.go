@@ -92,8 +92,11 @@ func AppendWorkouts(p paths.DataPaths, incoming []models.Workout) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	defer f.Close()
 	if _, err := f.Write(buf.Bytes()); err != nil {
+		_ = f.Close()
+		return 0, err
+	}
+	if err := f.Close(); err != nil {
 		return 0, err
 	}
 	return written, nil
@@ -107,7 +110,7 @@ func WorkoutCount(p paths.DataPaths) (int, error) {
 		}
 		return 0, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	count := 0
 	scanner := bufio.NewScanner(f)
 	scanner.Buffer(make([]byte, 0, 64*1024), 16*1024*1024)
