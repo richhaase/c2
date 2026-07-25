@@ -1,33 +1,29 @@
 # c2 — Concept2 Logbook CLI
 
-A CLI tool for syncing and analyzing rowing data from your [Concept2 Logbook](https://log.concept2.com). Built with [Bun](https://bun.sh).
+A CLI tool for syncing and analyzing rowing data from your [Concept2 Logbook](https://log.concept2.com).
 
 ## Install
 
-Requires [Bun](https://bun.sh) v1.0+.
-
 ```bash
-# Install globally
-bun install -g @richhaase/c2
-
-# Or install from source
+# From source
 git clone https://github.com/richhaase/c2.git
 cd c2
-bun install
-bun link
+make install
 ```
+
+Or grab a binary from the [releases page](https://github.com/richhaase/c2/releases).
 
 ## Quick Start
 
 ```bash
 # Configure token and goals
-bun src/index.ts setup
+c2 setup
 
 # Sync workouts
-bun src/index.ts sync
+c2 sync
 
 # Check your progress
-bun src/index.ts status
+c2 status
 ```
 
 ## Usage
@@ -247,17 +243,10 @@ Config lives at `~/.config/c2/config.json`. Created automatically on `c2 setup`.
 ## Development
 
 ```bash
-# Install dependencies
-bun install
-
-# Type check
-bun run check
-
-# Run tests
-bun test
-
-# Run directly
-bun src/index.ts <command>
+make check       # fmt-check + vet + lint + race tests
+make test        # tests only
+make build       # build ./bin/c2
+make run ARGS="log -n 5"
 ```
 
 ## License

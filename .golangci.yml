@@ -1,0 +1,61 @@
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - misspell
+    - gosec
+    - unconvert
+    - unparam
+  settings:
+    errcheck:
+      exclude-functions:
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
+        - (io.Closer).Close
+        - os.Remove
+        - os.RemoveAll
+    gosec:
+      excludes:
+        - G104
+        - G304
+        - G301
+        - G302
+        - G306
+        - G204
+    staticcheck:
+      checks:
+        - all
+        - -ST1000
+        - -ST1003
+        - -ST1016
+        - -ST1020
+        - -ST1021
+        - -ST1022
+        - -ST1005
+    misspell:
+      locale: US
+  exclusions:
+    rules:
+      - path: _test\.go
+        linters:
+          - unparam
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/richhaase/c2

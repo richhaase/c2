@@ -6,17 +6,94 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
-  check:
+  test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: oven-sh/setup-bun@v2
+      - name: Set up Go
+        uses: actions/setup-go@v7
         with:
-          bun-version: latest
+          go-version-file: go.mod
 
-      - run: bun install --frozen-lockfile
+      - name: Verify dependencies
+        run: |
+          go mod verify
+          go mod download
 
-      - name: Check (typecheck + lint + test)
-        run: bun run check
+      - name: Run tests
+        run: go test -race -covermode=atomic -coverprofile=coverage.out ./...
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v7
+        with:
+          files: coverage.out
+          fail_ci_if_error: false
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.12.2
+
+  vuln:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - name: Run govulncheck
+        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
+  build:
+    runs-on: ubuntu-latest
+    needs: [test, lint]
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - name: Build
+        run: go build -v ./cmd/c2
+
+  build-matrix:
+    runs-on: ubuntu-latest
+    needs: [test, lint]
+    strategy:
+      matrix:
+        goos: [linux, darwin]
+        goarch: [amd64, arm64]
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - name: Build for ${{ matrix.goos }}/${{ matrix.goarch }}
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 0
+        run: go build -v -o c2-${{ matrix.goos }}-${{ matrix.goarch }} ./cmd/c2
