@@ -7,6 +7,8 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+
+	"github.com/richhaase/c2/internal/paths"
 )
 
 var errReported = errors.New("c2: already reported")
@@ -40,6 +42,11 @@ func NewRoot(b build) *cobra.Command {
 		newStatsCmd(),
 		newShowCmd(),
 		newExportCmd(),
+		newDataCmd(),
+		newNoteCmd(),
+		newDocCmd("plan", "Training plan (managed document)", func(p paths.DataPaths) string { return p.Plan }),
+		newDocCmd("playbook", "Coaching knowledge playbook (managed document)", func(p paths.DataPaths) string { return p.Playbook }),
+		newNarrativeCmd(),
 		newVersionCmd(b),
 	)
 
