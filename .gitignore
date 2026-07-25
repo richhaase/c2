@@ -1,6 +1,3 @@
-# Node / Bun
-node_modules/
-
 # Binaries
 bin/
 *.exe

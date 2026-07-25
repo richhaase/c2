@@ -31,11 +31,11 @@ linters:
       excludes:
         - G104 # Unhandled errors (covered by errcheck)
         - G304 # File path from variable (often intentional in CLIs)
-        # The data store deliberately keeps Node's default permissions so a
-        # store written by the Go and TypeScript builds looks identical.
-        # Secrets live in ~/.config/c2/config.json, which is written 0600.
-        - G301 # Directory permissions (store dirs are 0755, as Node created them)
-        - G302 # File permissions (store files are 0644, as Node created them)
+        # The data store holds training data, not secrets, and is meant to be
+        # readable by whatever syncs it, so it stays 0644/0755. The config file
+        # is the one that holds a token and it is written 0600.
+        - G301 # Directory permissions (store dirs are 0755)
+        - G302 # File permissions (store files are 0644)
         - G306 # WriteFile permissions (same)
         # `report` opens the generated file in a browser. The opener is one of
         # three literals chosen by GOOS and the path is passed as an argv
@@ -54,8 +54,8 @@ linters:
         - -ST1021
         - -ST1022
         # ST1005 forbids capitalized error strings ending in punctuation, but
-        # these errors are user-facing copy printed verbatim to stderr and must
-        # match the TypeScript messages exactly.
+        # these errors are user-facing copy printed verbatim to stderr, not
+        # fragments wrapped by a caller.
         - -ST1005
     misspell:
       locale: US
