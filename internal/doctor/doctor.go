@@ -57,7 +57,7 @@ func isStrokeShaped(raw []byte) bool {
 	}
 	for _, key := range strokeFields {
 		value, present := parsed[key]
-		if !present || value == nil {
+		if !present {
 			continue
 		}
 		if _, ok := value.(float64); !ok {

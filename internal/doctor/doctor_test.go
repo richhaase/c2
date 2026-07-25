@@ -180,6 +180,8 @@ func TestStrokeShapeAcceptsOnlyObjects(t *testing.T) {
 		{`{"t":1,"d":2,"p":3,"spm":4,"hr":5}`, true},
 		{`{}`, true},
 		{`{"t":1,"extra":"ok"}`, true},
+		{`{"t":null}`, false},
+		{`{"t":1,"hr":null}`, false},
 		{`null`, false},
 		{`[1,2]`, false},
 		{`"str"`, false},
