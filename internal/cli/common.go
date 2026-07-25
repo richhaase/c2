@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -14,6 +15,10 @@ import (
 func reportf(cmd *cobra.Command, format string, args ...any) error {
 	fmt.Fprintf(cmd.ErrOrStderr(), format+"\n", args...)
 	return errReported
+}
+
+func configGoalEnd(raw string) (time.Time, error) {
+	return config.ParseGoalDate(raw)
 }
 
 func loadStore() (config.Config, paths.DataPaths, error) {

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"math/big"
 	"regexp"
 	"strconv"
 	"strings"
@@ -181,13 +182,21 @@ func RestSeconds(w Workout) float64 {
 	return float64(*w.RestTime) / TenthsPerSecond
 }
 
+func ToFixed(v float64, digits int) string {
+	r := new(big.Rat).SetFloat64(v)
+	if r == nil {
+		return strconv.FormatFloat(v, 'f', digits, 64)
+	}
+	return r.FloatString(digits)
+}
+
 func FormatSeconds(totalSeconds float64) string {
 	if totalSeconds <= 0 {
 		return "0:00.0"
 	}
 	mins := int(math.Floor(totalSeconds / 60))
 	rem := totalSeconds - float64(mins)*60
-	return fmt.Sprintf("%d:%s", mins, padStart(strconv.FormatFloat(rem, 'f', 1, 64), 4, '0'))
+	return fmt.Sprintf("%d:%s", mins, padStart(ToFixed(rem, 1), 4, '0'))
 }
 
 func padStart(s string, width int, pad byte) string {

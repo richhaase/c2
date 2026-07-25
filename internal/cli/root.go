@@ -37,6 +37,9 @@ func NewRoot(b build) *cobra.Command {
 		newLogCmd(),
 		newStatusCmd(),
 		newTrendCmd(),
+		newStatsCmd(),
+		newShowCmd(),
+		newExportCmd(),
 		newVersionCmd(b),
 	)
 

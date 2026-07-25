@@ -3,7 +3,6 @@ package display
 import (
 	"fmt"
 	"math"
-	"math/big"
 	"strconv"
 	"strings"
 	"time"
@@ -40,11 +39,7 @@ func FormatPercent(ratio float64) string {
 }
 
 func ToFixed(v float64, digits int) string {
-	r := new(big.Rat).SetFloat64(v)
-	if r == nil {
-		return strconv.FormatFloat(v, 'f', digits, 64)
-	}
-	return r.FloatString(digits)
+	return models.ToFixed(v, digits)
 }
 
 func FormatMetersPerWeek(m int) string {

@@ -218,3 +218,22 @@ func TestWorkoutMarshalsWithoutRaw(t *testing.T) {
 		t.Fatalf("got %+v", back)
 	}
 }
+
+func TestFormatSecondsRoundsHalvesAwayFromZero(t *testing.T) {
+	cases := []struct {
+		in   float64
+		want string
+	}{
+		{174.25, "2:54.3"},
+		{174.35, "2:54.3"},
+		{54.25, "0:54.3"},
+		{125.05, "2:05.0"},
+		{0.05, "0:00.1"},
+		{2.5, "0:02.5"},
+	}
+	for _, tc := range cases {
+		if got := FormatSeconds(tc.in); got != tc.want {
+			t.Errorf("FormatSeconds(%v) = %q want %q", tc.in, got, tc.want)
+		}
+	}
+}
