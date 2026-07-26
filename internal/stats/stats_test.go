@@ -228,6 +228,43 @@ func TestComputeGoalProgressIncludesEntireEndDate(t *testing.T) {
 	}
 }
 
+func TestComputeGoalProgressCompletesPartialFinalWeek(t *testing.T) {
+	tests := []struct {
+		name  string
+		start string
+		end   string
+		now   time.Time
+		weeks int
+	}{
+		{
+			name:  "one day",
+			start: "2026-12-31",
+			end:   "2026-12-31",
+			now:   localDate(2027, time.January, 1, 0),
+			weeks: 1,
+		},
+		{
+			name:  "calendar year",
+			start: "2026-01-01",
+			end:   "2026-12-31",
+			now:   localDate(2027, time.January, 1, 0),
+			weeks: 53,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			cfg := makeGoalConfig()
+			cfg.Goal.StartDate = test.start
+			cfg.Goal.EndDate = test.end
+			goal := goalProgressAt(t, nil, cfg, test.now)
+			if goal.TotalWeeks != test.weeks || goal.WeeksElapsed != test.weeks {
+				t.Fatalf("weeks = %d / %d, want %d / %d",
+					goal.WeeksElapsed, goal.TotalWeeks, test.weeks, test.weeks)
+			}
+		})
+	}
+}
+
 func TestComputeGoalProgressRejectsInvalidGoalBounds(t *testing.T) {
 	cfg := makeGoalConfig()
 	cfg.Goal.TargetMeters = 0

@@ -150,3 +150,25 @@ func TestRunDoesNotAdvanceWatermarkWhenResultsFail(t *testing.T) {
 		t.Fatalf("workouts stat error = %v", err)
 	}
 }
+
+func TestSyncStrokesStopsAfterRepeatedFailures(t *testing.T) {
+	p := paths.For(t.TempDir())
+	workouts := make([]models.Workout, maxStrokeFailuresPerSync+2)
+	client := &fakeClient{strokeErrs: map[int64]error{}}
+	for i := range workouts {
+		id := int64(i + 1)
+		workouts[i] = models.Workout{ID: id, StrokeData: true}
+		client.strokeErrs[id] = errors.New("offline")
+	}
+
+	count, failures, err := syncStrokes(context.Background(), client, p, workouts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 0 || len(failures) != maxStrokeFailuresPerSync {
+		t.Fatalf("count = %d, failures = %d", count, len(failures))
+	}
+	if len(client.strokeCalls) != maxStrokeFailuresPerSync {
+		t.Fatalf("stroke calls = %v", client.strokeCalls)
+	}
+}

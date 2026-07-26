@@ -259,11 +259,10 @@ func ComputeGoalProgress(workouts []models.Workout, cfg config.Config, now time.
 	totalWeeks := int(math.Ceil(float64(totalDays) / daysPerWeek))
 
 	weeksElapsed := 0
-	if today.After(start) {
+	if !today.Before(endExclusive) {
+		weeksElapsed = totalWeeks
+	} else if today.After(start) {
 		weeksElapsed = floorDiv(dayNumber(today)-dayNumber(start), daysPerWeek)
-		if weeksElapsed > totalWeeks {
-			weeksElapsed = totalWeeks
-		}
 	}
 
 	remainingMeters := target - totalMeters
