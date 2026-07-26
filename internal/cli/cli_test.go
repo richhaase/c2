@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/richhaase/c2/internal/config"
 )
 
 func ymd(offsetDays int) string {
@@ -103,6 +105,53 @@ func TestUnknownCommandFails(t *testing.T) {
 	got := run(t, "bogus")
 	if !got.failed {
 		t.Fatal("expected failure")
+	}
+}
+
+func TestSetupKeepsValidGoalRangeWhenStartMovesPastEnd(t *testing.T) {
+	testHome(t)
+	cfg, err := config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.API.Token = ""
+	if err := config.Save(cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	newStart := time.Now().AddDate(0, 0, 200).Format("2006-01-02")
+	stdin := strings.Join([]string{"", "", newStart, "", ""}, "\n") + "\n"
+	got := runWithStdin(t, stdin, "setup")
+	if got.failed {
+		t.Fatalf("stdout=%q stderr=%q", got.stdout, got.stderr)
+	}
+	if !strings.Contains(got.stdout, "keeping the previous date range") {
+		t.Fatalf("stdout=%q", got.stdout)
+	}
+	saved, err := config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if saved.Goal.StartDate != cfg.Goal.StartDate || saved.Goal.EndDate != cfg.Goal.EndDate {
+		t.Fatalf("goal range = %s to %s", saved.Goal.StartDate, saved.Goal.EndDate)
+	}
+}
+
+func TestSetupStopsBeforeStoreWritesWithoutHomeDirectory(t *testing.T) {
+	t.Setenv("HOME", "")
+	workDir := t.TempDir()
+	t.Chdir(workDir)
+
+	got := run(t, "setup")
+	if !got.failed {
+		t.Fatal("setup succeeded")
+	}
+	entries, err := os.ReadDir(workDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("working directory entries = %v", entries)
 	}
 }
 

@@ -52,7 +52,10 @@ func TestLoadMissingAndPartialConfigUsesDefaults(t *testing.T) {
 
 func TestSaveRoundTripsWithoutEscapingAndLocksMode(t *testing.T) {
 	useHome(t)
-	cfg := Default()
+	cfg, err := Default()
+	if err != nil {
+		t.Fatal(err)
+	}
 	cfg.API.Token = "<secret&token>"
 	if err := Save(cfg); err != nil {
 		t.Fatal(err)
@@ -109,6 +112,9 @@ func TestConfigPathsFailWithoutHomeDirectory(t *testing.T) {
 	t.Setenv("HOME", "")
 	if _, err := Dir(); err == nil {
 		t.Fatal("Dir succeeded")
+	}
+	if _, err := Default(); err == nil {
+		t.Fatal("Default succeeded")
 	}
 	if _, err := Load(); err == nil {
 		t.Fatal("Load succeeded")

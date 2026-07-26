@@ -23,8 +23,12 @@ func makeWorkout(id int64, date string, distance int) models.Workout {
 	}
 }
 
-func makeGoalConfig() config.Config {
-	cfg := config.Default()
+func makeGoalConfig(t *testing.T) config.Config {
+	t.Helper()
+	cfg, err := config.Default()
+	if err != nil {
+		t.Fatal(err)
+	}
 	cfg.Goal.StartDate = "2026-01-01"
 	cfg.Goal.EndDate = "2026-12-31"
 	cfg.Goal.TargetMeters = 1_000_000
@@ -162,7 +166,7 @@ func TestBuildWeekSummariesReturnsEmptySummariesForNoWorkouts(t *testing.T) {
 }
 
 func TestComputeGoalProgressMidSeason(t *testing.T) {
-	cfg := makeGoalConfig()
+	cfg := makeGoalConfig(t)
 	workouts := []models.Workout{
 		makeWorkout(1, "2026-03-01 10:00:00", 100_000),
 		makeWorkout(2, "2026-02-01 10:00:00", 100_000),
@@ -186,7 +190,7 @@ func TestComputeGoalProgressMidSeason(t *testing.T) {
 }
 
 func TestComputeGoalProgressClampsRemainingMetersWhenGoalExceeded(t *testing.T) {
-	cfg := makeGoalConfig()
+	cfg := makeGoalConfig(t)
 	cfg.Goal.TargetMeters = 100_000
 	workouts := []models.Workout{makeWorkout(1, "2026-03-01 10:00:00", 150_000)}
 	goal := goalProgressAt(t, workouts, cfg, localDate(2026, time.March, 7, 0))
@@ -199,7 +203,7 @@ func TestComputeGoalProgressClampsRemainingMetersWhenGoalExceeded(t *testing.T) 
 }
 
 func TestComputeGoalProgressExcludesWorkoutsOutsideGoalDateRange(t *testing.T) {
-	cfg := makeGoalConfig()
+	cfg := makeGoalConfig(t)
 	workouts := []models.Workout{
 		makeWorkout(1, "2025-12-01 10:00:00", 50_000),
 		makeWorkout(2, "2026-03-01 10:00:00", 100_000),
@@ -212,7 +216,7 @@ func TestComputeGoalProgressExcludesWorkoutsOutsideGoalDateRange(t *testing.T) {
 }
 
 func TestComputeGoalProgressIncludesEntireEndDate(t *testing.T) {
-	cfg := makeGoalConfig()
+	cfg := makeGoalConfig(t)
 	cfg.Goal.StartDate = "2026-12-31"
 	cfg.Goal.EndDate = "2026-12-31"
 	workouts := []models.Workout{
@@ -253,7 +257,7 @@ func TestComputeGoalProgressCompletesPartialFinalWeek(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			cfg := makeGoalConfig()
+			cfg := makeGoalConfig(t)
 			cfg.Goal.StartDate = test.start
 			cfg.Goal.EndDate = test.end
 			goal := goalProgressAt(t, nil, cfg, test.now)
@@ -266,13 +270,13 @@ func TestComputeGoalProgressCompletesPartialFinalWeek(t *testing.T) {
 }
 
 func TestComputeGoalProgressRejectsInvalidGoalBounds(t *testing.T) {
-	cfg := makeGoalConfig()
+	cfg := makeGoalConfig(t)
 	cfg.Goal.TargetMeters = 0
 	if _, err := ComputeGoalProgress(nil, cfg, projectNow); err == nil || !strings.Contains(err.Error(), "positive") {
 		t.Fatalf("target error = %v", err)
 	}
 
-	cfg = makeGoalConfig()
+	cfg = makeGoalConfig(t)
 	cfg.Goal.StartDate = "2026-12-31"
 	cfg.Goal.EndDate = "2026-01-01"
 	if _, err := ComputeGoalProgress(nil, cfg, projectNow); err == nil || !strings.Contains(err.Error(), "before") {
@@ -291,7 +295,7 @@ func TestGoalCalendarMathIgnoresDSTHourChanges(t *testing.T) {
 		time.Local = oldLocal
 	})
 
-	cfg := makeGoalConfig()
+	cfg := makeGoalConfig(t)
 	cfg.Goal.StartDate = "2026-03-02"
 	cfg.Goal.EndDate = "2026-03-29"
 	now := time.Date(2026, time.March, 9, 0, 0, 0, 0, location)
@@ -308,7 +312,7 @@ func TestGoalCalendarMathIgnoresDSTHourChanges(t *testing.T) {
 }
 
 func TestComputeGoalProgressBeforeStartDate(t *testing.T) {
-	cfg := makeGoalConfig()
+	cfg := makeGoalConfig(t)
 	cfg.Goal.StartDate = "2026-06-01"
 	goal := goalProgressAt(t, nil, cfg, localDate(2026, time.March, 7, 0))
 	if goal.WeeksElapsed != 0 {
@@ -320,7 +324,7 @@ func TestComputeGoalProgressBeforeStartDate(t *testing.T) {
 }
 
 func TestComputeGoalProgressCurrentAvgPaceUsesRecentFourWeekWindow(t *testing.T) {
-	cfg := makeGoalConfig()
+	cfg := makeGoalConfig(t)
 	workouts := []models.Workout{
 		makeWorkout(1, "2026-01-05 10:00:00", 5_000),
 		makeWorkout(2, "2026-01-12 10:00:00", 8_000),
@@ -337,7 +341,7 @@ func TestComputeGoalProgressCurrentAvgPaceUsesRecentFourWeekWindow(t *testing.T)
 }
 
 func TestComputeGoalProgressCurrentAvgPaceIgnoresWorkoutsBeforeWindow(t *testing.T) {
-	cfg := makeGoalConfig()
+	cfg := makeGoalConfig(t)
 	workouts := []models.Workout{
 		makeWorkout(1, "2026-01-05 10:00:00", 100_000),
 		makeWorkout(2, "2026-03-23 10:00:00", 15_000),
@@ -350,7 +354,7 @@ func TestComputeGoalProgressCurrentAvgPaceIgnoresWorkoutsBeforeWindow(t *testing
 }
 
 func TestComputeGoalProgressCurrentAvgPaceExcludesCurrentWeek(t *testing.T) {
-	cfg := makeGoalConfig()
+	cfg := makeGoalConfig(t)
 	workouts := []models.Workout{
 		makeWorkout(1, "2026-04-06 10:00:00", 20_000),
 		makeWorkout(2, "2026-04-13 06:55:00", 5_500),

@@ -60,21 +60,27 @@ func DefaultDataDir() (string, error) {
 	return filepath.Join(dir, "data"), nil
 }
 
-func Default() Config {
-	dataDir, _ := DefaultDataDir()
+func Default() (Config, error) {
+	dataDir, err := DefaultDataDir()
+	if err != nil {
+		return Config{}, err
+	}
 	return Config{
 		DataDir: dataDir,
 		API:     APIConfig{BaseURL: "https://log.concept2.com"},
 		Goal:    GoalConfig{TargetMeters: 1_000_000},
 		Display: DisplayConfig{DateFormat: "%m/%d"},
-	}
+	}, nil
 }
 
 func Load() (Config, error) {
-	cfg := Default()
+	cfg, err := Default()
+	if err != nil {
+		return Config{}, err
+	}
 	path, err := File()
 	if err != nil {
-		return cfg, err
+		return Config{}, err
 	}
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -84,12 +90,12 @@ func Load() (Config, error) {
 		return cfg, err
 	}
 	if err := json.Unmarshal(data, &cfg); err != nil {
-		return Default(), err
+		return Config{}, err
 	}
 	if cfg.DataDir == "" {
 		cfg.DataDir, err = DefaultDataDir()
 		if err != nil {
-			return Default(), err
+			return Config{}, err
 		}
 	}
 	return cfg, nil

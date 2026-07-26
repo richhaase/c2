@@ -72,7 +72,10 @@ func reportFixture(t *testing.T) (config.Config, paths.DataPaths, []models.Worko
 			}},
 		},
 	}
-	cfg := config.Default()
+	cfg, err := config.Default()
+	if err != nil {
+		t.Fatal(err)
+	}
 	cfg.Goal.TargetMeters = 1_000_000
 	cfg.Goal.StartDate = "2026-01-01"
 	cfg.Goal.EndDate = "2026-12-31"
@@ -169,7 +172,10 @@ func TestPayloadJSONFieldOrder(t *testing.T) {
 }
 
 func TestBuildWithoutCoachingContentUsesEmptyCollections(t *testing.T) {
-	cfg := config.Default()
+	cfg, err := config.Default()
+	if err != nil {
+		t.Fatal(err)
+	}
 	cfg.Goal.StartDate = "2026-01-01"
 	cfg.Goal.EndDate = "2026-12-31"
 	now := time.Date(2026, 7, 20, 12, 0, 0, 0, time.Local)

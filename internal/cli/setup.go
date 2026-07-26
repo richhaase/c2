@@ -163,9 +163,13 @@ func newSetupCmd(b build) *cobra.Command {
 
 			cfg, err := config.Load()
 			if err != nil {
+				defaults, defaultErr := config.Default()
+				if defaultErr != nil {
+					return defaultErr
+				}
 				fmt.Fprintf(errOut, "Warning: could not load existing config: %v\n", err)
 				fmt.Fprintln(errOut, "Starting from defaults.")
-				cfg = config.Default()
+				cfg = defaults
 			}
 
 			fmt.Fprintln(out, "Concept2 CLI Setup")
@@ -189,7 +193,9 @@ func newSetupCmd(b build) *cobra.Command {
 				fmt.Fprintf(out, "Invalid target %q, keeping previous value.\n", targetInput)
 			}
 
-			startInput, ok := p.value("Goal start date (YYYY-MM-DD)", cfg.Goal.StartDate, false)
+			previousStart := cfg.Goal.StartDate
+			previousEnd := cfg.Goal.EndDate
+			startInput, ok := p.value("Goal start date (YYYY-MM-DD)", previousStart, false)
 			if !ok {
 				return errReported
 			}
@@ -203,13 +209,22 @@ func newSetupCmd(b build) *cobra.Command {
 			if !ok {
 				return errReported
 			}
-			endDate, err := config.ParseGoalDate(endInput)
-			if err != nil {
+			if _, err := config.ParseGoalDate(endInput); err != nil {
 				fmt.Fprintf(out, "Invalid date \"%s\", keeping previous value.\n", endInput)
-			} else if startDate, err := config.ParseGoalDate(cfg.Goal.StartDate); err == nil && endDate.Before(startDate) {
-				fmt.Fprintf(out, "End date %q is before the start date, keeping previous value.\n", endInput)
 			} else {
 				cfg.Goal.EndDate = endInput
+			}
+			startDate, startErr := config.ParseGoalDate(cfg.Goal.StartDate)
+			endDate, endErr := config.ParseGoalDate(cfg.Goal.EndDate)
+			if startErr == nil && endErr == nil && endDate.Before(startDate) {
+				previousStartDate, previousStartErr := config.ParseGoalDate(previousStart)
+				previousEndDate, previousEndErr := config.ParseGoalDate(previousEnd)
+				if previousStartErr != nil || previousEndErr != nil || previousEndDate.Before(previousStartDate) {
+					return fmt.Errorf("Goal end date must not be before start date.")
+				}
+				fmt.Fprintln(out, "Goal end date is before the start date, keeping the previous date range.")
+				cfg.Goal.StartDate = previousStart
+				cfg.Goal.EndDate = previousEnd
 			}
 
 			dataDir, ok := chooseDataDir(cmd, p, cfg.DataDir)

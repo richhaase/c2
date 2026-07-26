@@ -70,7 +70,17 @@ func Run(
 	if err != nil {
 		return Result{}, err
 	}
-	result.Strokes, result.StrokeFailures, err = syncStrokes(ctx, client, p, allWorkouts)
+	strokeCursor := int64(0)
+	if meta != nil {
+		strokeCursor = meta.StrokeCursor
+	}
+	result.Strokes, result.StrokeFailures, strokeCursor, err = syncStrokes(
+		ctx,
+		client,
+		p,
+		allWorkouts,
+		strokeCursor,
+	)
 	if err != nil {
 		return Result{}, err
 	}
@@ -79,6 +89,7 @@ func Run(
 		SchemaVersion: new(storage.SchemaVersion),
 		Created:       startedAt.UTC().Format("2006-01-02T15:04:05.000Z07:00"),
 		LastSync:      syncTimestamp(startedAt),
+		StrokeCursor:  strokeCursor,
 	}
 	if meta != nil {
 		if meta.SchemaVersion != nil {
@@ -108,20 +119,30 @@ func syncStrokes(
 	client Client,
 	p paths.DataPaths,
 	workouts []models.Workout,
-) (int, []StrokeFailure, error) {
+	cursor int64,
+) (int, []StrokeFailure, int64, error) {
 	count := 0
 	var failures []StrokeFailure
-	for _, workout := range workouts {
+	start := 0
+	for i, workout := range workouts {
+		if workout.ID == cursor {
+			start = (i + 1) % len(workouts)
+			break
+		}
+	}
+	for offset := range len(workouts) {
+		workout := workouts[(start+offset)%len(workouts)]
 		if !workout.StrokeData {
 			continue
 		}
 		has, err := storage.HasStrokeData(p, workout.ID)
 		if err != nil {
-			return count, failures, err
+			return count, failures, cursor, err
 		}
 		if has {
 			continue
 		}
+		cursor = workout.ID
 		strokes, err := client.GetStrokes(ctx, workout.ID)
 		if err != nil {
 			failures = append(failures, StrokeFailure{WorkoutID: workout.ID, Err: err})
@@ -141,11 +162,11 @@ func syncStrokes(
 			continue
 		}
 		if err := storage.WriteStrokeData(p, workout.ID, strokes); err != nil {
-			return count, failures, err
+			return count, failures, cursor, err
 		}
 		count++
 	}
-	return count, failures, nil
+	return count, failures, cursor, nil
 }
 
 func syncTimestamp(t time.Time) string {

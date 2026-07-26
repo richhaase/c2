@@ -23,6 +23,7 @@ type StoreMeta struct {
 	SchemaVersion *int   `json:"schema_version"`
 	Created       string `json:"created"`
 	LastSync      string `json:"last_sync,omitempty"`
+	StrokeCursor  int64  `json:"stroke_cursor,omitempty"`
 }
 
 func IsMissing(err error) bool {
