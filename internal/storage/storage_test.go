@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/richhaase/c2/internal/models"
@@ -95,6 +96,56 @@ func TestAppendWorkoutsPreservesUnknownFields(t *testing.T) {
 	}
 	if got := string(data); got != line+"\n" {
 		t.Fatalf("stored line lost fields:\n got %s\nwant %s", got, line)
+	}
+}
+
+func TestUpsertWorkoutsAddsAndUpdatesByID(t *testing.T) {
+	p := tempPaths(t)
+	initial := []models.Workout{
+		{ID: 1, Date: "2026-01-01", Distance: 1000},
+		{ID: 2, Date: "2026-01-02", Distance: 2000},
+	}
+	if _, err := AppendWorkouts(p, initial); err != nil {
+		t.Fatal(err)
+	}
+	result, err := UpsertWorkouts(p, []models.Workout{
+		{ID: 2, Date: "2026-01-02", Distance: 2500},
+		{ID: 3, Date: "2026-01-03", Distance: 3000},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Added != 1 || result.Updated != 1 {
+		t.Fatalf("result = %#v", result)
+	}
+	workouts, err := ReadWorkouts(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(workouts) != 3 || workouts[1].Distance != 2500 || workouts[2].ID != 3 {
+		t.Fatalf("workouts = %#v", workouts)
+	}
+}
+
+func TestUpsertWorkoutsPreservesUnchangedRawRecords(t *testing.T) {
+	p := tempPaths(t)
+	raw := `{"id":1,"date":"2026-01-01","distance":1000,"future":"kept"}`
+	var workout models.Workout
+	if err := json.Unmarshal([]byte(raw), &workout); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := AppendWorkouts(p, []models.Workout{workout}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := UpsertWorkouts(p, []models.Workout{{ID: 2, Date: "2026-01-02", Distance: 2000}}); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(p.Workouts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(string(data), raw+"\n") {
+		t.Fatalf("data = %s", data)
 	}
 }
 
@@ -203,6 +254,35 @@ func TestReadStrokeDataSkipsNullAndNonObjectLines(t *testing.T) {
 	for i, s := range got {
 		if s.T == nil {
 			t.Fatalf("record %d has no t; a phantom stroke leaked through", i)
+		}
+	}
+}
+
+func TestHasStrokeDataRequiresACompleteValidFile(t *testing.T) {
+	p := tempPaths(t)
+	if err := os.MkdirAll(p.StrokesDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cases := []struct {
+		body string
+		want bool
+	}{
+		{"", false},
+		{"null\n", false},
+		{"{\"t\":1}\nnot-json\n", false},
+		{"{\"t\":1}\n{\"t\":2}\n", true},
+	}
+	for i, tc := range cases {
+		id := int64(i + 1)
+		if err := os.WriteFile(p.StrokeFile(id), []byte(tc.body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		got, err := HasStrokeData(p, id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got != tc.want {
+			t.Errorf("case %d = %v, want %v", i, got, tc.want)
 		}
 	}
 }

@@ -3,6 +3,7 @@ package stats
 import (
 	"encoding/json"
 	"math"
+	"strings"
 	"testing"
 	"time"
 
@@ -22,8 +23,12 @@ func makeWorkout(id int64, date string, distance int) models.Workout {
 	}
 }
 
-func makeGoalConfig() config.Config {
-	cfg := config.Default()
+func makeGoalConfig(t *testing.T) config.Config {
+	t.Helper()
+	cfg, err := config.Default()
+	if err != nil {
+		t.Fatal(err)
+	}
 	cfg.Goal.StartDate = "2026-01-01"
 	cfg.Goal.EndDate = "2026-12-31"
 	cfg.Goal.TargetMeters = 1_000_000
@@ -161,7 +166,7 @@ func TestBuildWeekSummariesReturnsEmptySummariesForNoWorkouts(t *testing.T) {
 }
 
 func TestComputeGoalProgressMidSeason(t *testing.T) {
-	cfg := makeGoalConfig()
+	cfg := makeGoalConfig(t)
 	workouts := []models.Workout{
 		makeWorkout(1, "2026-03-01 10:00:00", 100_000),
 		makeWorkout(2, "2026-02-01 10:00:00", 100_000),
@@ -185,7 +190,7 @@ func TestComputeGoalProgressMidSeason(t *testing.T) {
 }
 
 func TestComputeGoalProgressClampsRemainingMetersWhenGoalExceeded(t *testing.T) {
-	cfg := makeGoalConfig()
+	cfg := makeGoalConfig(t)
 	cfg.Goal.TargetMeters = 100_000
 	workouts := []models.Workout{makeWorkout(1, "2026-03-01 10:00:00", 150_000)}
 	goal := goalProgressAt(t, workouts, cfg, localDate(2026, time.March, 7, 0))
@@ -198,7 +203,7 @@ func TestComputeGoalProgressClampsRemainingMetersWhenGoalExceeded(t *testing.T) 
 }
 
 func TestComputeGoalProgressExcludesWorkoutsOutsideGoalDateRange(t *testing.T) {
-	cfg := makeGoalConfig()
+	cfg := makeGoalConfig(t)
 	workouts := []models.Workout{
 		makeWorkout(1, "2025-12-01 10:00:00", 50_000),
 		makeWorkout(2, "2026-03-01 10:00:00", 100_000),
@@ -210,8 +215,104 @@ func TestComputeGoalProgressExcludesWorkoutsOutsideGoalDateRange(t *testing.T) {
 	}
 }
 
+func TestComputeGoalProgressIncludesEntireEndDate(t *testing.T) {
+	cfg := makeGoalConfig(t)
+	cfg.Goal.StartDate = "2026-12-31"
+	cfg.Goal.EndDate = "2026-12-31"
+	workouts := []models.Workout{
+		makeWorkout(1, "2026-12-31 23:59:59", 10_000),
+		makeWorkout(2, "2027-01-01 00:00:00", 20_000),
+	}
+	goal := goalProgressAt(t, workouts, cfg, localDate(2026, time.December, 31, 12))
+	if goal.TotalMeters != 10_000 {
+		t.Fatalf("TotalMeters = %d, want 10000", goal.TotalMeters)
+	}
+	if goal.TotalWeeks != 1 {
+		t.Fatalf("TotalWeeks = %d, want 1", goal.TotalWeeks)
+	}
+}
+
+func TestComputeGoalProgressCompletesPartialFinalWeek(t *testing.T) {
+	tests := []struct {
+		name  string
+		start string
+		end   string
+		now   time.Time
+		weeks int
+	}{
+		{
+			name:  "one day",
+			start: "2026-12-31",
+			end:   "2026-12-31",
+			now:   localDate(2027, time.January, 1, 0),
+			weeks: 1,
+		},
+		{
+			name:  "calendar year",
+			start: "2026-01-01",
+			end:   "2026-12-31",
+			now:   localDate(2027, time.January, 1, 0),
+			weeks: 53,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			cfg := makeGoalConfig(t)
+			cfg.Goal.StartDate = test.start
+			cfg.Goal.EndDate = test.end
+			goal := goalProgressAt(t, nil, cfg, test.now)
+			if goal.TotalWeeks != test.weeks || goal.WeeksElapsed != test.weeks {
+				t.Fatalf("weeks = %d / %d, want %d / %d",
+					goal.WeeksElapsed, goal.TotalWeeks, test.weeks, test.weeks)
+			}
+		})
+	}
+}
+
+func TestComputeGoalProgressRejectsInvalidGoalBounds(t *testing.T) {
+	cfg := makeGoalConfig(t)
+	cfg.Goal.TargetMeters = 0
+	if _, err := ComputeGoalProgress(nil, cfg, projectNow); err == nil || !strings.Contains(err.Error(), "positive") {
+		t.Fatalf("target error = %v", err)
+	}
+
+	cfg = makeGoalConfig(t)
+	cfg.Goal.StartDate = "2026-12-31"
+	cfg.Goal.EndDate = "2026-01-01"
+	if _, err := ComputeGoalProgress(nil, cfg, projectNow); err == nil || !strings.Contains(err.Error(), "before") {
+		t.Fatalf("date error = %v", err)
+	}
+}
+
+func TestGoalCalendarMathIgnoresDSTHourChanges(t *testing.T) {
+	location, err := time.LoadLocation("America/Denver")
+	if err != nil {
+		t.Fatal(err)
+	}
+	oldLocal := time.Local
+	time.Local = location
+	t.Cleanup(func() {
+		time.Local = oldLocal
+	})
+
+	cfg := makeGoalConfig(t)
+	cfg.Goal.StartDate = "2026-03-02"
+	cfg.Goal.EndDate = "2026-03-29"
+	now := time.Date(2026, time.March, 9, 0, 0, 0, 0, location)
+	goal := goalProgressAt(t, nil, cfg, now)
+	if goal.WeeksElapsed != 1 {
+		t.Fatalf("WeeksElapsed = %d, want 1", goal.WeeksElapsed)
+	}
+
+	end := time.Date(2026, time.March, 16, 0, 0, 0, 0, location)
+	projection := ProjectGoal(goalFixture(), end, now)
+	if projection.RemainingWeeks != 1 {
+		t.Fatalf("RemainingWeeks = %v, want 1", projection.RemainingWeeks)
+	}
+}
+
 func TestComputeGoalProgressBeforeStartDate(t *testing.T) {
-	cfg := makeGoalConfig()
+	cfg := makeGoalConfig(t)
 	cfg.Goal.StartDate = "2026-06-01"
 	goal := goalProgressAt(t, nil, cfg, localDate(2026, time.March, 7, 0))
 	if goal.WeeksElapsed != 0 {
@@ -223,7 +324,7 @@ func TestComputeGoalProgressBeforeStartDate(t *testing.T) {
 }
 
 func TestComputeGoalProgressCurrentAvgPaceUsesRecentFourWeekWindow(t *testing.T) {
-	cfg := makeGoalConfig()
+	cfg := makeGoalConfig(t)
 	workouts := []models.Workout{
 		makeWorkout(1, "2026-01-05 10:00:00", 5_000),
 		makeWorkout(2, "2026-01-12 10:00:00", 8_000),
@@ -240,7 +341,7 @@ func TestComputeGoalProgressCurrentAvgPaceUsesRecentFourWeekWindow(t *testing.T)
 }
 
 func TestComputeGoalProgressCurrentAvgPaceIgnoresWorkoutsBeforeWindow(t *testing.T) {
-	cfg := makeGoalConfig()
+	cfg := makeGoalConfig(t)
 	workouts := []models.Workout{
 		makeWorkout(1, "2026-01-05 10:00:00", 100_000),
 		makeWorkout(2, "2026-03-23 10:00:00", 15_000),
@@ -253,7 +354,7 @@ func TestComputeGoalProgressCurrentAvgPaceIgnoresWorkoutsBeforeWindow(t *testing
 }
 
 func TestComputeGoalProgressCurrentAvgPaceExcludesCurrentWeek(t *testing.T) {
-	cfg := makeGoalConfig()
+	cfg := makeGoalConfig(t)
 	workouts := []models.Workout{
 		makeWorkout(1, "2026-04-06 10:00:00", 20_000),
 		makeWorkout(2, "2026-04-13 06:55:00", 5_500),
@@ -304,7 +405,7 @@ func daysAfterNow(n float64) time.Time {
 }
 
 func TestProjectGoalProjectsOverActualRemainingTime(t *testing.T) {
-	active := ProjectGoal(goalFixture(), daysAfterNow(26*7), projectNow)
+	active := ProjectGoalByElapsedTime(goalFixture(), daysAfterNow(26*7), projectNow)
 	if want := 900_000 + 26*20_000; active.ProjectedTotalMeters != want {
 		t.Errorf("ProjectedTotalMeters = %d, want %d", active.ProjectedTotalMeters, want)
 	}
@@ -317,7 +418,7 @@ func TestProjectGoalAddsNothingAfterGoalWindowEnds(t *testing.T) {
 	goal := goalFixture()
 	goal.WeeksElapsed = 60
 	goal.RemainingWeeks = 1
-	expired := ProjectGoal(goal, daysAfterNow(-2), projectNow)
+	expired := ProjectGoalByElapsedTime(goal, daysAfterNow(-2), projectNow)
 	if expired.ProjectedTotalMeters != 900_000 {
 		t.Errorf("ProjectedTotalMeters = %d, want 900000", expired.ProjectedTotalMeters)
 	}
@@ -330,7 +431,7 @@ func TestProjectGoalAddsNothingAfterGoalWindowEnds(t *testing.T) {
 }
 
 func TestProjectGoalHandlesFractionalFinalWeeks(t *testing.T) {
-	halfWeek := ProjectGoal(goalFixture(), daysAfterNow(3.5), projectNow)
+	halfWeek := ProjectGoalByElapsedTime(goalFixture(), daysAfterNow(3.5), projectNow)
 	if want := 900_000 + 10_000; halfWeek.ProjectedTotalMeters != want {
 		t.Errorf("ProjectedTotalMeters = %d, want %d", halfWeek.ProjectedTotalMeters, want)
 	}
@@ -390,7 +491,7 @@ func TestGoalProgressJSONUsesCamelCaseKeys(t *testing.T) {
 }
 
 func TestGoalProjectionJSONKeys(t *testing.T) {
-	out, err := json.Marshal(ProjectGoal(goalFixture(), daysAfterNow(26*7), projectNow))
+	out, err := json.Marshal(ProjectGoalByElapsedTime(goalFixture(), daysAfterNow(26*7), projectNow))
 	if err != nil {
 		t.Fatalf("Marshal: %v", err)
 	}

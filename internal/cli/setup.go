@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -15,22 +16,36 @@ import (
 	"github.com/richhaase/c2/internal/display"
 	"github.com/richhaase/c2/internal/paths"
 	"github.com/richhaase/c2/internal/store"
+	"github.com/richhaase/c2/internal/terminal"
 )
 
 type prompter struct {
-	in  *bufio.Scanner
-	out io.Writer
+	in     *bufio.Scanner
+	reader io.Reader
+	out    io.Writer
 }
 
 func newPrompter(cmd *cobra.Command) *prompter {
+	reader := cmd.InOrStdin()
 	return &prompter{
-		in:  bufio.NewScanner(cmd.InOrStdin()),
-		out: cmd.OutOrStdout(),
+		in:     bufio.NewScanner(reader),
+		reader: reader,
+		out:    cmd.OutOrStdout(),
 	}
 }
 
-func (p *prompter) line(label string) (string, bool) {
+func (p *prompter) line(label string, hidden bool) (string, bool) {
 	fmt.Fprintf(p.out, "%s ", label)
+	if hidden {
+		if file, ok := p.reader.(*os.File); ok && terminal.IsTerminal(int(file.Fd())) {
+			value, err := terminal.ReadPassword(int(file.Fd()))
+			fmt.Fprintln(p.out)
+			if err != nil {
+				return "", false
+			}
+			return strings.TrimSpace(value), true
+		}
+	}
 	if !p.in.Scan() {
 		return "", false
 	}
@@ -53,7 +68,7 @@ func (p *prompter) value(label, current string, mask bool) (string, bool) {
 		}
 		hint = " [" + shown + "]"
 	}
-	input, ok := p.line(label + hint + ":")
+	input, ok := p.line(label+hint+":", mask)
 	if !ok {
 		return current, false
 	}
@@ -68,7 +83,7 @@ func (p *prompter) confirm(question string, defaultYes bool) (bool, bool) {
 	if defaultYes {
 		suffix = "[Y/n]"
 	}
-	input, ok := p.line(question + " " + suffix)
+	input, ok := p.line(question+" "+suffix, false)
 	if !ok {
 		return defaultYes, false
 	}
@@ -148,9 +163,13 @@ func newSetupCmd(b build) *cobra.Command {
 
 			cfg, err := config.Load()
 			if err != nil {
+				defaults, defaultErr := config.Default()
+				if defaultErr != nil {
+					return defaultErr
+				}
 				fmt.Fprintf(errOut, "Warning: could not load existing config: %v\n", err)
 				fmt.Fprintln(errOut, "Starting from defaults.")
-				cfg = config.Default()
+				cfg = defaults
 			}
 
 			fmt.Fprintln(out, "Concept2 CLI Setup")
@@ -170,9 +189,13 @@ func newSetupCmd(b build) *cobra.Command {
 			}
 			if parsed, err := strconv.Atoi(strings.ReplaceAll(targetInput, ",", "")); err == nil && parsed > 0 {
 				cfg.Goal.TargetMeters = parsed
+			} else {
+				fmt.Fprintf(out, "Invalid target %q, keeping previous value.\n", targetInput)
 			}
 
-			startInput, ok := p.value("Goal start date (YYYY-MM-DD)", cfg.Goal.StartDate, false)
+			previousStart := cfg.Goal.StartDate
+			previousEnd := cfg.Goal.EndDate
+			startInput, ok := p.value("Goal start date (YYYY-MM-DD)", previousStart, false)
 			if !ok {
 				return errReported
 			}
@@ -191,6 +214,18 @@ func newSetupCmd(b build) *cobra.Command {
 			} else {
 				cfg.Goal.EndDate = endInput
 			}
+			startDate, startErr := config.ParseGoalDate(cfg.Goal.StartDate)
+			endDate, endErr := config.ParseGoalDate(cfg.Goal.EndDate)
+			if startErr == nil && endErr == nil && endDate.Before(startDate) {
+				previousStartDate, previousStartErr := config.ParseGoalDate(previousStart)
+				previousEndDate, previousEndErr := config.ParseGoalDate(previousEnd)
+				if previousStartErr != nil || previousEndErr != nil || previousEndDate.Before(previousStartDate) {
+					return fmt.Errorf("Goal end date must not be before start date.")
+				}
+				fmt.Fprintln(out, "Goal end date is before the start date, keeping the previous date range.")
+				cfg.Goal.StartDate = previousStart
+				cfg.Goal.EndDate = previousEnd
+			}
 
 			dataDir, ok := chooseDataDir(cmd, p, cfg.DataDir)
 			if !ok {
@@ -201,8 +236,12 @@ func newSetupCmd(b build) *cobra.Command {
 			if err := config.Save(cfg); err != nil {
 				return err
 			}
+			configPath, err := config.File()
+			if err != nil {
+				return err
+			}
 			fmt.Fprintln(out)
-			fmt.Fprintf(out, "Config written to %s (mode 600)\n", config.File())
+			fmt.Fprintf(out, "Config written to %s (mode 600)\n", configPath)
 			fmt.Fprintf(out, "Data directory: %s\n", paths.For(cfg.DataDir).Root)
 
 			if cfg.Goal.StartDate == "" || cfg.Goal.EndDate == "" {
@@ -212,7 +251,12 @@ func newSetupCmd(b build) *cobra.Command {
 
 			if cfg.API.Token != "" {
 				fmt.Fprintln(out, "Verifying token...")
-				user, err := api.FromConfig(cfg, b.version).GetUser(cmd.Context())
+				client, err := api.FromConfig(cfg, b.version)
+				if err != nil {
+					fmt.Fprintf(errOut, "Warning: could not verify token: %v\n", err)
+					return nil
+				}
+				user, err := client.GetUser(cmd.Context())
 				if err != nil {
 					fmt.Fprintf(errOut, "Warning: could not verify token: %v\n", err)
 				} else {

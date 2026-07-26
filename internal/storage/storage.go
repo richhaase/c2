@@ -11,6 +11,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/richhaase/c2/internal/atomicfile"
 	"github.com/richhaase/c2/internal/jsonx"
 	"github.com/richhaase/c2/internal/models"
 	"github.com/richhaase/c2/internal/paths"
@@ -22,6 +23,7 @@ type StoreMeta struct {
 	SchemaVersion *int   `json:"schema_version"`
 	Created       string `json:"created"`
 	LastSync      string `json:"last_sync,omitempty"`
+	StrokeCursor  int64  `json:"stroke_cursor,omitempty"`
 }
 
 func IsMissing(err error) bool {
@@ -102,6 +104,87 @@ func AppendWorkouts(p paths.DataPaths, incoming []models.Workout) (int, error) {
 	return written, nil
 }
 
+type UpsertResult struct {
+	Added   int
+	Updated int
+}
+
+func UpsertWorkouts(p paths.DataPaths, incoming []models.Workout) (UpsertResult, error) {
+	existing, err := ReadWorkouts(p)
+	if err != nil {
+		return UpsertResult{}, err
+	}
+	originalLen := len(existing)
+	indexByID := make(map[int64]int, len(existing)+len(incoming))
+	encoded := make([][]byte, len(existing))
+	for i, w := range existing {
+		indexByID[w.ID] = i
+		line, err := jsonx.Compact(w)
+		if err != nil {
+			return UpsertResult{}, err
+		}
+		encoded[i] = line
+	}
+
+	addedIDs := make(map[int64]bool)
+	updatedIDs := make(map[int64]bool)
+	for _, w := range incoming {
+		line, err := jsonx.Compact(w)
+		if err != nil {
+			return UpsertResult{}, err
+		}
+		if index, ok := indexByID[w.ID]; ok {
+			if bytes.Equal(encoded[index], line) {
+				continue
+			}
+			existing[index] = w
+			encoded[index] = line
+			if !addedIDs[w.ID] {
+				updatedIDs[w.ID] = true
+			}
+			continue
+		}
+		indexByID[w.ID] = len(existing)
+		existing = append(existing, w)
+		encoded = append(encoded, line)
+		addedIDs[w.ID] = true
+	}
+
+	result := UpsertResult{Added: len(addedIDs), Updated: len(updatedIDs)}
+	if result.Added == 0 && result.Updated == 0 {
+		return result, nil
+	}
+	if result.Updated == 0 {
+		var buf bytes.Buffer
+		for _, line := range encoded[originalLen:] {
+			buf.Write(line)
+			buf.WriteByte('\n')
+		}
+		file, err := os.OpenFile(p.Workouts, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+		if err != nil {
+			return UpsertResult{}, err
+		}
+		if _, err := file.Write(buf.Bytes()); err != nil {
+			_ = file.Close()
+			return UpsertResult{}, err
+		}
+		if err := file.Close(); err != nil {
+			return UpsertResult{}, err
+		}
+		return result, nil
+	}
+
+	var buf bytes.Buffer
+	for _, line := range encoded {
+		buf.Write(line)
+		buf.WriteByte('\n')
+	}
+	if err := atomicfile.Write(p.Workouts, buf.Bytes(), 0o644); err != nil {
+		return UpsertResult{}, err
+	}
+	return result, nil
+}
+
 func WorkoutCount(p paths.DataPaths) (int, error) {
 	f, err := os.Open(p.Workouts)
 	if err != nil {
@@ -123,14 +206,21 @@ func WorkoutCount(p paths.DataPaths) (int, error) {
 }
 
 func HasStrokeData(p paths.DataPaths, workoutID int64) (bool, error) {
-	_, err := os.Stat(p.StrokeFile(workoutID))
+	data, err := os.ReadFile(p.StrokeFile(workoutID))
 	if err != nil {
 		if IsMissing(err) {
 			return false, nil
 		}
 		return false, err
 	}
-	return true, nil
+	found := false
+	for _, line := range nonEmptyLines(data) {
+		if _, ok := parseStroke(line); !ok {
+			return false, nil
+		}
+		found = true
+	}
+	return found, nil
 }
 
 func WriteStrokeData(p paths.DataPaths, workoutID int64, strokes []models.StrokeData) error {
@@ -143,7 +233,7 @@ func WriteStrokeData(p paths.DataPaths, workoutID int64, strokes []models.Stroke
 		buf.Write(line)
 		buf.WriteByte('\n')
 	}
-	return os.WriteFile(p.StrokeFile(workoutID), buf.Bytes(), 0o644)
+	return atomicfile.Write(p.StrokeFile(workoutID), buf.Bytes(), 0o644)
 }
 
 func ReadStrokeData(p paths.DataPaths, workoutID int64) ([]models.StrokeData, error) {
@@ -156,17 +246,25 @@ func ReadStrokeData(p paths.DataPaths, workoutID int64) ([]models.StrokeData, er
 	}
 	var strokes []models.StrokeData
 	for _, line := range nonEmptyLines(data) {
-		var probe map[string]any
-		if err := json.Unmarshal(line, &probe); err != nil || probe == nil {
-			continue
-		}
-		var s models.StrokeData
-		if err := json.Unmarshal(line, &s); err != nil {
+		s, ok := parseStroke(line)
+		if !ok {
 			continue
 		}
 		strokes = append(strokes, s)
 	}
 	return strokes, nil
+}
+
+func parseStroke(line []byte) (models.StrokeData, bool) {
+	trimmed := bytes.TrimSpace(line)
+	if len(trimmed) < 2 || trimmed[0] != '{' || trimmed[len(trimmed)-1] != '}' {
+		return models.StrokeData{}, false
+	}
+	var stroke models.StrokeData
+	if err := json.Unmarshal(trimmed, &stroke); err != nil {
+		return models.StrokeData{}, false
+	}
+	return stroke, true
 }
 
 func ReadMeta(p paths.DataPaths, warn func(string)) *StoreMeta {
@@ -192,5 +290,5 @@ func WriteMeta(p paths.DataPaths, meta StoreMeta) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(p.Meta, append(data, '\n'), 0o644)
+	return atomicfile.Write(p.Meta, append(data, '\n'), 0o644)
 }

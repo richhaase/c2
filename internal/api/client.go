@@ -7,41 +7,64 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/richhaase/c2/internal/config"
 	"github.com/richhaase/c2/internal/models"
 )
 
-const requestTimeout = 30 * time.Second
+const (
+	requestTimeout = 30 * time.Second
+	acceptType     = "application/vnd.c2logbook.v1+json"
+)
+
+type doer interface {
+	Do(*http.Request) (*http.Response, error)
+}
 
 type Client struct {
-	baseURL   string
+	baseURL   *url.URL
 	token     string
 	userAgent string
-	http      *http.Client
+	http      doer
 }
 
-func New(baseURL, token, version string) *Client {
+func New(baseURL, token, version string) (*Client, error) {
+	return newClient(baseURL, token, version, &http.Client{Timeout: requestTimeout})
+}
+
+func newClient(baseURL, token, version string, httpClient doer) (*Client, error) {
+	parsed, err := url.Parse(baseURL)
+	if err != nil {
+		return nil, fmt.Errorf("Invalid Concept2 API URL: %w", err)
+	}
+	if parsed.Scheme != "https" || parsed.Host == "" || parsed.User != nil ||
+		(parsed.Path != "" && parsed.Path != "/") || parsed.RawQuery != "" || parsed.Fragment != "" {
+		return nil, fmt.Errorf("Concept2 API URL must be an HTTPS origin.")
+	}
+	parsed.Path = strings.TrimRight(parsed.Path, "/")
 	return &Client{
-		baseURL:   baseURL,
+		baseURL:   parsed,
 		token:     token,
 		userAgent: "c2/" + version,
-		http:      &http.Client{Timeout: requestTimeout},
-	}
+		http:      httpClient,
+	}, nil
 }
 
-func FromConfig(cfg config.Config, version string) *Client {
+func FromConfig(cfg config.Config, version string) (*Client, error) {
 	return New(cfg.API.BaseURL, cfg.API.Token, version)
 }
 
-func (c *Client) get(ctx context.Context, path string, out any) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+path, nil)
+func (c *Client) get(ctx context.Context, path string, query url.Values, out any) error {
+	endpoint := c.baseURL.ResolveReference(&url.URL{Path: path, RawQuery: query.Encode()})
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint.String(), nil)
 	if err != nil {
 		return err
 	}
 	req.Header.Set("Authorization", "Bearer "+c.token)
 	req.Header.Set("User-Agent", c.userAgent)
+	req.Header.Set("Accept", acceptType)
 
 	resp, err := c.http.Do(req)
 	if err != nil {
@@ -57,32 +80,41 @@ func (c *Client) get(ctx context.Context, path string, out any) error {
 
 func (c *Client) GetUser(ctx context.Context) (models.UserProfile, error) {
 	var resp models.UserResponse
-	if err := c.get(ctx, "/api/users/me", &resp); err != nil {
+	if err := c.get(ctx, "/api/users/me", nil, &resp); err != nil {
 		return models.UserProfile{}, err
 	}
 	return resp.Data, nil
 }
 
-func (c *Client) GetResults(ctx context.Context, from, to string, page int) (models.ResultsResponse, error) {
+type ResultsFilter struct {
+	From         string
+	To           string
+	UpdatedAfter string
+}
+
+func (c *Client) GetResults(ctx context.Context, filter ResultsFilter, page int) (models.ResultsResponse, error) {
 	params := url.Values{}
 	params.Set("type", "rower")
 	params.Set("page", strconv.Itoa(page))
-	if from != "" {
-		params.Set("from", from)
+	if filter.From != "" {
+		params.Set("from", filter.From)
 	}
-	if to != "" {
-		params.Set("to", to)
+	if filter.To != "" {
+		params.Set("to", filter.To)
+	}
+	if filter.UpdatedAfter != "" {
+		params.Set("updated_after", filter.UpdatedAfter)
 	}
 	var resp models.ResultsResponse
-	err := c.get(ctx, "/api/users/me/results?"+params.Encode(), &resp)
+	err := c.get(ctx, "/api/users/me/results", params, &resp)
 	return resp, err
 }
 
-func (c *Client) GetAllResults(ctx context.Context, from, to string) ([]models.Workout, error) {
+func (c *Client) GetAllResults(ctx context.Context, filter ResultsFilter) ([]models.Workout, error) {
 	var all []models.Workout
 	page := 1
 	for {
-		resp, err := c.GetResults(ctx, from, to, page)
+		resp, err := c.GetResults(ctx, filter, page)
 		if err != nil {
 			return nil, err
 		}
@@ -101,7 +133,7 @@ func (c *Client) GetAllResults(ctx context.Context, from, to string) ([]models.W
 func (c *Client) GetStrokes(ctx context.Context, workoutID int64) ([]models.StrokeData, error) {
 	var resp models.StrokeDataResponse
 	path := fmt.Sprintf("/api/users/me/results/%d/strokes", workoutID)
-	if err := c.get(ctx, path, &resp); err != nil {
+	if err := c.get(ctx, path, nil, &resp); err != nil {
 		return nil, err
 	}
 	return resp.Data, nil

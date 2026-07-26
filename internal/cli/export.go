@@ -1,18 +1,17 @@
 package cli
 
 import (
+	"encoding/csv"
 	"fmt"
 	"slices"
 	"sort"
 	"strconv"
-	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/richhaase/c2/internal/envelope"
 	"github.com/richhaase/c2/internal/jsonx"
 	"github.com/richhaase/c2/internal/models"
-	"github.com/richhaase/c2/internal/storage"
 )
 
 var csvHeader = []string{
@@ -39,13 +38,6 @@ var csvHeader = []string{
 type exportPayload struct {
 	Count    int              `json:"count"`
 	Workouts []models.Workout `json:"workouts"`
-}
-
-func escapeCSV(s string) string {
-	if strings.ContainsAny(s, ",\"\n") {
-		return `"` + strings.ReplaceAll(s, `"`, `""`) + `"`
-	}
-	return s
 }
 
 func intOrEmpty(v *int) string {
@@ -87,8 +79,21 @@ func buildCSVRow(w models.Workout) []string {
 		intOrEmpty(w.RestTime),
 		intOrEmpty(w.RestDistance),
 		w.Type,
-		escapeCSV(w.Comments),
+		w.Comments,
 	}
+}
+
+func writeCSV(out *csv.Writer, workouts []models.Workout) error {
+	if err := out.Write(csvHeader); err != nil {
+		return err
+	}
+	for _, workout := range workouts {
+		if err := out.Write(buildCSVRow(workout)); err != nil {
+			return err
+		}
+	}
+	out.Flush()
+	return out.Error()
 }
 
 func newExportCmd() *cobra.Command {
@@ -113,11 +118,7 @@ func newExportCmd() *cobra.Command {
 				return reportf(cmd, "Unsupported format %q: must be csv, json, or jsonl", format)
 			}
 
-			_, p, err := loadStore()
-			if err != nil {
-				return err
-			}
-			workouts, err := storage.ReadWorkouts(p)
+			_, _, workouts, err := loadWorkouts(cmd)
 			if err != nil {
 				return err
 			}
@@ -136,10 +137,7 @@ func newExportCmd() *cobra.Command {
 			out := cmd.OutOrStdout()
 			switch format {
 			case "csv":
-				fmt.Fprintln(out, strings.Join(csvHeader, ","))
-				for _, w := range workouts {
-					fmt.Fprintln(out, strings.Join(buildCSVRow(w), ","))
-				}
+				return writeCSV(csv.NewWriter(out), workouts)
 			case "json":
 				if workouts == nil {
 					workouts = []models.Workout{}

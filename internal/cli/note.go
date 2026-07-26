@@ -163,6 +163,10 @@ func newNoteAddCmd() *cobra.Command {
 			if date == "" {
 				date = notes.LocalISO(now)
 			}
+			id, err := notes.ULID(now)
+			if err != nil {
+				return err
+			}
 
 			var tagList []string
 			if tags != "" {
@@ -174,7 +178,7 @@ func newNoteAddCmd() *cobra.Command {
 			}
 
 			record := notes.Record{
-				ID:        notes.ULID(now),
+				ID:        id,
 				Date:      date,
 				Type:      noteType,
 				WorkoutID: workoutID,
@@ -235,7 +239,11 @@ func newNoteListCmd() *cobra.Command {
 			if err := store.RejectForeign(p, warner(cmd)); err != nil {
 				return reportf(cmd, "%v", err)
 			}
-			matched := notes.Apply(notes.ReadAll(p), notes.Filter{
+			allNotes, err := notes.ReadAll(p)
+			if err != nil {
+				return err
+			}
+			matched := notes.Apply(allNotes, notes.Filter{
 				Type:      noteType,
 				Since:     since,
 				WorkoutID: workoutID,
@@ -289,8 +297,12 @@ func newNoteShowCmd() *cobra.Command {
 			if err := store.RejectForeign(p, warner(cmd)); err != nil {
 				return reportf(cmd, "%v", err)
 			}
+			allNotes, err := notes.ReadAll(p)
+			if err != nil {
+				return err
+			}
 			var match *notes.Record
-			for _, n := range notes.ReadAll(p) {
+			for _, n := range allNotes {
 				if n.ID == args[0] {
 					match = &n
 					break

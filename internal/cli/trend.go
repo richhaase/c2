@@ -10,7 +10,6 @@ import (
 	"github.com/richhaase/c2/internal/display"
 	"github.com/richhaase/c2/internal/envelope"
 	"github.com/richhaase/c2/internal/stats"
-	"github.com/richhaase/c2/internal/storage"
 )
 
 func shortWeek(t time.Time) string {
@@ -114,15 +113,11 @@ func newTrendCmd() *cobra.Command {
 		Short: "Show training trends over time",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			_, p, err := loadStore()
+			_, _, workouts, err := loadWorkouts(cmd)
 			if err != nil {
 				return err
 			}
-			workouts, err := storage.ReadWorkouts(p)
-			if err != nil {
-				return err
-			}
-			weeks, err := positiveInt(cmd, weeksFlag, "Error: --weeks must be a positive integer.")
+			weeks, err := weekCount(cmd, weeksFlag)
 			if err != nil {
 				return err
 			}

@@ -3,7 +3,9 @@ package notes
 import (
 	"bytes"
 	"crypto/rand"
+	"encoding/base32"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -13,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/richhaase/c2/internal/atomicfile"
 	"github.com/richhaase/c2/internal/jsonx"
 	"github.com/richhaase/c2/internal/models"
 	"github.com/richhaase/c2/internal/paths"
@@ -26,6 +29,8 @@ const compactAgeDays = 7
 
 const crockford = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 
+var crockfordEncoding = base32.NewEncoding(crockford).WithPadding(base32.NoPadding)
+
 type Record struct {
 	ID        string   `json:"id"`
 	Date      string   `json:"date"`
@@ -36,32 +41,33 @@ type Record struct {
 	Author    string   `json:"author"`
 }
 
-func ULID(now time.Time) string {
+func ULID(now time.Time) (string, error) {
 	ms := now.UnixMilli()
+	if ms < 0 || ms >= 1<<48 {
+		return "", fmt.Errorf("note timestamp is outside the ULID range")
+	}
 	timePart := make([]byte, 10)
 	for i := 9; i >= 0; i-- {
 		timePart[i] = crockford[ms%32]
 		ms /= 32
 	}
-	raw := make([]byte, 16)
-	rand.Read(raw)
-	randPart := make([]byte, 16)
-	for i, b := range raw {
-		randPart[i] = crockford[int(b)%32]
+	entropy := make([]byte, 10)
+	if _, err := rand.Read(entropy); err != nil {
+		return "", err
 	}
-	return string(timePart) + string(randPart)
+	return string(timePart) + crockfordEncoding.EncodeToString(entropy), nil
 }
 
 func LocalISO(t time.Time) string {
 	return t.Format("2006-01-02T15:04:05-07:00")
 }
 
-func Serialize(n Record) string {
+func Serialize(n Record) (string, error) {
 	out, err := jsonx.Compact(n)
 	if err != nil {
-		return ""
+		return "", err
 	}
-	return string(out)
+	return string(out), nil
 }
 
 var dateShapePattern = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}T.*(?:Z|[+-]\d{2}:\d{2})$`)
@@ -127,7 +133,11 @@ func Write(p paths.DataPaths, n Record) error {
 	if err := os.MkdirAll(p.NotesDir, 0o755); err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(p.NotesDir, n.ID+".json"), []byte(Serialize(n)+"\n"), 0o644)
+	serialized, err := Serialize(n)
+	if err != nil {
+		return err
+	}
+	return atomicfile.Write(filepath.Join(p.NotesDir, n.ID+".json"), []byte(serialized+"\n"), 0o644)
 }
 
 type looseEntry struct {
@@ -135,10 +145,13 @@ type looseEntry struct {
 	file string
 }
 
-func readLooseEntries(p paths.DataPaths) []looseEntry {
+func readLooseEntries(p paths.DataPaths) ([]looseEntry, error) {
 	files, err := os.ReadDir(p.NotesDir)
 	if err != nil {
-		return nil
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
 	}
 	names := make([]string, 0, len(files))
 	for _, f := range files {
@@ -152,20 +165,23 @@ func readLooseEntries(p paths.DataPaths) []looseEntry {
 	for _, name := range names {
 		data, err := os.ReadFile(filepath.Join(p.NotesDir, name))
 		if err != nil {
-			continue
+			return nil, err
 		}
 		if n, ok := Parse(data); ok {
 			entries = append(entries, looseEntry{note: n, file: name})
 		}
 	}
-	return entries
+	return entries, nil
 }
 
-func readArchived(p paths.DataPaths) map[string]Record {
+func readArchived(p paths.DataPaths) (map[string]Record, error) {
 	out := map[string]Record{}
 	files, err := os.ReadDir(p.ArchiveDir)
 	if err != nil {
-		return out
+		if os.IsNotExist(err) {
+			return out, nil
+		}
+		return nil, err
 	}
 	for _, f := range files {
 		if !strings.HasSuffix(f.Name(), ".jsonl") {
@@ -173,7 +189,7 @@ func readArchived(p paths.DataPaths) map[string]Record {
 		}
 		data, err := os.ReadFile(filepath.Join(p.ArchiveDir, f.Name()))
 		if err != nil {
-			continue
+			return nil, err
 		}
 		for line := range bytes.SplitSeq(data, []byte("\n")) {
 			if len(bytes.TrimSpace(line)) == 0 {
@@ -186,12 +202,19 @@ func readArchived(p paths.DataPaths) map[string]Record {
 			}
 		}
 	}
-	return out
+	return out, nil
 }
 
-func ReadAll(p paths.DataPaths) []Record {
-	merged := readArchived(p)
-	for _, e := range readLooseEntries(p) {
+func ReadAll(p paths.DataPaths) ([]Record, error) {
+	merged, err := readArchived(p)
+	if err != nil {
+		return nil, err
+	}
+	loose, err := readLooseEntries(p)
+	if err != nil {
+		return nil, err
+	}
+	for _, e := range loose {
 		merged[e.note.ID] = e.note
 	}
 	out := make([]Record, 0, len(merged))
@@ -199,7 +222,7 @@ func ReadAll(p paths.DataPaths) []Record {
 		out = append(out, n)
 	}
 	slices.SortFunc(out, Compare)
-	return out
+	return out, nil
 }
 
 type Filter struct {
@@ -263,12 +286,18 @@ type CompactResult struct {
 func Compact(p paths.DataPaths, now time.Time) (CompactResult, error) {
 	cutoff := now.AddDate(0, 0, -compactAgeDays)
 
-	entries := readLooseEntries(p)
+	entries, err := readLooseEntries(p)
+	if err != nil {
+		return CompactResult{}, err
+	}
 	deduped := map[string]Record{}
 	contentByID := map[string]string{}
 	divergent := map[string]bool{}
 	for _, e := range entries {
-		content := Serialize(e.note)
+		content, err := Serialize(e.note)
+		if err != nil {
+			return CompactResult{}, err
+		}
 		if prior, ok := contentByID[e.note.ID]; ok && prior != content {
 			divergent[e.note.ID] = true
 		}
@@ -333,10 +362,14 @@ func Compact(p paths.DataPaths, now time.Time) (CompactResult, error) {
 
 		var buf bytes.Buffer
 		for _, n := range combined {
-			buf.WriteString(Serialize(n))
+			serialized, err := Serialize(n)
+			if err != nil {
+				return CompactResult{}, err
+			}
+			buf.WriteString(serialized)
 			buf.WriteByte('\n')
 		}
-		if err := os.WriteFile(p.ArchiveFile(year), buf.Bytes(), 0o644); err != nil {
+		if err := atomicfile.Write(p.ArchiveFile(year), buf.Bytes(), 0o644); err != nil {
 			result.SkippedYears = append(result.SkippedYears, year)
 			continue
 		}
