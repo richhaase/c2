@@ -64,12 +64,12 @@ func BuildOverview(cfg config.Config, p paths.DataPaths, workouts []models.Worko
 		return Overview{}, err
 	}
 	summaries := stats.BuildWeekSummaries(workouts, end.Add(-time.Nanosecond), weeks)
-	base := buildReportPayload(workouts, windowed, weeks, stats.GoalProgress{}, stats.GoalProjection{}, summaries, coaching)
+	activity := buildActivityData(workouts, windowed, summaries)
 	o := Overview{
 		Period:    ActivityPeriod{From: cutoff.Format("2006-01-02"), To: now.Format("2006-01-02"), Weeks: weeks, Timezone: loc.String()},
-		Summary:   ActivitySummary{Workouts: len(windowed), TrainingDays: stats.SessionCount(windowed), AveragePace: base.Summary.AvgPace500mSeconds, AverageHR: base.Summary.AvgHR},
+		Summary:   ActivitySummary{Workouts: len(windowed), TrainingDays: activity.summary.Sessions, AveragePace: activity.summary.AvgPace500mSeconds, AverageHR: activity.summary.AvgHR},
 		Freshness: Freshness{GeneratedAt: now.Format(time.RFC3339)},
-		Goals:     goals.EvaluateAll(items, workouts, now), Weekly: base.Weekly, RecentWorkouts: base.RecentWorkouts, LatestSplits: base.LatestSplits, Narrative: base.Narrative, Notes: base.Notes, PlanExcerpt: base.PlanExcerpt,
+		Goals:     goals.EvaluateAll(items, workouts, now), Weekly: activity.weekly, RecentWorkouts: activity.recentWorkouts, LatestSplits: activity.latestSplits, Narrative: coaching.narrative, Notes: coaching.notes, PlanExcerpt: coaching.planExcerpt,
 	}
 	for _, w := range windowed {
 		o.Summary.Meters += w.Distance

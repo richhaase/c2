@@ -15,8 +15,6 @@ import (
 	"github.com/richhaase/c2/internal/goals"
 	"github.com/richhaase/c2/internal/paths"
 	"github.com/richhaase/c2/internal/report"
-	"github.com/richhaase/c2/internal/storage"
-	"github.com/richhaase/c2/internal/store"
 )
 
 func openReport(cmd *cobra.Command, path string) {
@@ -50,14 +48,7 @@ func newReportCmd() *cobra.Command {
 		Short: "Generate HTML progress report and open in browser",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, p, err := loadStore()
-			if err != nil {
-				return err
-			}
-			if err := store.RejectForeign(p, warner(cmd)); err != nil {
-				return reportf(cmd, "%v", err)
-			}
-			workouts, err := storage.ReadWorkouts(p)
+			cfg, p, workouts, err := loadWorkouts(cmd)
 			if err != nil {
 				return err
 			}

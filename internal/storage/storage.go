@@ -90,18 +90,22 @@ func AppendWorkouts(p paths.DataPaths, incoming []models.Workout) (int, error) {
 		return 0, nil
 	}
 
-	f, err := os.OpenFile(p.Workouts, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
-	if err != nil {
-		return 0, err
-	}
-	if _, err := f.Write(buf.Bytes()); err != nil {
-		_ = f.Close()
-		return 0, err
-	}
-	if err := f.Close(); err != nil {
+	if err := appendWorkoutData(p, buf.Bytes()); err != nil {
 		return 0, err
 	}
 	return written, nil
+}
+
+func appendWorkoutData(p paths.DataPaths, data []byte) error {
+	file, err := os.OpenFile(p.Workouts, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	if err != nil {
+		return err
+	}
+	if _, err := file.Write(data); err != nil {
+		_ = file.Close()
+		return err
+	}
+	return file.Close()
 }
 
 type UpsertResult struct {
@@ -126,7 +130,6 @@ func UpsertWorkouts(p paths.DataPaths, incoming []models.Workout) (UpsertResult,
 		encoded[i] = line
 	}
 
-	addedIDs := make(map[int64]bool)
 	updatedIDs := make(map[int64]bool)
 	for _, w := range incoming {
 		line, err := jsonx.Compact(w)
@@ -137,49 +140,31 @@ func UpsertWorkouts(p paths.DataPaths, incoming []models.Workout) (UpsertResult,
 			if bytes.Equal(encoded[index], line) {
 				continue
 			}
-			existing[index] = w
 			encoded[index] = line
-			if !addedIDs[w.ID] {
+			if index < originalLen {
 				updatedIDs[w.ID] = true
 			}
 			continue
 		}
-		indexByID[w.ID] = len(existing)
-		existing = append(existing, w)
+		indexByID[w.ID] = len(encoded)
 		encoded = append(encoded, line)
-		addedIDs[w.ID] = true
 	}
 
-	result := UpsertResult{Added: len(addedIDs), Updated: len(updatedIDs)}
+	result := UpsertResult{Added: len(encoded) - originalLen, Updated: len(updatedIDs)}
 	if result.Added == 0 && result.Updated == 0 {
 		return result, nil
 	}
+	lines := encoded
 	if result.Updated == 0 {
-		var buf bytes.Buffer
-		for _, line := range encoded[originalLen:] {
-			buf.Write(line)
-			buf.WriteByte('\n')
-		}
-		file, err := os.OpenFile(p.Workouts, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
-		if err != nil {
-			return UpsertResult{}, err
-		}
-		if _, err := file.Write(buf.Bytes()); err != nil {
-			_ = file.Close()
-			return UpsertResult{}, err
-		}
-		if err := file.Close(); err != nil {
-			return UpsertResult{}, err
-		}
-		return result, nil
+		lines = encoded[originalLen:]
 	}
-
-	var buf bytes.Buffer
-	for _, line := range encoded {
-		buf.Write(line)
-		buf.WriteByte('\n')
+	data := append(bytes.Join(lines, []byte("\n")), '\n')
+	if result.Updated == 0 {
+		err = appendWorkoutData(p, data)
+	} else {
+		err = atomicfile.Write(p.Workouts, data, 0o644)
 	}
-	if err := atomicfile.Write(p.Workouts, buf.Bytes(), 0o644); err != nil {
+	if err != nil {
 		return UpsertResult{}, err
 	}
 	return result, nil

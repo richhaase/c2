@@ -28,10 +28,11 @@ func maxMeters(summaries []stats.WeekSummary) float64 {
 
 func printVolumeTrend(out io.Writer, summaries []stats.WeekSummary) {
 	fmt.Fprintln(out, "Volume (meters/week):")
+	peak := maxMeters(summaries)
 	prev := 0.0
 	for _, ws := range summaries {
 		arrow := display.TrendArrow(prev, float64(ws.Meters))
-		bar := display.SparkBar(float64(ws.Meters), maxMeters(summaries))
+		bar := display.SparkBar(float64(ws.Meters), peak)
 		fmt.Fprintf(out, "  %s  %s %7s  %s  (%d sessions)\n",
 			shortWeek(ws.WeekStart), arrow, display.FormatMeters(ws.Meters), bar, ws.Sessions)
 		prev = float64(ws.Meters)
@@ -98,7 +99,7 @@ func padStart(s string, width int, pad string) string {
 	return s
 }
 
-type trendPayload struct {
+type weeksPayload struct {
 	Weeks []stats.WeekSummaryData `json:"weeks"`
 }
 
@@ -129,7 +130,7 @@ func newTrendCmd() *cobra.Command {
 				for _, ws := range summaries {
 					payload = append(payload, stats.WeekSummaryDataOf(ws))
 				}
-				return envelope.Print(out, "c2.trend.v1", trendPayload{Weeks: payload})
+				return envelope.Print(out, "c2.trend.v1", weeksPayload{Weeks: payload})
 			}
 
 			if len(workouts) == 0 {

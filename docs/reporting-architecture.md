@@ -11,6 +11,14 @@ model and HTML renders it; presentation does not independently evaluate
 achievements. The old renderer remains available for explicit legacy output.
 Templates escape user-authored goal and coaching text contextually.
 
+The report package keeps the shared work in `data.go` (activity summaries,
+recent workouts, and split selection) and `coaching.go` (coaching content and
+lightweight Markdown). `overview.go` builds and renders the multi-goal view
+directly from that data. `report.go` assembles the legacy result, with its HTML
+generation and styles isolated in `legacy.go` and `legacy_style.go`. The two
+formats retain their own date-window rules and JSON field order; sharing data
+helpers does not make their historical semantics interchangeable.
+
 The implemented overview provides a concrete check that these requirements
 fit the existing runtime without another dependency or installation step.
 Template editing still happens in Go source, but presentation is separated
