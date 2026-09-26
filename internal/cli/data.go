@@ -187,10 +187,11 @@ func newDataDoctorCmd() *cobra.Command {
 		Short: "Validate the data store and report problems",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			_, p, err := loadStore()
+			cfg, err := config.Load()
 			if err != nil {
 				return err
 			}
+			p := paths.For(cfg.DataDir)
 			inspection, err := store.Inspect(p, warner(cmd))
 			if err != nil {
 				return err

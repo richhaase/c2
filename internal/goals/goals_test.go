@@ -16,6 +16,36 @@ func testGoal(kind string, target float64) Goal {
 	return Goal{ID: kind, Name: kind, Kind: kind, Target: target, Equipment: "rower", Effort: "workout"}
 }
 
+func TestPaceAchievementAtDecimalBoundary(t *testing.T) {
+	now := time.Date(2026, 9, 26, 12, 0, 0, 0, time.UTC)
+	for _, tc := range []struct {
+		name     string
+		duration int
+		target   float64
+		achieved bool
+	}{
+		{"exact", 12010, 120.1, true},
+		{"faster", 12009, 120.1, true},
+		{"slower", 12011, 120.1, false},
+		{"precise near miss", 12010, 120.09999999, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			g := testGoal("pace", tc.target)
+			w := models.Workout{ID: 1, Date: "2026-09-06 12:00:00", Distance: 5000, Time: tc.duration, Type: "rower"}
+			p := Evaluate(g, []models.Workout{w}, now)
+			if p.Achieved != tc.achieved || p.Remaining == nil || p.Evidence == nil {
+				t.Fatalf("unexpected progress: %+v", p)
+			}
+			if tc.achieved && (*p.Remaining != 0 || p.AchievedOn != "2026-09-06") {
+				t.Fatalf("achieved goal has remaining=%v, date=%s", *p.Remaining, p.AchievedOn)
+			}
+			if !tc.achieved && (*p.Remaining <= 0 || p.AchievedOn != "") {
+				t.Fatalf("missed goal has remaining=%v, date=%s", *p.Remaining, p.AchievedOn)
+			}
+		})
+	}
+}
+
 func TestIndependentAchievementsAndEvidence(t *testing.T) {
 	now := time.Date(2026, 9, 26, 12, 0, 0, 0, time.UTC)
 	workouts := []models.Workout{

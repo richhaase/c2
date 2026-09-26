@@ -94,6 +94,11 @@ func Continuity(w models.Workout) string {
 	}
 }
 
+func paceMeetsTarget(value, target float64) bool {
+	roundingTolerance := 4 * (math.Nextafter(target, math.Inf(1)) - target)
+	return value <= target+roundingTolerance
+}
+
 func Evaluate(g Goal, workouts []models.Workout, now time.Time) Progress {
 	p := Progress{Goal: g}
 	ordered := slices.Clone(workouts)
@@ -150,7 +155,7 @@ func Evaluate(g Goal, workouts []models.Workout, now time.Time) Progress {
 			p.Value = new(value)
 			p.Evidence = &Evidence{WorkoutID: w.ID, Date: w.Date, Distance: w.Distance, Pace: models.Pace500mSeconds(w), WorkoutType: w.WorkoutType, Continuity: continuity}
 		}
-		if !p.Achieved && p.Value != nil && (g.Kind == "pace" && *p.Value <= g.Target || g.Kind != "pace" && *p.Value >= g.Target) {
+		if !p.Achieved && p.Value != nil && (g.Kind == "pace" && paceMeetsTarget(*p.Value, g.Target) || g.Kind != "pace" && *p.Value >= g.Target) {
 			p.Achieved = true
 			p.AchievedOn = day
 		}
@@ -162,6 +167,9 @@ func Evaluate(g Goal, workouts []models.Workout, now time.Time) Progress {
 		remaining := g.Target - *p.Value
 		if g.Kind == "pace" {
 			remaining = *p.Value - g.Target
+		}
+		if p.Achieved {
+			remaining = 0
 		}
 		p.Remaining = new(math.Max(remaining, 0))
 	}

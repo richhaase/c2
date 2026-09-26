@@ -125,6 +125,12 @@ func chooseDataDir(cmd *cobra.Command, p *prompter, current string) (string, boo
 			return current, true
 		}
 	case store.StateStore:
+		if paths.CanonicalRoot(target.Root) != paths.CanonicalRoot(current) {
+			if _, err := goals.Read(target); err != nil {
+				fmt.Fprintf(cmd.ErrOrStderr(), "Cannot use %s: %v Keeping %s.\n", target.Root, err, current)
+				return current, true
+			}
+		}
 		summary, err := store.Summarize(target, warn)
 		if err != nil {
 			return current, true
@@ -186,9 +192,10 @@ func newSetupCmd(b build) *cobra.Command {
 
 			collection, err := goals.Read(paths.For(cfg.DataDir))
 			if err != nil {
-				return err
+				fmt.Fprintf(errOut, "Warning: could not read current goals: %v\n", err)
+				fmt.Fprintln(out, "Skipping goal setup. Choose another data directory below or use `c2 data doctor` to diagnose the current store.")
 			}
-			if collection == nil {
+			if err == nil && collection == nil {
 				targetInput, ok := p.value("Goal target meters", display.FormatMeters(cfg.Goal.TargetMeters), false)
 				if !ok {
 					return errReported
@@ -233,7 +240,7 @@ func newSetupCmd(b build) *cobra.Command {
 					cfg.Goal.EndDate = previousEnd
 				}
 
-			} else {
+			} else if collection != nil {
 				fmt.Fprintln(out, "Goals are managed in the data store with `c2 goal`.")
 			}
 			dataDir, ok := chooseDataDir(cmd, p, cfg.DataDir)

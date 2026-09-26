@@ -123,6 +123,10 @@ stroke data. It still validates goals, metadata, workouts, and coaching records
 before writing. Doctor and transfer checks continue to report damaged strokes;
 sync the source store to repair those files before transferring it.
 
+If `goals.json` is damaged, `c2 data doctor` still scans the store and reports
+the goals error alongside other problems. `c2 setup` can save updated credentials
+or select another valid store without rewriting the damaged goals file.
+
 Use one active writer, and complete provider synchronization before switching
 machines. Cloud folders transport files; C2 does not reconcile simultaneous
 offline edits. Shared yearly note archives and whole-document writes can
