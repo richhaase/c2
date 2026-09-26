@@ -184,6 +184,9 @@ c2 note add --type lesson --author coach "HR cap is the rule, not pace"
 # Review
 c2 note list --since 2026-06-01
 c2 note list --workout 118212501 --json
+c2 note show <id>
+c2 note edit <id>                # opens VISUAL, EDITOR, or vi
+c2 note edit <id> --file correction.md --json
 c2 show last                     # linked notes appear in workout detail
 
 # Training plan and coaching playbook (whole-document set/show)
@@ -199,6 +202,10 @@ Notes are stored one file each for the most recent 7 days, then automatically
 compacted into one archive file per year. `c2 data doctor` checks record
 integrity and detects divergent loose/archive copies. Use one active writer;
 cloud-folder synchronization does not resolve concurrent edits.
+
+Recent and archived notes can be corrected through the same command, preserving
+their ID and metadata. See [coaching corrections](docs/coaching-notes.md) for
+editor setup, explicit text inputs, metadata changes, and JSON receipts.
 
 ### Machine-Readable Output
 

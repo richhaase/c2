@@ -98,7 +98,8 @@ These are the things the config files cannot say for themselves.
   0600.
 - gosec `G204` is off because `report` opens the generated file with one of
   three GOOS-chosen literals, passing the path as an argv element, so no shell
-  is involved.
+  is involved. Note editing also launches the user's VISUAL/EDITOR executable
+  directly with parsed arguments and a temporary-file path, without a shell.
 - The pre-commit `goimports` hook relies on the `tool` directive in `go.mod`,
   and its lint hook shells out to `make lint` to pick up the pinned version.
 - Coverage upload wants a `CODECOV_TOKEN` secret; tokenless upload only works
@@ -136,4 +137,7 @@ These are the things the config files cannot say for themselves.
   distinguishable or a foreign meta.json gets adopted as a c2 store
 - Coaching notes: one JSON file per note (sync-conflict-safe) for the last 7 days, then deterministic compaction into `notes/archive/<year>.jsonl`; reads union both and dedup by id
 - Note dates use local-offset ISO timestamps so calendar days display correctly
+- Note corrections atomically replace their existing loose file or archive
+  container. Corrected dates do not relocate archived records across files;
+  readers use the record date. Edits reject ambiguous copies and stale records.
 - plan.md / playbook.md / reports/<date>.md are whole-file managed documents
