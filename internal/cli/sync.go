@@ -7,6 +7,9 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/richhaase/c2/internal/api"
+	"github.com/richhaase/c2/internal/doctor"
+	"github.com/richhaase/c2/internal/goals"
+	"github.com/richhaase/c2/internal/storage"
 	"github.com/richhaase/c2/internal/store"
 	"github.com/richhaase/c2/internal/syncer"
 )
@@ -38,16 +41,42 @@ func newSyncCmd(b build) *cobra.Command {
 				return reportf(cmd, "Cannot write to %s.", p.Root)
 			}
 			now := time.Now()
-			if err := store.Init(p, now, warn); err != nil {
-				return err
-			}
 
 			client, err := api.FromConfig(cfg, b.version)
 			if err != nil {
 				return err
 			}
+			user, err := client.GetUser(cmd.Context())
+			if err != nil {
+				return err
+			}
+			existing, err := storage.ReadWorkouts(p)
+			if err != nil {
+				return err
+			}
+			collection, err := goals.Read(p)
+			if err != nil {
+				return err
+			}
+			if err := goals.CheckAccount(collection, existing, user.ID); err != nil {
+				return err
+			}
+			if inspection.State == store.StateStore {
+				if err := validateStore(p, cmd, doctor.RunBeforeSync); err != nil {
+					return err
+				}
+			}
+			if err := store.Init(p, now, warn); err != nil {
+				return err
+			}
+			if collection != nil && collection.AccountID == 0 {
+				collection.AccountID = user.ID
+				if err := goals.Write(p, *collection); err != nil {
+					return err
+				}
+			}
 			out := cmd.OutOrStdout()
-			result, err := syncer.Run(cmd.Context(), p, client, now, warn)
+			result, err := syncer.RunForAccount(cmd.Context(), p, client, now, warn, user.ID)
 			if err != nil {
 				return err
 			}

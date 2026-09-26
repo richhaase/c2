@@ -3,6 +3,7 @@ package stats
 import (
 	"encoding/json"
 	"math"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -229,6 +230,44 @@ func TestComputeGoalProgressIncludesEntireEndDate(t *testing.T) {
 	}
 	if goal.TotalWeeks != 1 {
 		t.Fatalf("TotalWeeks = %d, want 1", goal.TotalWeeks)
+	}
+}
+
+func TestGoalProgressCalendarMathAcrossMidnightDST(t *testing.T) {
+	loc, err := time.LoadLocation("America/Santiago")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct{ from, to, at string }{
+		{"2026-09-01", "2026-09-06", "2026-09-06 23:45:00"},
+		{"2026-09-06", "2026-10-06", "2026-09-14 12:00:00"},
+		{"2026-09-06", "2026-09-06", "2026-09-07 00:00:00"},
+	} {
+		t.Run(tc.from+"/"+tc.to, func(t *testing.T) {
+			cfg := makeGoalConfig(t)
+			cfg.Goal.StartDate, cfg.Goal.EndDate = tc.from, tc.to
+			workouts := []models.Workout{
+				makeWorkout(1, "2026-08-31 23:30:00", 90000),
+				makeWorkout(2, "2026-09-05 23:30:00", 1000),
+				makeWorkout(3, "2026-09-06 23:30:00", 5000),
+				makeWorkout(4, "2026-09-07 01:30:00", 7000),
+			}
+			now, err := time.ParseInLocation("2006-01-02 15:04:05", tc.at, loc)
+			if err != nil {
+				t.Fatal(err)
+			}
+			calendarNow, err := time.Parse("2006-01-02 15:04:05", tc.at)
+			if err != nil {
+				t.Fatal(err)
+			}
+			cfg.Location = time.UTC
+			want := goalProgressAt(t, workouts, cfg, calendarNow)
+			cfg.Location = loc
+			got := goalProgressAt(t, workouts, cfg, now.UTC())
+			if !reflect.DeepEqual(got, want) {
+				t.Fatalf("DST changed goal totals or pace: %+v; want %+v", got, want)
+			}
+		})
 	}
 }
 

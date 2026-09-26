@@ -30,10 +30,18 @@ type DisplayConfig struct {
 }
 
 type Config struct {
-	DataDir string        `json:"data_dir"`
-	API     APIConfig     `json:"api"`
-	Goal    GoalConfig    `json:"goal"`
-	Display DisplayConfig `json:"display"`
+	Location *time.Location `json:"-"`
+	DataDir  string         `json:"data_dir"`
+	API      APIConfig      `json:"api"`
+	Goal     GoalConfig     `json:"goal"`
+	Display  DisplayConfig  `json:"display"`
+}
+
+func (c Config) Now() time.Time {
+	if c.Location != nil {
+		return time.Now().In(c.Location)
+	}
+	return time.Now()
 }
 
 func Dir() (string, error) {

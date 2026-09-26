@@ -6,12 +6,14 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/richhaase/c2/internal/atomicfile"
+	"github.com/richhaase/c2/internal/config"
 	"github.com/richhaase/c2/internal/envelope"
+	"github.com/richhaase/c2/internal/goals"
+	"github.com/richhaase/c2/internal/paths"
 	"github.com/richhaase/c2/internal/report"
 	"github.com/richhaase/c2/internal/storage"
 	"github.com/richhaase/c2/internal/store"
@@ -40,6 +42,7 @@ func newReportCmd() *cobra.Command {
 		weeksFlag string
 		asData    bool
 		noOpen    bool
+		legacy    bool
 	)
 
 	cmd := &cobra.Command{
@@ -51,9 +54,6 @@ func newReportCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if cfg.Goal.StartDate == "" || cfg.Goal.EndDate == "" {
-				return reportf(cmd, "Goal dates not configured. Run `c2 setup` to set start and end dates.")
-			}
 			if err := store.RejectForeign(p, warner(cmd)); err != nil {
 				return reportf(cmd, "%v", err)
 			}
@@ -63,7 +63,7 @@ func newReportCmd() *cobra.Command {
 			}
 
 			out := cmd.OutOrStdout()
-			if len(workouts) == 0 && !asData {
+			if len(workouts) == 0 && !asData && legacy {
 				fmt.Fprintln(out, "No workouts found. Run `c2 sync` first.")
 				return nil
 			}
@@ -72,12 +72,32 @@ func newReportCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			result, err := report.Build(cfg, p, workouts, time.Now(), weeks)
-			if err != nil {
-				return err
-			}
-			if asData {
-				return envelope.Print(out, "c2.report.v1", result.Payload)
+			var html string
+			if legacy {
+				cfg, err = legacyGoalConfig(cfg, p)
+				if err != nil {
+					return err
+				}
+				result, err := report.Build(cfg, p, workouts, cfg.Now(), weeks)
+				if err != nil {
+					return err
+				}
+				if asData {
+					return envelope.Print(out, "c2.report.v1", result.Payload)
+				}
+				html = result.HTML
+			} else {
+				result, err := report.BuildOverview(cfg, p, workouts, cfg.Now(), weeks)
+				if err != nil {
+					return err
+				}
+				if asData {
+					return envelope.Print(out, "c2.report.v2", result)
+				}
+				html, err = report.RenderOverview(result)
+				if err != nil {
+					return err
+				}
 			}
 
 			outPath := ""
@@ -93,7 +113,7 @@ func newReportCmd() *cobra.Command {
 				}
 				outPath = filepath.Join(dir, "report.html")
 			}
-			if err := atomicfile.Write(outPath, []byte(result.HTML), 0o644); err != nil {
+			if err := atomicfile.Write(outPath, []byte(html), 0o644); err != nil {
 				return err
 			}
 
@@ -109,6 +129,27 @@ func newReportCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&output, "output", "o", "", "save to a specific file instead of a temp file")
 	cmd.Flags().StringVarP(&weeksFlag, "weeks", "w", "12", "weeks of history to show")
 	cmd.Flags().BoolVar(&asData, "data", false, "emit the report content as JSON instead of HTML")
+	cmd.Flags().BoolVar(&asData, "json", false, "emit the report content as JSON instead of HTML")
+	cmd.Flags().BoolVar(&legacy, "legacy", false, "use the original single-goal report and c2.report.v1 schema")
 	cmd.Flags().BoolVar(&noOpen, "no-open", false, "don't open in browser")
 	return cmd
+}
+
+func legacyGoalConfig(cfg config.Config, p paths.DataPaths) (config.Config, error) {
+	c, err := goals.Read(p)
+	if err != nil {
+		return cfg, err
+	}
+	if c != nil {
+		cfg.Goal = config.GoalConfig{}
+		for _, g := range c.Goals {
+			if g.ID == "legacy" && !g.Archived && g.Kind == "volume" && g.Equipment == "all" && g.Effort == "workout" {
+				cfg.Goal = config.GoalConfig{TargetMeters: int(g.Target), StartDate: g.From, EndDate: g.To}
+			}
+		}
+	}
+	if cfg.Goal.StartDate == "" || cfg.Goal.EndDate == "" {
+		return cfg, fmt.Errorf("No dated legacy goal; use the default multi-goal output.")
+	}
+	return cfg, nil
 }

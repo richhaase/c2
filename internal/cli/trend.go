@@ -113,7 +113,7 @@ func newTrendCmd() *cobra.Command {
 		Short: "Show training trends over time",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			_, _, workouts, err := loadWorkouts(cmd)
+			cfg, _, workouts, err := loadWorkouts(cmd)
 			if err != nil {
 				return err
 			}
@@ -121,7 +121,7 @@ func newTrendCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			summaries := stats.BuildWeekSummaries(workouts, time.Now(), weeks)
+			summaries := stats.BuildWeekSummaries(workouts, cfg.Now(), weeks)
 
 			out := cmd.OutOrStdout()
 			if asJSON {

@@ -43,6 +43,8 @@ internal/
 ├── envelope/             # versioned JSON output envelope
 ├── analysis/             # split/stroke/HR-at-pace analysis
 ├── stats/                # weekly summaries, sessions, goal progress + projection
+├── goals/                # portable personal goals, qualifications and evidence
+├── report/               # shared overview model and self-contained HTML
 ├── notes/                # coaching notes: ULID ids, per-file hot set, yearly archives
 ├── documents/            # plan / playbook / narrative reads from the store
 ├── doctor/               # store validation checks
@@ -116,12 +118,15 @@ These are the things the config files cannot say for themselves.
   API's escaping, so `"America\/Denver"` is stored with the escaped slash. That
   is the same string once parsed, and normalising it would mean re-encoding,
   which would reorder keys and drop the unmodelled fields — a worse trade
-- Dates parse in `time.Local` throughout; week bucketing and calendar-day
-  grouping depend on it
+- Prepared stores use the analysis timezone in `goals.json` for workout dates,
+  week bucketing and calendar-day grouping; unprepared stores retain `time.Local`
 - Session grouping: workouts on the same calendar day form one session
 - Stroke data fields use abbreviated names from API (`t`, `d`, `p`, `spm`, `hr`)
 - Data store location is user-chosen (`data_dir` in config, validated by `c2 setup`); config with secrets stays machine-local at `~/.config/c2/` mode 600
-- Machine-readable output via `--json` with versioned envelopes (`c2.<command>.v1`); `export -f json` emits `c2.export.v1`; `export -f jsonl` stays one workout per line for streaming
+- Machine-readable output uses versioned envelopes: report/status default to v2,
+  goal commands and stats-goal share `c2.goal.v1`, and explicit `--legacy` modes
+  retain single-goal v1 output. `export -f json` emits `c2.export.v1`;
+  `export -f jsonl` stays one workout per line for streaming
 - Bare `c2` prints help; unknown commands are errors (no default command)
 - `-v` is `--version`, not `--verbose` — c2 has no logging subsystem
 - Commands are built by constructor, not `init()` globals, so the command tree

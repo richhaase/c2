@@ -84,11 +84,17 @@ The second row is 6x500m with ~1 min rest between reps: 20:22.6 elapsed =
 
 ### Goal Progress
 
-Track progress toward your distance goal:
+Track progress toward multiple personal goals:
 
 ```bash
 c2 status
 ```
+
+Prepare portable goals with `c2 data prepare --timezone America/Denver`, then
+use `c2 goal add`, `list`, `show`, `update`, and `archive`. Goals cover volume,
+single-effort distance, and whole-workout pace with optional dates.
+See [personal goals and portability](docs/personal-goals.md) for examples,
+evidence rules, transfer, and legacy-output compatibility.
 
 ### Training Trends
 
@@ -108,7 +114,7 @@ Generate a self-contained HTML progress report. Coaching content from the
 store renders automatically when present: the latest narrative (as "Coach's
 Report"), notes from the last 14 days, and the training-plan excerpt.
 `c2 report --data` emits the entire report as structured JSON
-(`c2.report.v1`) — the machine-readable twin of the HTML, for agents and
+(`c2.report.v2`) — the machine-readable twin of the HTML, for agents and
 custom rendering surfaces:
 
 ```bash
@@ -189,10 +195,10 @@ c2 narrative add 2026-07-05 report.md
 c2 narrative show
 ```
 
-Notes are stored one file each for the most recent 7 days (safe under iCloud/
-Dropbox sync), then automatically compacted into one archive file per year
-(`c2 data compact` runs after every sync). `c2 data doctor` validates the
-whole store.
+Notes are stored one file each for the most recent 7 days, then automatically
+compacted into one archive file per year. `c2 data doctor` checks record
+integrity and detects divergent loose/archive copies. Use one active writer;
+cloud-folder synchronization does not resolve concurrent edits.
 
 ### Machine-Readable Output
 
@@ -200,7 +206,7 @@ whole store.
 versioned envelope for scripts and AI agents:
 
 ```json
-{ "schema": "c2.status.v1", "generated_at": "2026-07-05T18:00:00.000Z", "data": { } }
+{ "schema": "c2.status.v2", "generated_at": "2026-07-05T18:00:00.000Z", "data": { } }
 ```
 
 `export -f json` emits the same envelope (`c2.export.v1`) with the full
@@ -211,8 +217,9 @@ workout per line for streaming.
 
 Workout data and coaching data live in a single data directory,
 chosen during `c2 setup` and stored as `data_dir` in config. Point it at a
-synced folder (iCloud, Dropbox, a git repo) to share one store across
-machines — the config file with your API token always stays machine-local
+synced folder (iCloud, Dropbox, a git repo) to transfer the store between
+machines, with writes stopped and synchronization completed before switching.
+The config file with your API token always stays machine-local
 in `~/.config/c2/` (mode 600).
 
 ```bash
@@ -229,6 +236,11 @@ there, and refuses to save a path that fails validation.
 
 Note: bare `c2` prints help. Unknown commands error instead of falling
 through to a default.
+
+The default report and status schemas are now v2. Add `--legacy` to retain
+the original single-goal v1 report/status/stats-goal outputs.
+The [reporting decision](docs/reporting-architecture.md) explains the Go
+template approach and when to reconsider Node.
 
 ## Configuration
 

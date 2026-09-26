@@ -8,6 +8,8 @@ import (
 
 	"github.com/richhaase/c2/internal/display"
 	"github.com/richhaase/c2/internal/envelope"
+	"github.com/richhaase/c2/internal/goals"
+	"github.com/richhaase/c2/internal/report"
 	"github.com/richhaase/c2/internal/stats"
 )
 
@@ -33,20 +35,38 @@ type statusPayload struct {
 
 func newStatusCmd() *cobra.Command {
 	var asJSON bool
+	var legacy bool
 
 	cmd := &cobra.Command{
 		Use:   "status",
 		Short: "Show progress toward your distance goal",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, _, workouts, err := loadWorkouts(cmd)
+			cfg, p, workouts, err := loadWorkouts(cmd)
+			if err != nil {
+				return err
+			}
+			if !legacy {
+				o, err := report.BuildOverview(cfg, p, workouts, cfg.Now(), 4)
+				if err != nil {
+					return err
+				}
+				if asJSON {
+					return envelope.Print(cmd.OutOrStdout(), "c2.status.v2", statusOverview{Period: o.Period, Summary: o.Summary, Freshness: o.Freshness, Goals: o.Goals})
+				}
+				fmt.Fprintf(cmd.OutOrStdout(), "Activity %s through %s (%s): %d m, %d workouts, %d training days\n", o.Period.From, o.Period.To, o.Period.Timezone, o.Summary.Meters, o.Summary.Workouts, o.Summary.TrainingDays)
+				fmt.Fprintf(cmd.OutOrStdout(), "Last successful sync: %s; latest workout: %s\n", orUnknown(o.Freshness.LastSync), orUnknown(o.Freshness.LatestWorkout))
+				printGoals(cmd, o.Goals)
+				return nil
+			}
+			cfg, err = legacyGoalConfig(cfg, p)
 			if err != nil {
 				return err
 			}
 			if cfg.Goal.StartDate == "" || cfg.Goal.EndDate == "" {
 				return reportf(cmd, "Goal dates not configured. Run `c2 setup` to set start and end dates.")
 			}
-			now := time.Now()
+			now := cfg.Now()
 			goal, err := stats.ComputeGoalProgress(workouts, cfg, now)
 			if err != nil {
 				return err
@@ -73,7 +93,7 @@ func newStatusCmd() *cobra.Command {
 			}
 
 			fmt.Fprintf(out, "Goal: %sm\n", display.FormatMeters(goal.Target))
-			fmt.Fprintf(out, "Season start: %s\n", cfg.Goal.StartDate)
+			fmt.Fprintf(out, "Goal start: %s\n", cfg.Goal.StartDate)
 			fmt.Fprintf(out, "Progress: %s / %s (%s)\n",
 				display.FormatMeters(goal.TotalMeters),
 				display.FormatMeters(goal.Target),
@@ -105,5 +125,20 @@ func newStatusCmd() *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&asJSON, "json", false, "output as JSON")
+	cmd.Flags().BoolVar(&legacy, "legacy", false, "use the original single-goal c2.status.v1 output")
 	return cmd
+}
+
+type statusOverview struct {
+	Period    report.ActivityPeriod  `json:"period"`
+	Summary   report.ActivitySummary `json:"summary"`
+	Freshness report.Freshness       `json:"freshness"`
+	Goals     []goals.Progress       `json:"goals"`
+}
+
+func orUnknown(s string) string {
+	if s == "" {
+		return "unknown"
+	}
+	return s
 }
