@@ -75,6 +75,26 @@ func TestOverviewWithoutGoalsOrWorkouts(t *testing.T) {
 	}
 }
 
+func TestLegacyReportVolumeAndProjectionIncludeDSTDeadline(t *testing.T) {
+	loc, err := time.LoadLocation("America/Santiago")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := config.Config{Location: loc, Goal: config.GoalConfig{TargetMeters: 50000, StartDate: "2026-08-01", EndDate: "2026-09-06"}}
+	workouts := []models.Workout{
+		{ID: 1, Date: "2026-08-24 12:00:00", Distance: 28000, Time: 84000},
+		{ID: 2, Date: "2026-09-06 23:30:00", Distance: 5000, Time: 15000},
+	}
+	now := time.Date(2026, 9, 6, 23, 45, 0, 0, loc)
+	r, err := Build(cfg, paths.For(t.TempDir()), workouts, now, 4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.Payload.Goal.TotalMeters != 33000 || r.Payload.Projection.ProjectedTotalMeters != 33010 {
+		t.Fatalf("legacy report truncated deadline: goal=%+v projection=%+v", r.Payload.Goal, r.Payload.Projection)
+	}
+}
+
 func TestOverviewIncludesWholeCalendarDaysAcrossMidnightDST(t *testing.T) {
 	loc, err := time.LoadLocation("America/Santiago")
 	if err != nil {

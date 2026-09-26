@@ -178,19 +178,15 @@ func Evaluate(g Goal, workouts []models.Workout, now time.Time) Progress {
 		v, err := stats.ComputeGoalProgress(eligible, cfg, now)
 		if err == nil {
 			p.Volume = &v
-			end, _ := time.ParseInLocation("2006-01-02", g.To, now.Location())
-			if !now.Before(mustDate(g.From, now.Location())) && now.Before(end.AddDate(0, 0, 1)) {
+			end, _ := time.Parse("2006-01-02", g.To)
+			today := now.Format("2006-01-02")
+			if today >= g.From && today <= g.To {
 				projection := stats.ProjectGoal(v, end.AddDate(0, 0, 1), now)
 				p.Projection = &projection
 			}
 		}
 	}
 	return p
-}
-
-func mustDate(value string, loc *time.Location) time.Time {
-	t, _ := time.ParseInLocation("2006-01-02", value, loc)
-	return t
 }
 
 func EvaluateAll(items []Goal, workouts []models.Workout, now time.Time) []Progress {

@@ -1059,7 +1059,7 @@ func Build(cfg config.Config, p paths.DataPaths, workouts []models.Workout, now 
 	if err != nil {
 		return Result{}, err
 	}
-	end, err := time.ParseInLocation("2006-01-02", cfg.Goal.EndDate, now.Location())
+	end, err := time.Parse("2006-01-02", cfg.Goal.EndDate)
 	if err != nil {
 		return Result{}, err
 	}

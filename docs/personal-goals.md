@@ -70,6 +70,10 @@ performance goals instead report no qualifying evidence. Volume forecasts
 are shown only for an active window with both dates. Pace and single-effort
 distance never receive a volume forecast.
 
+Dated volume details and forecast eligibility use the same inclusive calendar
+dates as goal evidence. A skipped or repeated midnight cannot shorten the goal
+window or start its forecast on the previous calendar date.
+
 ## Reports and compatibility
 
 `c2 report` writes a self-contained HTML overview; it works without goals

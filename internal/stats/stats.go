@@ -234,11 +234,11 @@ func ComputeGoalProgress(workouts []models.Workout, cfg config.Config, now time.
 		loc = time.Local
 	}
 	now = now.In(loc)
-	start, err := time.ParseInLocation("2006-01-02", cfg.Goal.StartDate, loc)
+	start, err := time.Parse("2006-01-02", cfg.Goal.StartDate)
 	if err != nil {
 		return GoalProgress{}, err
 	}
-	end, err := time.ParseInLocation("2006-01-02", cfg.Goal.EndDate, loc)
+	end, err := time.Parse("2006-01-02", cfg.Goal.EndDate)
 	if err != nil {
 		return GoalProgress{}, err
 	}
@@ -248,12 +248,13 @@ func ComputeGoalProgress(workouts []models.Workout, cfg config.Config, now time.
 	endExclusive := end.AddDate(0, 0, 1)
 	today := now
 	if today.IsZero() {
-		today = time.Now()
+		today = time.Now().In(loc)
 	}
+	today = time.Date(today.Year(), today.Month(), today.Day(), today.Hour(), today.Minute(), today.Second(), today.Nanosecond(), time.UTC)
 
 	totalMeters := 0
 	for _, w := range workouts {
-		t := models.ParseInLocation(w.Date, loc)
+		t := models.ParseInLocation(w.Date, time.UTC)
 		if !t.Before(start) && t.Before(endExclusive) {
 			totalMeters += w.Distance
 		}
@@ -293,7 +294,7 @@ func ComputeGoalProgress(workouts []models.Workout, cfg config.Config, now time.
 		}
 		recentMeters := 0
 		for _, w := range workouts {
-			t := models.ParseInLocation(w.Date, loc)
+			t := models.ParseInLocation(w.Date, time.UTC)
 			if !t.Before(windowStart) && t.Before(thisMonday) {
 				recentMeters += w.Distance
 			}

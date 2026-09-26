@@ -130,7 +130,7 @@ func newLegacyStatsGoalCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			end, err := time.ParseInLocation("2006-01-02", cfg.Goal.EndDate, now.Location())
+			end, err := time.Parse("2006-01-02", cfg.Goal.EndDate)
 			if err != nil {
 				return err
 			}
