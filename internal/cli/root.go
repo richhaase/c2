@@ -23,6 +23,7 @@ func newRoot(b build) *cobra.Command {
 	root := &cobra.Command{
 		Use:           "c2",
 		Short:         "Concept2 Logbook CLI",
+		Example:       "  c2 log -n 5\n  c2 note list -n 5\n  c2 note show <id>\n  c2 note edit <id>\n  c2 goal list\n  c2 report --help",
 		SilenceErrors: true,
 		SilenceUsage:  true,
 	}

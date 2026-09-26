@@ -20,6 +20,7 @@ type goalsPayload struct {
 
 func newGoalCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "goal", Short: "Manage personal goals and inspect qualifying evidence"}
+	cmd.Example = "  c2 goal list\n  c2 goal add 'Comfortable pace' --kind pace --target 2:30 --timezone America/Denver\n  c2 goal show <id> --json\n  c2 goal update <id> --target 2:25 --json\n  c2 goal archive <id> --json"
 	cmd.AddCommand(newGoalListCmd(), newGoalWriteCmd(false), newGoalWriteCmd(true), newGoalArchiveCmd())
 	return cmd
 }
@@ -240,6 +241,7 @@ func newGoalWriteCmd(update bool) *cobra.Command {
 }
 
 func newGoalArchiveCmd() *cobra.Command {
+	var asJSON bool
 	cmd := &cobra.Command{Use: "archive <id>", Short: "Retire a goal without deleting it", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, p, err := loadStore()
 		if err != nil {
@@ -261,11 +263,15 @@ func newGoalArchiveCmd() *cobra.Command {
 				if err := goals.Write(p, *c); err != nil {
 					return err
 				}
+				if asJSON {
+					return envelope.Print(cmd.OutOrStdout(), "c2.goal.saved.v1", c.Goals[i])
+				}
 				fmt.Fprintf(cmd.OutOrStdout(), "Archived %s at %s.\n", g.Name, cfg.Now().Format("2006-01-02"))
 				return nil
 			}
 		}
 		return fmt.Errorf("No goal with ID %s.", args[0])
 	}}
+	cmd.Flags().BoolVar(&asJSON, "json", false, "output saved goal as JSON")
 	return cmd
 }

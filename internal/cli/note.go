@@ -79,7 +79,7 @@ func noteLine(n notes.Record) string {
 	if len(n.Tags) > 0 {
 		tags = " #" + strings.Join(n.Tags, " #")
 	}
-	return fmt.Sprintf("%s  [%s/%s]%s%s  %s", n.Date[:10], n.Type, n.Author, workout, tags, n.Body)
+	return fmt.Sprintf("%s  %s  [%s/%s]%s%s  %s", n.ID, n.Date[:10], n.Type, n.Author, workout, tags, n.Body)
 }
 
 func newNoteCmd() *cobra.Command {
@@ -87,11 +87,14 @@ func newNoteCmd() *cobra.Command {
 		Use:   "note",
 		Short: "Coaching notes and subjective reports",
 	}
-	cmd.AddCommand(newNoteAddCmd(), newNoteListCmd(), newNoteShowCmd())
+	cmd.Example = "  c2 note add --type subjective --workout last --body 'Felt comfortable' --json\n  c2 note list -n 5\n  c2 note show <id>\n  c2 note edit <id>"
+	cmd.AddCommand(newNoteAddCmd(), newNoteListCmd(), newNoteShowCmd(), newNoteEditCmd())
 	return cmd
 }
 
 func newNoteAddCmd() *cobra.Command {
+	var input contentInput
+	var asJSON bool
 	var (
 		noteType string
 		workout  string
@@ -100,9 +103,10 @@ func newNoteAddCmd() *cobra.Command {
 		dateFlag string
 	)
 	cmd := &cobra.Command{
-		Use:   "add [body]",
-		Short: "Record a note (body as argument, or '-' / omitted to read stdin)",
-		Args:  cobra.MaximumNArgs(1),
+		Use:     "add [body]",
+		Short:   "Record a note (body as argument, or '-' / omitted to read stdin)",
+		Example: "  c2 note add 'Felt comfortable' --workout last\n  c2 note add --file note.md --type lesson --author coach --json\n  c2 note add --file - --type subjective",
+		Args:    cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !slices.Contains(notes.Types, noteType) {
 				return reportf(cmd, "Error: --type must be one of %s.", strings.Join(notes.Types, ", "))
@@ -120,15 +124,11 @@ func newNoteAddCmd() *cobra.Command {
 				backdate = parsed
 			}
 
-			bodyArg := ""
-			if len(args) > 0 {
-				bodyArg = args[0]
-			}
-			body, err := readBody(cmd, bodyArg)
+			body, err := input.read(cmd, args, false)
 			if err != nil {
 				return err
 			}
-			if body == "" {
+			if strings.TrimSpace(body) == "" {
 				return reportf(cmd, "Error: note body is empty.")
 			}
 
@@ -168,21 +168,12 @@ func newNoteAddCmd() *cobra.Command {
 				return err
 			}
 
-			var tagList []string
-			if tags != "" {
-				for _, t := range strings.Split(tags, ",") {
-					if trimmed := strings.TrimSpace(t); trimmed != "" {
-						tagList = append(tagList, trimmed)
-					}
-				}
-			}
-
 			record := notes.Record{
 				ID:        id,
 				Date:      date,
 				Type:      noteType,
 				WorkoutID: workoutID,
-				Tags:      tagList,
+				Tags:      noteTags(tags),
 				Body:      body,
 				Author:    author,
 			}
@@ -192,10 +183,15 @@ func newNoteAddCmd() *cobra.Command {
 			if err := notes.Write(p, record); err != nil {
 				return err
 			}
+			if asJSON {
+				return envelope.Print(cmd.OutOrStdout(), "c2.note.v1", record)
+			}
 			fmt.Fprintln(cmd.OutOrStdout(), record.ID)
 			return nil
 		},
 	}
+	input.flags(cmd)
+	cmd.Flags().BoolVar(&asJSON, "json", false, "output the created note as JSON; default output remains the note ID")
 	cmd.Flags().StringVar(&noteType, "type", "observation", "subjective, observation, or lesson")
 	cmd.Flags().StringVar(&workout, "workout", "", "link to a workout id or 'last'")
 	cmd.Flags().StringVar(&tags, "tags", "", "comma-separated tags")
@@ -213,9 +209,10 @@ func newNoteListCmd() *cobra.Command {
 		asJSON   bool
 	)
 	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "List notes, newest last",
-		Args:  cobra.NoArgs,
+		Use:     "list",
+		Short:   "List notes, newest last",
+		Example: "  c2 note list -n 5\n  c2 note list --type lesson --since 2026-01-01 --json\n  c2 note show <id> --json",
+		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if since != "" && !models.IsValidYMD(since) {
 				return reportf(cmd, "Error: invalid --since date %q (expected YYYY-MM-DD).", since)
@@ -286,9 +283,10 @@ func newNoteListCmd() *cobra.Command {
 func newNoteShowCmd() *cobra.Command {
 	var asJSON bool
 	cmd := &cobra.Command{
-		Use:   "show <id>",
-		Short: "Show one note in full",
-		Args:  cobra.ExactArgs(1),
+		Use:     "show <id>",
+		Short:   "Show one note in full",
+		Example: "  c2 note show <id>\n  c2 note show <id> --json\n  c2 note edit <id>",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			_, p, err := loadStore()
 			if err != nil {
