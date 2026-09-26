@@ -3,6 +3,7 @@ package goals
 import (
 	"os"
 	"reflect"
+	"slices"
 	"testing"
 	"time"
 
@@ -14,6 +15,35 @@ import (
 
 func testGoal(kind string, target float64) Goal {
 	return Goal{ID: kind, Name: kind, Kind: kind, Target: target, Equipment: "rower", Effort: "workout"}
+}
+
+func TestEvaluateAllPreservesIndependentResultsAndInputOrder(t *testing.T) {
+	workouts := []models.Workout{
+		{ID: 3, Date: "2026-09-25 08:00:00", Distance: 5000, Time: 15000, Type: "rower"},
+		{ID: 2, Date: "2026-09-20 08:00:00", Distance: 5000, Time: 15000, Type: "rower"},
+		{ID: 1, Date: "2026-09-20 08:00:00", Distance: 6000, Time: 15000, Type: "rower"},
+	}
+	before := slices.Clone(workouts)
+	items := []Goal{testGoal("volume", 10000), testGoal("pace", 150), testGoal("distance", 5500)}
+	archived := testGoal("pace", 120)
+	archived.ID, archived.Archived = "archived", true
+	items = append(items, archived)
+	now := time.Date(2026, 9, 26, 12, 0, 0, 0, time.UTC)
+	got := EvaluateAll(items, workouts, now)
+	if len(got) != 3 {
+		t.Fatalf("active goals: %d", len(got))
+	}
+	for i, result := range got {
+		if want := Evaluate(items[i], workouts, now); !reflect.DeepEqual(result, want) {
+			t.Fatalf("goal %s differs: %+v, want %+v", items[i].ID, result, want)
+		}
+	}
+	if !reflect.DeepEqual(workouts, before) {
+		t.Fatal("evaluation reordered caller's workouts")
+	}
+	if got[1].Evidence == nil || got[1].Evidence.WorkoutID != 1 || got[0].AchievedOn != "2026-09-20" {
+		t.Fatalf("chronological evidence changed: %+v", got)
+	}
 }
 
 func TestPaceAchievementAtDecimalBoundary(t *testing.T) {

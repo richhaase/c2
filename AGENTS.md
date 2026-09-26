@@ -44,7 +44,7 @@ internal/
 ├── analysis/             # split/stroke/HR-at-pace analysis
 ├── stats/                # weekly summaries, sessions, goal progress + projection
 ├── goals/                # portable personal goals, qualifications and evidence
-├── report/               # shared overview model and self-contained HTML
+├── report/               # shared activity/coaching data, overview, isolated legacy HTML
 ├── notes/                # coaching notes: ULID ids, per-file hot set, yearly archives
 ├── documents/            # plan / playbook / narrative reads from the store
 ├── doctor/               # store validation checks

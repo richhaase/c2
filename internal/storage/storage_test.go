@@ -22,6 +22,35 @@ func tempPaths(t *testing.T) paths.DataPaths {
 	return p
 }
 
+func TestUpsertCountsRepeatedIDsOnceAndKeepsLastValue(t *testing.T) {
+	p := tempPaths(t)
+	if _, err := AppendWorkouts(p, []models.Workout{{ID: 1, Distance: 1000}}); err != nil {
+		t.Fatal(err)
+	}
+	batch := []models.Workout{
+		{ID: 1, Distance: 2000},
+		{ID: 2, Distance: 3000},
+		{ID: 2, Distance: 4000},
+		{ID: 1, Distance: 1000},
+	}
+	result, err := UpsertWorkouts(p, batch)
+	if err != nil || result != (UpsertResult{Added: 1, Updated: 1}) {
+		t.Fatalf("result = %+v, %v", result, err)
+	}
+	got, err := ReadWorkouts(p)
+	if err != nil || len(got) != 2 || got[0].ID != 1 || got[0].Distance != 1000 || got[1].ID != 2 || got[1].Distance != 4000 {
+		t.Fatalf("saved = %+v, %v", got, err)
+	}
+	result, err = UpsertWorkouts(p, []models.Workout{{ID: 3, Distance: 5000}, {ID: 3, Distance: 6000}})
+	if err != nil || result != (UpsertResult{Added: 1}) {
+		t.Fatalf("append = %+v, %v", result, err)
+	}
+	got, err = ReadWorkouts(p)
+	if err != nil || len(got) != 3 || got[2].Distance != 6000 {
+		t.Fatalf("appended = %+v, %v", got, err)
+	}
+}
+
 func TestReadWorkoutsMissingFile(t *testing.T) {
 	p := paths.For(filepath.Join(t.TempDir(), "nope"))
 	got, err := ReadWorkouts(p)

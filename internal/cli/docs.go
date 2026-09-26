@@ -64,12 +64,9 @@ func newDocCmd(name, short string, pathOf func(paths.DataPaths) string) *cobra.C
 		Short: "Print the " + name,
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			_, p, err := loadStore()
+			_, p, err := loadReadableStore(cmd)
 			if err != nil {
 				return err
-			}
-			if err := store.RejectForeign(p, warner(cmd)); err != nil {
-				return reportf(cmd, "%v", err)
 			}
 			content, ok, err := documents.Read(pathOf(p))
 			if err != nil {
@@ -176,12 +173,9 @@ func newNarrativeCmd() *cobra.Command {
 		Short: "Print the narrative for a date (latest if omitted)",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			_, p, err := loadStore()
+			_, p, err := loadReadableStore(cmd)
 			if err != nil {
 				return err
-			}
-			if err := store.RejectForeign(p, warner(cmd)); err != nil {
-				return reportf(cmd, "%v", err)
 			}
 			target := ""
 			if len(args) > 0 {
@@ -222,12 +216,9 @@ func newNarrativeCmd() *cobra.Command {
 		Short: "List narrative dates",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			_, p, err := loadStore()
+			_, p, err := loadReadableStore(cmd)
 			if err != nil {
 				return err
-			}
-			if err := store.RejectForeign(p, warner(cmd)); err != nil {
-				return reportf(cmd, "%v", err)
 			}
 			dates, err := documents.ListNarratives(p)
 			if err != nil {

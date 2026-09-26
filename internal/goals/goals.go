@@ -1,6 +1,7 @@
 package goals
 
 import (
+	"cmp"
 	"fmt"
 	"math"
 	"slices"
@@ -100,20 +101,22 @@ func paceMeetsTarget(value, target float64) bool {
 }
 
 func Evaluate(g Goal, workouts []models.Workout, now time.Time) Progress {
-	p := Progress{Goal: g}
+	return evaluateOrdered(g, orderedWorkouts(workouts), now)
+}
+
+func orderedWorkouts(workouts []models.Workout) []models.Workout {
 	ordered := slices.Clone(workouts)
 	slices.SortFunc(ordered, func(a, b models.Workout) int {
 		if c := strings.Compare(a.Date, b.Date); c != 0 {
 			return c
 		}
-		if a.ID < b.ID {
-			return -1
-		}
-		if a.ID > b.ID {
-			return 1
-		}
-		return 0
+		return cmp.Compare(a.ID, b.ID)
 	})
+	return ordered
+}
+
+func evaluateOrdered(g Goal, ordered []models.Workout, now time.Time) Progress {
+	p := Progress{Goal: g}
 	eligible := make([]models.Workout, 0)
 	for _, w := range ordered {
 		day := models.CalendarDay(w)
@@ -190,10 +193,11 @@ func Evaluate(g Goal, workouts []models.Workout, now time.Time) Progress {
 }
 
 func EvaluateAll(items []Goal, workouts []models.Workout, now time.Time) []Progress {
+	ordered := orderedWorkouts(workouts)
 	result := make([]Progress, 0, len(items))
 	for _, g := range items {
 		if !g.Archived {
-			result = append(result, Evaluate(g, workouts, now))
+			result = append(result, evaluateOrdered(g, ordered, now))
 		}
 	}
 	return result

@@ -32,15 +32,23 @@ func loadStore() (config.Config, paths.DataPaths, error) {
 }
 
 func loadWorkouts(cmd *cobra.Command) (config.Config, paths.DataPaths, []models.Workout, error) {
-	cfg, p, err := loadStore()
+	cfg, p, err := loadReadableStore(cmd)
 	if err != nil {
 		return cfg, p, nil, err
 	}
-	if err := store.RejectForeign(p, warner(cmd)); err != nil {
-		return cfg, p, nil, reportf(cmd, "%v", err)
-	}
 	workouts, err := storage.ReadWorkouts(p)
 	return cfg, p, workouts, err
+}
+
+func loadReadableStore(cmd *cobra.Command) (config.Config, paths.DataPaths, error) {
+	cfg, p, err := loadStore()
+	if err != nil {
+		return cfg, p, err
+	}
+	if err := store.RejectForeign(p, warner(cmd)); err != nil {
+		return cfg, p, reportf(cmd, "%v", err)
+	}
+	return cfg, p, nil
 }
 
 func validateDateFlag(cmd *cobra.Command, flag, value string) error {

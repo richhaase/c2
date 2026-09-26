@@ -153,16 +153,12 @@ func readLooseEntries(p paths.DataPaths) ([]looseEntry, error) {
 		}
 		return nil, err
 	}
-	names := make([]string, 0, len(files))
-	for _, f := range files {
-		if strings.HasSuffix(f.Name(), ".json") {
-			names = append(names, f.Name())
-		}
-	}
-	sort.Strings(names)
-
 	var entries []looseEntry
-	for _, name := range names {
+	for _, file := range files {
+		name := file.Name()
+		if !strings.HasSuffix(name, ".json") {
+			continue
+		}
 		data, err := os.ReadFile(filepath.Join(p.NotesDir, name))
 		if err != nil {
 			return nil, err
@@ -387,7 +383,5 @@ func Compact(p paths.DataPaths, now time.Time) (CompactResult, error) {
 		result.Years = append(result.Years, year)
 	}
 
-	sort.Ints(result.Years)
-	sort.Ints(result.SkippedYears)
 	return result, nil
 }

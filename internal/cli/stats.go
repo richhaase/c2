@@ -25,10 +25,6 @@ func orDash[T any](v *T, format func(T) string) string {
 	return format(*v)
 }
 
-type weeklyPayload struct {
-	Weeks []stats.WeekSummaryData `json:"weeks"`
-}
-
 type goalPayload struct {
 	Goal       stats.GoalProgress   `json:"goal"`
 	Projection stats.GoalProjection `json:"projection"`
@@ -87,7 +83,7 @@ func newStatsWeeklyCmd() *cobra.Command {
 
 			out := cmd.OutOrStdout()
 			if asJSON {
-				return envelope.Print(out, "c2.stats.weekly.v1", weeklyPayload{Weeks: summaries})
+				return envelope.Print(out, "c2.stats.weekly.v1", weeksPayload{Weeks: summaries})
 			}
 			fmt.Fprintln(out, "week        meters  sess  pace/500m   spm    hr")
 			for _, s := range summaries {
@@ -107,66 +103,56 @@ func newStatsWeeklyCmd() *cobra.Command {
 	return cmd
 }
 
-func newLegacyStatsGoalCmd() *cobra.Command {
-	var asJSON bool
-	cmd := &cobra.Command{
-		Use:   "goal",
-		Short: "Goal trajectory and projection",
-		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, p, workouts, err := loadWorkouts(cmd)
-			if err != nil {
-				return err
-			}
-			cfg, err = legacyGoalConfig(cfg, p)
-			if err != nil {
-				return err
-			}
-			if cfg.Goal.StartDate == "" || cfg.Goal.EndDate == "" {
-				return reportf(cmd, "Goal dates not configured. Run `c2 setup` to set start and end dates.")
-			}
-			now := cfg.Now()
-			goal, err := stats.ComputeGoalProgress(workouts, cfg, now)
-			if err != nil {
-				return err
-			}
-			end, err := time.Parse("2006-01-02", cfg.Goal.EndDate)
-			if err != nil {
-				return err
-			}
-			projection := stats.ProjectGoal(goal, end.AddDate(0, 0, 1), now)
-			weeks := stats.RecentWeeks(workouts, now, 4)
-			thisWeek := weeks[0]
-
-			out := cmd.OutOrStdout()
-			if asJSON {
-				return envelope.Print(out, "c2.stats.goal.v1", goalPayload{
-					Goal:       goal,
-					Projection: projection,
-					ThisWeek:   newWeekPayload(thisWeek.WeekStart, thisWeek.Meters, thisWeek.Sessions),
-				})
-			}
-
-			fmt.Fprintf(out, "Progress: %s / %s (%s%%)\n",
-				display.FormatMeters(goal.TotalMeters),
-				display.FormatMeters(goal.Target),
-				display.ToFixed(goal.Progress*100, 1))
-			fmt.Fprintf(out, "Required pace: %s m/wk\n", display.FormatMeters(goal.RequiredPace))
-			fmt.Fprintf(out, "Recent average: %s m/wk\n", display.FormatMeters(goal.CurrentAvgPace))
-			fmt.Fprintf(out, "Projection at current pace: %s m (%s%%)\n",
-				display.FormatMeters(projection.ProjectedTotalMeters), formatNumber(projection.ProjectedPct))
-			if projection.ShortfallMeters > 0 {
-				fmt.Fprintf(out, "Projected shortfall: %s m\n", display.FormatMeters(projection.ShortfallMeters))
-			} else {
-				fmt.Fprintln(out, "On track to exceed goal.")
-			}
-			fmt.Fprintf(out, "This week so far: %s m (%d sessions)\n",
-				display.FormatMeters(thisWeek.Meters), thisWeek.Sessions)
-			return nil
-		},
+func printLegacyStatsGoal(cmd *cobra.Command, asJSON bool) error {
+	cfg, p, workouts, err := loadWorkouts(cmd)
+	if err != nil {
+		return err
 	}
-	cmd.Flags().BoolVar(&asJSON, "json", false, "output as JSON")
-	return cmd
+	cfg, err = legacyGoalConfig(cfg, p)
+	if err != nil {
+		return err
+	}
+	if cfg.Goal.StartDate == "" || cfg.Goal.EndDate == "" {
+		return reportf(cmd, "Goal dates not configured. Run `c2 setup` to set start and end dates.")
+	}
+	now := cfg.Now()
+	goal, err := stats.ComputeGoalProgress(workouts, cfg, now)
+	if err != nil {
+		return err
+	}
+	end, err := time.Parse("2006-01-02", cfg.Goal.EndDate)
+	if err != nil {
+		return err
+	}
+	projection := stats.ProjectGoal(goal, end.AddDate(0, 0, 1), now)
+	weeks := stats.RecentWeeks(workouts, now, 4)
+	thisWeek := weeks[0]
+
+	out := cmd.OutOrStdout()
+	if asJSON {
+		return envelope.Print(out, "c2.stats.goal.v1", goalPayload{
+			Goal:       goal,
+			Projection: projection,
+			ThisWeek:   newWeekPayload(thisWeek.WeekStart, thisWeek.Meters, thisWeek.Sessions),
+		})
+	}
+
+	fmt.Fprintf(out, "Progress: %s / %s (%s%%)\n",
+		display.FormatMeters(goal.TotalMeters),
+		display.FormatMeters(goal.Target),
+		display.ToFixed(goal.Progress*100, 1))
+	fmt.Fprintf(out, "Required pace: %s m/wk\n", display.FormatMeters(goal.RequiredPace))
+	fmt.Fprintf(out, "Recent average: %s m/wk\n", display.FormatMeters(goal.CurrentAvgPace))
+	fmt.Fprintf(out, "Projection at current pace: %s m (%s%%)\n",
+		display.FormatMeters(projection.ProjectedTotalMeters), formatNumber(projection.ProjectedPct))
+	if projection.ShortfallMeters > 0 {
+		fmt.Fprintf(out, "Projected shortfall: %s m\n", display.FormatMeters(projection.ShortfallMeters))
+	} else {
+		fmt.Fprintln(out, "On track to exceed goal.")
+	}
+	fmt.Fprintf(out, "This week so far: %s m (%d sessions)\n",
+		display.FormatMeters(thisWeek.Meters), thisWeek.Sessions)
+	return nil
 }
 
 func newStatsSplitsCmd() *cobra.Command {
@@ -300,16 +286,8 @@ func newStatsGoalCmd() *cobra.Command {
 			if len(args) > 0 {
 				return fmt.Errorf("Legacy output does not take a goal ID.")
 			}
-			old := newLegacyStatsGoalCmd()
-			old.SetOut(cmd.OutOrStdout())
-			old.SetErr(cmd.ErrOrStderr())
 			asJSON, _ := cmd.Flags().GetBool("json")
-			if asJSON {
-				if err := old.Flags().Set("json", "true"); err != nil {
-					return err
-				}
-			}
-			return old.RunE(old, nil)
+			return printLegacyStatsGoal(cmd, asJSON)
 		}
 		return current(cmd, args)
 	}

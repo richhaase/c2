@@ -229,12 +229,9 @@ func newNoteListCmd() *cobra.Command {
 				workoutID = &id
 			}
 
-			_, p, err := loadStore()
+			_, p, err := loadReadableStore(cmd)
 			if err != nil {
 				return err
-			}
-			if err := store.RejectForeign(p, warner(cmd)); err != nil {
-				return reportf(cmd, "%v", err)
 			}
 			allNotes, err := notes.ReadAll(p)
 			if err != nil {
@@ -288,12 +285,9 @@ func newNoteShowCmd() *cobra.Command {
 		Example: "  c2 note show <id>\n  c2 note show <id> --json\n  c2 note edit <id>",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			_, p, err := loadStore()
+			_, p, err := loadReadableStore(cmd)
 			if err != nil {
 				return err
-			}
-			if err := store.RejectForeign(p, warner(cmd)); err != nil {
-				return reportf(cmd, "%v", err)
 			}
 			allNotes, err := notes.ReadAll(p)
 			if err != nil {

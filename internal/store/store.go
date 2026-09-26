@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
-	"sort"
 	"strings"
 	"syscall"
 	"time"
@@ -222,12 +221,6 @@ func Summarize(p paths.DataPaths, warn func(string)) (Summary, error) {
 	if err != nil {
 		return Summary{}, err
 	}
-	days := make([]string, 0, len(workouts))
-	for _, w := range workouts {
-		days = append(days, models.CalendarDay(w))
-	}
-	sort.Strings(days)
-
 	strokeNames, err := listIfPresent(p.StrokesDir)
 	if err != nil {
 		return Summary{}, err
@@ -248,9 +241,14 @@ func Summarize(p paths.DataPaths, warn func(string)) (Summary, error) {
 		StrokeFiles: strokeFiles,
 		Notes:       len(allNotes),
 	}
-	if len(days) > 0 {
-		summary.FirstDate = days[0]
-		summary.LastDate = days[len(days)-1]
+	for i, w := range workouts {
+		day := models.CalendarDay(w)
+		if i == 0 || day < summary.FirstDate {
+			summary.FirstDate = day
+		}
+		if i == 0 || day > summary.LastDate {
+			summary.LastDate = day
+		}
 	}
 	if meta := storage.ReadMeta(p, warn); meta != nil {
 		summary.SchemaVersion = meta.SchemaVersion
