@@ -14,6 +14,7 @@ import (
 	"github.com/richhaase/c2/internal/api"
 	"github.com/richhaase/c2/internal/config"
 	"github.com/richhaase/c2/internal/display"
+	"github.com/richhaase/c2/internal/goals"
 	"github.com/richhaase/c2/internal/paths"
 	"github.com/richhaase/c2/internal/store"
 	"github.com/richhaase/c2/internal/terminal"
@@ -183,50 +184,58 @@ func newSetupCmd(b build) *cobra.Command {
 			}
 			cfg.API.Token = token
 
-			targetInput, ok := p.value("Goal target meters", display.FormatMeters(cfg.Goal.TargetMeters), false)
-			if !ok {
-				return errReported
+			collection, err := goals.Read(paths.For(cfg.DataDir))
+			if err != nil {
+				return err
 			}
-			if parsed, err := strconv.Atoi(strings.ReplaceAll(targetInput, ",", "")); err == nil && parsed > 0 {
-				cfg.Goal.TargetMeters = parsed
-			} else {
-				fmt.Fprintf(out, "Invalid target %q, keeping previous value.\n", targetInput)
-			}
-
-			previousStart := cfg.Goal.StartDate
-			previousEnd := cfg.Goal.EndDate
-			startInput, ok := p.value("Goal start date (YYYY-MM-DD)", previousStart, false)
-			if !ok {
-				return errReported
-			}
-			if _, err := config.ParseGoalDate(startInput); err != nil {
-				fmt.Fprintf(out, "Invalid date \"%s\", keeping previous value.\n", startInput)
-			} else {
-				cfg.Goal.StartDate = startInput
-			}
-
-			endInput, ok := p.value("Goal end date (YYYY-MM-DD)", cfg.Goal.EndDate, false)
-			if !ok {
-				return errReported
-			}
-			if _, err := config.ParseGoalDate(endInput); err != nil {
-				fmt.Fprintf(out, "Invalid date \"%s\", keeping previous value.\n", endInput)
-			} else {
-				cfg.Goal.EndDate = endInput
-			}
-			startDate, startErr := config.ParseGoalDate(cfg.Goal.StartDate)
-			endDate, endErr := config.ParseGoalDate(cfg.Goal.EndDate)
-			if startErr == nil && endErr == nil && endDate.Before(startDate) {
-				previousStartDate, previousStartErr := config.ParseGoalDate(previousStart)
-				previousEndDate, previousEndErr := config.ParseGoalDate(previousEnd)
-				if previousStartErr != nil || previousEndErr != nil || previousEndDate.Before(previousStartDate) {
-					return fmt.Errorf("Goal end date must not be before start date.")
+			if collection == nil {
+				targetInput, ok := p.value("Goal target meters", display.FormatMeters(cfg.Goal.TargetMeters), false)
+				if !ok {
+					return errReported
 				}
-				fmt.Fprintln(out, "Goal end date is before the start date, keeping the previous date range.")
-				cfg.Goal.StartDate = previousStart
-				cfg.Goal.EndDate = previousEnd
-			}
+				if parsed, err := strconv.Atoi(strings.ReplaceAll(targetInput, ",", "")); err == nil && parsed > 0 {
+					cfg.Goal.TargetMeters = parsed
+				} else {
+					fmt.Fprintf(out, "Invalid target %q, keeping previous value.\n", targetInput)
+				}
 
+				previousStart := cfg.Goal.StartDate
+				previousEnd := cfg.Goal.EndDate
+				startInput, ok := p.value("Goal start date (YYYY-MM-DD)", previousStart, false)
+				if !ok {
+					return errReported
+				}
+				if _, err := config.ParseGoalDate(startInput); err != nil {
+					fmt.Fprintf(out, "Invalid date \"%s\", keeping previous value.\n", startInput)
+				} else {
+					cfg.Goal.StartDate = startInput
+				}
+
+				endInput, ok := p.value("Goal end date (YYYY-MM-DD)", cfg.Goal.EndDate, false)
+				if !ok {
+					return errReported
+				}
+				if _, err := config.ParseGoalDate(endInput); err != nil {
+					fmt.Fprintf(out, "Invalid date \"%s\", keeping previous value.\n", endInput)
+				} else {
+					cfg.Goal.EndDate = endInput
+				}
+				startDate, startErr := config.ParseGoalDate(cfg.Goal.StartDate)
+				endDate, endErr := config.ParseGoalDate(cfg.Goal.EndDate)
+				if startErr == nil && endErr == nil && endDate.Before(startDate) {
+					previousStartDate, previousStartErr := config.ParseGoalDate(previousStart)
+					previousEndDate, previousEndErr := config.ParseGoalDate(previousEnd)
+					if previousStartErr != nil || previousEndErr != nil || previousEndDate.Before(previousStartDate) {
+						return fmt.Errorf("Goal end date must not be before start date.")
+					}
+					fmt.Fprintln(out, "Goal end date is before the start date, keeping the previous date range.")
+					cfg.Goal.StartDate = previousStart
+					cfg.Goal.EndDate = previousEnd
+				}
+
+			} else {
+				fmt.Fprintln(out, "Goals are managed in the data store with `c2 goal`.")
+			}
 			dataDir, ok := chooseDataDir(cmd, p, cfg.DataDir)
 			if !ok {
 				return errReported
@@ -246,7 +255,7 @@ func newSetupCmd(b build) *cobra.Command {
 
 			if cfg.Goal.StartDate == "" || cfg.Goal.EndDate == "" {
 				fmt.Fprintln(out)
-				fmt.Fprintln(out, "Note: Goal dates not set. Commands like `c2 status` require start/end dates.")
+				fmt.Fprintln(out, "No dated legacy goal configured. Use `c2 goal add` for personal goals; reports work without goals.")
 			}
 
 			if cfg.API.Token != "" {

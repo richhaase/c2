@@ -203,7 +203,7 @@ func HRAtPace(workouts []models.Workout, now time.Time, weeks int) []HRPaceBand 
 		if w.HeartRate == nil || w.HeartRate.Average == nil || *w.HeartRate.Average <= 0 {
 			continue
 		}
-		at := models.ParsedDate(w)
+		at := models.ParseInLocation(w.Date, now.Location())
 		if at.Before(cutoff) || at.After(now) {
 			continue
 		}

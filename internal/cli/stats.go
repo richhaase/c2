@@ -8,7 +8,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/richhaase/c2/internal/analysis"
-	"github.com/richhaase/c2/internal/config"
 	"github.com/richhaase/c2/internal/display"
 	"github.com/richhaase/c2/internal/envelope"
 	"github.com/richhaase/c2/internal/models"
@@ -77,12 +76,12 @@ func newStatsWeeklyCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			_, _, workouts, err := loadWorkouts(cmd)
+			cfg, _, workouts, err := loadWorkouts(cmd)
 			if err != nil {
 				return err
 			}
 			summaries := make([]stats.WeekSummaryData, 0, weeks)
-			for _, ws := range stats.BuildWeekSummaries(workouts, time.Now(), weeks) {
+			for _, ws := range stats.BuildWeekSummaries(workouts, cfg.Now(), weeks) {
 				summaries = append(summaries, stats.WeekSummaryDataOf(ws))
 			}
 
@@ -108,26 +107,30 @@ func newStatsWeeklyCmd() *cobra.Command {
 	return cmd
 }
 
-func newStatsGoalCmd() *cobra.Command {
+func newLegacyStatsGoalCmd() *cobra.Command {
 	var asJSON bool
 	cmd := &cobra.Command{
 		Use:   "goal",
 		Short: "Goal trajectory and projection",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg, _, workouts, err := loadWorkouts(cmd)
+			cfg, p, workouts, err := loadWorkouts(cmd)
+			if err != nil {
+				return err
+			}
+			cfg, err = legacyGoalConfig(cfg, p)
 			if err != nil {
 				return err
 			}
 			if cfg.Goal.StartDate == "" || cfg.Goal.EndDate == "" {
 				return reportf(cmd, "Goal dates not configured. Run `c2 setup` to set start and end dates.")
 			}
-			now := time.Now()
+			now := cfg.Now()
 			goal, err := stats.ComputeGoalProgress(workouts, cfg, now)
 			if err != nil {
 				return err
 			}
-			end, err := config.ParseGoalDate(cfg.Goal.EndDate)
+			end, err := time.ParseInLocation("2006-01-02", cfg.Goal.EndDate, now.Location())
 			if err != nil {
 				return err
 			}
@@ -237,11 +240,11 @@ func newStatsHRPaceCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			_, _, workouts, err := loadWorkouts(cmd)
+			cfg, _, workouts, err := loadWorkouts(cmd)
 			if err != nil {
 				return err
 			}
-			bands := analysis.HRAtPace(workouts, time.Now(), weeks)
+			bands := analysis.HRAtPace(workouts, cfg.Now(), weeks)
 
 			out := cmd.OutOrStdout()
 			if asJSON {
@@ -283,5 +286,33 @@ func newStatsHRPaceCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVarP(&weeksFlag, "weeks", "w", "8", "window in weeks")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "output as JSON")
+	return cmd
+}
+
+func newStatsGoalCmd() *cobra.Command {
+	cmd := newGoalListCmd()
+	cmd.Use = "goal [id]"
+	cmd.Aliases = nil
+	var legacy bool
+	current := cmd.RunE
+	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		if legacy {
+			if len(args) > 0 {
+				return fmt.Errorf("Legacy output does not take a goal ID.")
+			}
+			old := newLegacyStatsGoalCmd()
+			old.SetOut(cmd.OutOrStdout())
+			old.SetErr(cmd.ErrOrStderr())
+			asJSON, _ := cmd.Flags().GetBool("json")
+			if asJSON {
+				if err := old.Flags().Set("json", "true"); err != nil {
+					return err
+				}
+			}
+			return old.RunE(old, nil)
+		}
+		return current(cmd, args)
+	}
+	cmd.Flags().BoolVar(&legacy, "legacy", false, "use the original c2.stats.goal.v1 output")
 	return cmd
 }

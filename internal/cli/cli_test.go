@@ -170,7 +170,7 @@ func TestEnvelopesOnEmptyStore(t *testing.T) {
 		}
 		env := decodeEnvelope(t, got.stdout)
 		schema, _ := env["schema"].(string)
-		if !strings.HasPrefix(schema, "c2.") || !strings.HasSuffix(schema, ".v1") {
+		if !strings.HasPrefix(schema, "c2.") || (!strings.HasSuffix(schema, ".v1") && schema != "c2.status.v2") {
 			t.Fatalf("%v schema=%q", args, schema)
 		}
 		if _, ok := env["generated_at"].(string); !ok {
@@ -637,7 +637,7 @@ func TestSyncRequiresToken(t *testing.T) {
 	}
 }
 
-func TestStatusRequiresGoalDates(t *testing.T) {
+func TestStatusWorksWithoutGoalDates(t *testing.T) {
 	home := testHome(t)
 	cfg := fmt.Sprintf(`{"data_dir": %q, "api": {"base_url": "x", "token": "tok"}}`,
 		filepath.Join(home, ".config", "c2", "data"))
@@ -645,7 +645,7 @@ func TestStatusRequiresGoalDates(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := run(t, "status")
-	if !got.failed || !strings.Contains(got.stderr, "Goal dates not configured") {
-		t.Fatalf("stderr=%q", got.stderr)
+	if got.failed || !strings.Contains(got.stdout, "No active goals") {
+		t.Fatalf("stdout=%q stderr=%q", got.stdout, got.stderr)
 	}
 }

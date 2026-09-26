@@ -73,8 +73,8 @@ func SessionCount(workouts []models.Workout) int {
 }
 
 func MondayOf(t time.Time) time.Time {
-	y, m, d := t.In(time.Local).Date()
-	midnight := time.Date(y, m, d, 0, 0, 0, 0, time.Local)
+	y, m, d := t.Date()
+	midnight := time.Date(y, m, d, 0, 0, 0, 0, t.Location())
 	offset := (int(midnight.Weekday()) + 6) % daysPerWeek
 	return midnight.AddDate(0, 0, -offset)
 }
@@ -82,7 +82,7 @@ func MondayOf(t time.Time) time.Time {
 func WorkoutsInRange(workouts []models.Workout, from, to time.Time) []models.Workout {
 	out := make([]models.Workout, 0, len(workouts))
 	for _, w := range workouts {
-		t := models.ParsedDate(w)
+		t := models.ParseInLocation(w.Date, from.Location())
 		if !t.Before(from) && t.Before(to) {
 			out = append(out, w)
 		}
@@ -104,7 +104,7 @@ func BuildWeekSummaries(workouts []models.Workout, now time.Time, weeks int) []W
 	daysByWeek := make(map[int]map[string]struct{})
 
 	for _, w := range workouts {
-		t := models.ParsedDate(w)
+		t := models.ParseInLocation(w.Date, now.Location())
 		if t.Before(cutoff) || t.After(now) {
 			continue
 		}
@@ -165,7 +165,7 @@ func RecentWeeks(workouts []models.Workout, now time.Time, count int) []RecentWe
 }
 
 func LocalYMD(t time.Time) string {
-	y, m, d := t.In(time.Local).Date()
+	y, m, d := t.Date()
 	return fmt.Sprintf("%04d-%02d-%02d", y, int(m), d)
 }
 
@@ -229,11 +229,16 @@ func ComputeGoalProgress(workouts []models.Workout, cfg config.Config, now time.
 	if target <= 0 {
 		return GoalProgress{}, fmt.Errorf("Goal target must be a positive number of meters.")
 	}
-	start, err := config.ParseGoalDate(cfg.Goal.StartDate)
+	loc := cfg.Location
+	if loc == nil {
+		loc = time.Local
+	}
+	now = now.In(loc)
+	start, err := time.ParseInLocation("2006-01-02", cfg.Goal.StartDate, loc)
 	if err != nil {
 		return GoalProgress{}, err
 	}
-	end, err := config.ParseGoalDate(cfg.Goal.EndDate)
+	end, err := time.ParseInLocation("2006-01-02", cfg.Goal.EndDate, loc)
 	if err != nil {
 		return GoalProgress{}, err
 	}
@@ -248,7 +253,7 @@ func ComputeGoalProgress(workouts []models.Workout, cfg config.Config, now time.
 
 	totalMeters := 0
 	for _, w := range workouts {
-		t := models.ParsedDate(w)
+		t := models.ParseInLocation(w.Date, loc)
 		if !t.Before(start) && t.Before(endExclusive) {
 			totalMeters += w.Distance
 		}
@@ -288,7 +293,7 @@ func ComputeGoalProgress(workouts []models.Workout, cfg config.Config, now time.
 		}
 		recentMeters := 0
 		for _, w := range workouts {
-			t := models.ParsedDate(w)
+			t := models.ParseInLocation(w.Date, loc)
 			if !t.Before(windowStart) && t.Before(thisMonday) {
 				recentMeters += w.Distance
 			}
@@ -312,7 +317,7 @@ func ComputeGoalProgress(workouts []models.Workout, cfg config.Config, now time.
 }
 
 func dayNumber(t time.Time) int {
-	y, m, d := t.In(time.Local).Date()
+	y, m, d := t.Date()
 	return int(time.Date(y, m, d, 0, 0, 0, 0, time.UTC).Unix() / secondsPerDay)
 }
 
@@ -329,7 +334,7 @@ func calendarDaysBetween(from, to time.Time) float64 {
 }
 
 func dayFraction(t time.Time) float64 {
-	local := t.In(time.Local)
+	local := t
 	seconds := local.Hour()*60*60 + local.Minute()*60 + local.Second()
 	return (float64(seconds) + float64(local.Nanosecond())/float64(time.Second)) / secondsPerDay
 }

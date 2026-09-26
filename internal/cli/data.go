@@ -48,7 +48,7 @@ func newDataCmd() *cobra.Command {
 		Use:   "data",
 		Short: "Manage the c2 data store",
 	}
-	cmd.AddCommand(newDataInfoCmd(), newDataCompactCmd(), newDataDoctorCmd(), newDataMoveCmd())
+	cmd.AddCommand(newDataInfoCmd(), newDataCompactCmd(), newDataDoctorCmd(), newDataMoveCmd(), newDataPrepareCmd(), newDataUseCmd())
 	return cmd
 }
 
@@ -226,6 +226,9 @@ func newDataMoveCmd() *cobra.Command {
 			}
 			warn := warner(cmd)
 			from := paths.For(paths.CanonicalRoot(cfg.DataDir))
+			if err := validatePortableStore(from, cmd); err != nil {
+				return err
+			}
 			source, err := store.Inspect(from, warn)
 			if err != nil {
 				return err

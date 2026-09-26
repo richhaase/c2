@@ -42,6 +42,7 @@ var storeMarkers = []string{
 	"reports",
 	"plan.md",
 	"playbook.md",
+	"goals.json",
 }
 
 type Summary struct {

@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/richhaase/c2/internal/goals"
 	"github.com/richhaase/c2/internal/models"
 	"github.com/richhaase/c2/internal/notes"
 	"github.com/richhaase/c2/internal/paths"
@@ -21,6 +22,7 @@ type Report struct {
 
 type checker struct {
 	report *Report
+	loose  map[string]string
 }
 
 func (c *checker) issue(format string, args ...any) {
@@ -96,7 +98,12 @@ func nonEmptyLines(data []byte) [][]byte {
 
 func Run(p paths.DataPaths) Report {
 	report := Report{Issues: []string{}}
-	c := &checker{report: &report}
+	c := &checker{report: &report, loose: map[string]string{}}
+	if collection, err := goals.Read(p); err != nil {
+		c.issue("goals.json: %v", err)
+	} else if collection != nil {
+		report.CheckedFiles++
+	}
 
 	c.checkMeta(p)
 	c.checkWorkouts(p)
@@ -235,6 +242,7 @@ func (c *checker) checkLooseNotes(p paths.DataPaths) {
 			c.issue("notes: divergent copies of note %s (%s, %s); reconcile before they compact", note.ID, prior.file, name)
 		}
 		looseContent[note.ID] = seenNote{content: content, file: name}
+		c.loose[note.ID] = content
 	}
 }
 
@@ -271,6 +279,10 @@ func (c *checker) checkArchives(p paths.DataPaths) {
 				continue
 			}
 			t, _ := notes.ParseDate(note.Date)
+			content, err := notes.Serialize(note)
+			if err == nil && c.loose[note.ID] != "" && c.loose[note.ID] != content {
+				c.issue("notes: divergent loose and archived copies of %s; reconcile before writing", note.ID)
+			}
 			ms := t.UnixMilli()
 			if hasPrev && (ms < prevMs || (ms == prevMs && note.ID < prevID)) {
 				c.issue("%s: line %d out of (date, id) order", label, lineNo)

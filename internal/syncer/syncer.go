@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/richhaase/c2/internal/api"
+	"github.com/richhaase/c2/internal/goals"
 	"github.com/richhaase/c2/internal/models"
 	"github.com/richhaase/c2/internal/notes"
 	"github.com/richhaase/c2/internal/paths"
@@ -41,6 +42,23 @@ func Run(
 	startedAt time.Time,
 	warn func(string),
 ) (Result, error) {
+	return RunForAccount(ctx, p, client, startedAt, warn, 0)
+}
+
+func RunForAccount(ctx context.Context, p paths.DataPaths, client Client, startedAt time.Time, warn func(string), accountID int64) (Result, error) {
+	if accountID > 0 {
+		c, err := goals.Read(p)
+		if err != nil {
+			return Result{}, err
+		}
+		existing, err := storage.ReadWorkouts(p)
+		if err != nil {
+			return Result{}, err
+		}
+		if err := goals.CheckAccount(c, existing, accountID); err != nil {
+			return Result{}, err
+		}
+	}
 	meta := storage.ReadMeta(p, warn)
 	result := Result{}
 	filter := api.ResultsFilter{}
@@ -61,6 +79,11 @@ func Run(
 		return Result{}, err
 	}
 	result.Fetched = len(workouts)
+	if accountID > 0 {
+		if err := goals.CheckAccount(nil, workouts, accountID); err != nil {
+			return Result{}, err
+		}
+	}
 	result.Workouts, err = storage.UpsertWorkouts(p, workouts)
 	if err != nil {
 		return Result{}, err

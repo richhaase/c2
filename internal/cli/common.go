@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/richhaase/c2/internal/config"
+	"github.com/richhaase/c2/internal/goals"
 	"github.com/richhaase/c2/internal/models"
 	"github.com/richhaase/c2/internal/paths"
 	"github.com/richhaase/c2/internal/storage"
@@ -25,7 +26,9 @@ func loadStore() (config.Config, paths.DataPaths, error) {
 	if err != nil {
 		return cfg, paths.DataPaths{}, err
 	}
-	return cfg, paths.For(cfg.DataDir), nil
+	p := paths.For(cfg.DataDir)
+	_, cfg.Location, err = goals.Load(p, cfg)
+	return cfg, p, err
 }
 
 func loadWorkouts(cmd *cobra.Command) (config.Config, paths.DataPaths, []models.Workout, error) {

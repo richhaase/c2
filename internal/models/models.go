@@ -152,9 +152,13 @@ func ParsedDate(w Workout) time.Time {
 }
 
 func ParseLocal(s string) time.Time {
+	return ParseInLocation(s, time.Local)
+}
+
+func ParseInLocation(s string, location *time.Location) time.Time {
 	normalized := strings.Replace(s, " ", "T", 1)
 	for _, layout := range []string{"2006-01-02T15:04:05", "2006-01-02T15:04", "2006-01-02"} {
-		if t, err := time.ParseInLocation(layout, normalized, time.Local); err == nil {
+		if t, err := time.ParseInLocation(layout, normalized, location); err == nil {
 			return t
 		}
 	}

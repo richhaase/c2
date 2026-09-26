@@ -36,6 +36,7 @@ func newRoot(b build) *cobra.Command {
 	}
 
 	root.AddCommand(
+		newGoalCmd(),
 		newSetupCmd(b),
 		newSyncCmd(b),
 		newLogCmd(),
