@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/richhaase/c2/internal/api"
+	"github.com/richhaase/c2/internal/doctor"
 	"github.com/richhaase/c2/internal/goals"
 	"github.com/richhaase/c2/internal/storage"
 	"github.com/richhaase/c2/internal/store"
@@ -61,7 +62,7 @@ func newSyncCmd(b build) *cobra.Command {
 				return err
 			}
 			if inspection.State == store.StateStore {
-				if err := validatePortableStore(p, cmd); err != nil {
+				if err := validateStore(p, cmd, doctor.RunBeforeSync); err != nil {
 					return err
 				}
 			}

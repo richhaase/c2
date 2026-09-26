@@ -97,6 +97,14 @@ func nonEmptyLines(data []byte) [][]byte {
 }
 
 func Run(p paths.DataPaths) Report {
+	return run(p, true)
+}
+
+func RunBeforeSync(p paths.DataPaths) Report {
+	return run(p, false)
+}
+
+func run(p paths.DataPaths, includeStrokeCache bool) Report {
 	report := Report{Issues: []string{}}
 	c := &checker{report: &report, loose: map[string]string{}}
 	if collection, err := goals.Read(p); err != nil {
@@ -107,7 +115,9 @@ func Run(p paths.DataPaths) Report {
 
 	c.checkMeta(p)
 	c.checkWorkouts(p)
-	c.checkStrokes(p)
+	if includeStrokeCache {
+		c.checkStrokes(p)
+	}
 	c.checkLooseNotes(p)
 	c.checkArchives(p)
 

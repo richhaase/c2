@@ -2,6 +2,7 @@ package goals
 
 import (
 	"os"
+	"reflect"
 	"testing"
 	"time"
 
@@ -125,6 +126,45 @@ func TestAccountChecks(t *testing.T) {
 	} {
 		if err := CheckAccount(tc.c, tc.w, tc.id); (err != nil) != tc.bad {
 			t.Fatalf("check %+v: %v", tc, err)
+		}
+	}
+}
+
+func TestCalendarDatesIndependentOfHostTimezone(t *testing.T) {
+	prior := time.Local
+	t.Cleanup(func() { time.Local = prior })
+	now := time.Date(2026, 9, 26, 12, 0, 0, 0, time.UTC)
+	workouts := []models.Workout{{ID: 1, Date: "2026-09-06 12:00:00", Distance: 5000, Time: 15000, Type: "rower"}}
+	for _, kind := range []string{"volume", "distance", "pace"} {
+		g := testGoal(kind, 5000)
+		if kind == "pace" {
+			g.Target = 150
+		}
+		g.From, g.To = "2026-09-06", "2026-09-06"
+		time.Local = time.UTC
+		want := Evaluate(g, workouts, now)
+		if !want.Achieved || want.QualifyingWorkouts != 1 {
+			t.Fatalf("missing baseline achievement: %+v", want)
+		}
+		for _, zone := range []string{"UTC", "America/Santiago", "Pacific/Apia"} {
+			t.Run(kind+"/"+zone, func(t *testing.T) {
+				loc, err := time.LoadLocation(zone)
+				if err != nil {
+					t.Fatal(err)
+				}
+				time.Local = loc
+				if err := Validate(g); err != nil {
+					t.Errorf("valid calendar bounds rejected: %v", err)
+				}
+				if got := Evaluate(g, workouts, now); !reflect.DeepEqual(got, want) {
+					t.Errorf("host timezone changed progress: %+v; want %+v", got, want)
+				}
+				skippedOnHost := g
+				skippedOnHost.From, skippedOnHost.To = "2011-12-30", "2011-12-30"
+				if err := Validate(skippedOnHost); err != nil {
+					t.Errorf("calendar date skipped only on host rejected: %v", err)
+				}
+			})
 		}
 	}
 }

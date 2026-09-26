@@ -15,6 +15,10 @@ import (
 )
 
 func validatePortableStore(p paths.DataPaths, cmd *cobra.Command) error {
+	return validateStore(p, cmd, doctor.Run)
+}
+
+func validateStore(p paths.DataPaths, cmd *cobra.Command, check func(paths.DataPaths) doctor.Report) error {
 	inspection, err := store.Inspect(p, warner(cmd))
 	if err != nil {
 		return err
@@ -25,7 +29,7 @@ func validatePortableStore(p paths.DataPaths, cmd *cobra.Command) error {
 	if err := store.CheckSchema(p, warner(cmd)); err != nil {
 		return err
 	}
-	r := doctor.Run(p)
+	r := check(p)
 	if len(r.Issues) > 0 {
 		return fmt.Errorf("Store validation failed:\n%s", strings.Join(r.Issues, "\n"))
 	}

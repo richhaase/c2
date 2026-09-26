@@ -118,6 +118,11 @@ store still relies on its machine's goal configuration. The workout-only
 `export` command is not a complete coaching backup. Doctor checks integrity,
 not whether an external copy includes every file from its source.
 
+Sync can re-download damaged stroke-cache files for workouts that advertise
+stroke data. It still validates goals, metadata, workouts, and coaching records
+before writing. Doctor and transfer checks continue to report damaged strokes;
+sync the source store to repair those files before transferring it.
+
 Use one active writer, and complete provider synchronization before switching
 machines. Cloud folders transport files; C2 does not reconcile simultaneous
 offline edits. Shared yearly note archives and whole-document writes can

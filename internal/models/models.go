@@ -240,7 +240,7 @@ func IsValidYMD(s string) bool {
 	if len(s) != len("2006-01-02") {
 		return false
 	}
-	t, err := time.ParseInLocation("2006-01-02", s, time.Local)
+	t, err := time.Parse("2006-01-02", s)
 	if err != nil {
 		return false
 	}
