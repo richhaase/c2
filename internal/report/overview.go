@@ -55,8 +55,9 @@ func BuildOverview(cfg config.Config, p paths.DataPaths, workouts []models.Worko
 		return Overview{}, err
 	}
 	now = now.In(loc)
-	cutoff := stats.MondayOf(now).AddDate(0, 0, -(weeks-1)*7)
-	end := time.Date(now.Year(), now.Month(), now.Day()+1, 0, 0, 0, 0, loc)
+	calendarDate := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	cutoff := stats.MondayOf(calendarDate).AddDate(0, 0, -(weeks-1)*7)
+	end := calendarDate.AddDate(0, 0, 1)
 	windowed := stats.WorkoutsInRange(workouts, cutoff, end)
 	coaching, err := gatherCoaching(p, now)
 	if err != nil {

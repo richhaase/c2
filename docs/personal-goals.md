@@ -79,6 +79,10 @@ separately, and distinguishes generation time, last successful sync, and
 latest recorded workout. Recent workout details are separately labeled as
 the latest across recorded history.
 
+Activity totals and weekly rows use the recorded calendar dates, including
+the full final date even when the analysis timezone skips or repeats midnight.
+The analysis timezone determines today's date and the report's freshness time.
+
 The new default schemas are `c2.report.v2` and `c2.status.v2`.
 `c2 report --json` and the existing `--data` are equivalent.
 `c2 stats goal` now provides the same multi-goal view as `c2 goal list`,
