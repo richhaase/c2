@@ -17,6 +17,26 @@ func testGoal(kind string, target float64) Goal {
 	return Goal{ID: kind, Name: kind, Kind: kind, Target: target, Equipment: "rower", Effort: "workout"}
 }
 
+func TestVolumeGoalRequiredPaceAgreesWithProjection(t *testing.T) {
+	g := testGoal("volume", 1000000)
+	g.From, g.To = "2026-01-01", "2026-12-31"
+	workouts := []models.Workout{
+		{ID: 1, Date: "2026-08-01", Type: "rower", Distance: 562375},
+		{ID: 2, Date: "2026-08-31", Type: "rower", Distance: 22750},
+		{ID: 3, Date: "2026-09-07", Type: "rower", Distance: 22750},
+		{ID: 4, Date: "2026-09-14", Type: "rower", Distance: 22750},
+		{ID: 5, Date: "2026-09-21", Type: "rower", Distance: 22750},
+	}
+	now := time.Date(2026, time.September, 28, 0, 0, 0, 0, time.UTC)
+	p := Evaluate(g, workouts, now)
+	if p.Volume == nil || p.Projection == nil {
+		t.Fatalf("missing volume details: %+v", p)
+	}
+	if p.Volume.RequiredPace != 25541 || p.Volume.OnPace || p.Projection.ShortfallMeters != 37875 {
+		t.Fatalf("inconsistent volume pace and forecast: %+v, %+v", p.Volume, p.Projection)
+	}
+}
+
 func TestEvaluateAllPreservesIndependentResultsAndInputOrder(t *testing.T) {
 	workouts := []models.Workout{
 		{ID: 3, Date: "2026-09-25 08:00:00", Distance: 5000, Time: 15000, Type: "rower"},

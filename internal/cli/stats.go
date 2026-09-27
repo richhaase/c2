@@ -124,7 +124,8 @@ func printLegacyStatsGoal(cmd *cobra.Command, asJSON bool) error {
 	if err != nil {
 		return err
 	}
-	projection := stats.ProjectGoal(goal, end.AddDate(0, 0, 1), now)
+	start, _ := time.Parse("2006-01-02", cfg.Goal.StartDate)
+	projection := stats.ProjectGoal(goal, start, end.AddDate(0, 0, 1), now)
 	weeks := stats.RecentWeeks(workouts, now, 4)
 	thisWeek := weeks[0]
 
@@ -141,7 +142,11 @@ func printLegacyStatsGoal(cmd *cobra.Command, asJSON bool) error {
 		display.FormatMeters(goal.TotalMeters),
 		display.FormatMeters(goal.Target),
 		display.ToFixed(goal.Progress*100, 1))
-	fmt.Fprintf(out, "Required pace: %s m/wk\n", display.FormatMeters(goal.RequiredPace))
+	if goal.RemainingWeeks == 0 {
+		fmt.Fprintln(out, "Required pace: goal window ended")
+	} else {
+		fmt.Fprintf(out, "Required pace: %s m/wk\n", display.FormatMeters(goal.RequiredPace))
+	}
 	fmt.Fprintf(out, "Recent average: %s m/wk\n", display.FormatMeters(goal.CurrentAvgPace))
 	fmt.Fprintf(out, "Projection at current pace: %s m (%s%%)\n",
 		display.FormatMeters(projection.ProjectedTotalMeters), formatNumber(projection.ProjectedPct))
