@@ -32,6 +32,7 @@ type GoalProgress struct {
 	RequiredPace    int     `json:"requiredPace"`
 	CurrentAvgPace  int     `json:"currentAvgPace"`
 	OnPace          bool    `json:"onPace"`
+	ElapsedFraction float64 `json:"-"`
 }
 
 type RecentWeek struct {
@@ -193,8 +194,8 @@ func WeekSummaryDataOf(ws WeekSummary) WeekSummaryData {
 	return out
 }
 
-func ProjectGoal(goal GoalProgress, end, now time.Time) GoalProjection {
-	weeksLeft := calendarDaysBetween(now, end) / daysPerWeek
+func ProjectGoal(goal GoalProgress, start, end, now time.Time) GoalProjection {
+	weeksLeft := remainingGoalWeeks(start, end, now)
 	return projectGoal(goal, weeksLeft)
 }
 
@@ -207,7 +208,7 @@ func projectGoal(goal GoalProgress, weeksLeft float64) GoalProjection {
 	if weeksLeft < 0 {
 		weeksLeft = 0
 	}
-	projected := int(math.Round(float64(goal.TotalMeters) + float64(goal.CurrentAvgPace)*weeksLeft))
+	projected := goal.TotalMeters + int(math.Floor(float64(goal.CurrentAvgPace)*weeksLeft))
 	shortfall := goal.Target - projected
 	if shortfall < 0 {
 		shortfall = 0
@@ -275,11 +276,12 @@ func ComputeGoalProgress(workouts []models.Workout, cfg config.Config, now time.
 	if remainingMeters < 0 {
 		remainingMeters = 0
 	}
-	remainingWeeks := totalWeeks - weeksElapsed
-	if remainingWeeks < 1 {
-		remainingWeeks = 1
+	weeksLeft := remainingGoalWeeks(start, endExclusive, today)
+	remainingWeeks := int(math.Ceil(weeksLeft))
+	requiredPace := 0
+	if weeksLeft > 0 {
+		requiredPace = int(math.Ceil(float64(remainingMeters) / weeksLeft))
 	}
-	requiredPace := int(math.Floor(float64(remainingMeters) / float64(remainingWeeks)))
 
 	currentAvgPace := 0
 	if weeksElapsed > 0 {
@@ -301,7 +303,8 @@ func ComputeGoalProgress(workouts []models.Workout, cfg config.Config, now time.
 		}
 		currentAvgPace = int(math.Floor(float64(recentMeters) / weeksInWindow))
 	}
-	targetWeekly := float64(target) / float64(totalWeeks)
+	onPace := remainingMeters == 0 || weeksLeft > 0 && currentAvgPace >= requiredPace
+	elapsedFraction := math.Max(0, math.Min(1, 1-weeksLeft*daysPerWeek/float64(totalDays)))
 
 	return GoalProgress{
 		Target:          target,
@@ -313,7 +316,8 @@ func ComputeGoalProgress(workouts []models.Workout, cfg config.Config, now time.
 		RemainingWeeks:  remainingWeeks,
 		RequiredPace:    requiredPace,
 		CurrentAvgPace:  currentAvgPace,
-		OnPace:          float64(currentAvgPace) >= targetWeekly,
+		OnPace:          onPace,
+		ElapsedFraction: elapsedFraction,
 	}, nil
 }
 
@@ -332,6 +336,10 @@ func floorDiv(a, b int) int {
 
 func calendarDaysBetween(from, to time.Time) float64 {
 	return float64(dayNumber(to)-dayNumber(from)) + dayFraction(to) - dayFraction(from)
+}
+
+func remainingGoalWeeks(start, end, now time.Time) float64 {
+	return math.Max(0, math.Min(calendarDaysBetween(start, end), calendarDaysBetween(now, end))/daysPerWeek)
 }
 
 func dayFraction(t time.Time) float64 {

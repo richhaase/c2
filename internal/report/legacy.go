@@ -39,6 +39,10 @@ func buildStatsCards(goal stats.GoalProgress, sessions int, avgPace float64, avg
 	if avgHR > 0 {
 		hr = strconv.Itoa(avgHR)
 	}
+	requiredPace := display.FormatMeters(goal.RequiredPace) + ` <span class="unit">m/wk</span>`
+	if goal.RemainingWeeks == 0 {
+		requiredPace = "Goal window ended"
+	}
 	return `<div class="stats-grid">
   <div class="stat-card">
     <div class="label">Total Meters</div>
@@ -62,7 +66,7 @@ func buildStatsCards(goal stats.GoalProgress, sessions int, avgPace float64, avg
   </div>
   <div class="stat-card">
     <div class="label">Required Weekly Pace</div>
-    <div class="value blue">` + display.FormatMeters(goal.RequiredPace) + ` <span class="unit">m/wk</span></div>
+    <div class="value blue">` + requiredPace + `</div>
   </div>
 </div>`
 }
@@ -85,7 +89,7 @@ func fmtShortNum(n float64) string {
 
 func buildGoalProgress(goal stats.GoalProgress) string {
 	pct := display.ToFixed(goal.Progress*100, 1)
-	onPacePct := display.ToFixed(float64(goal.WeeksElapsed)/float64(goal.TotalWeeks)*100, 1)
+	onPacePct := display.ToFixed(goal.ElapsedFraction*100, 1)
 	onPaceVal, _ := strconv.ParseFloat(onPacePct, 64)
 	diff := display.ToFixed(goal.Progress*100-onPaceVal, 1)
 	diffVal, _ := strconv.ParseFloat(diff, 64)
@@ -120,7 +124,7 @@ func buildGoalProgress(goal stats.GoalProgress) string {
   </div>
   <div style="margin-top: 12px; font-size: 13px;">
     <span class="` + diffClass + `">&#9632;</span> Actual &nbsp;&nbsp;
-    <span class="green">|</span> On-pace target (week ` + strconv.Itoa(goal.WeeksElapsed) + ` of ` + strconv.Itoa(goal.TotalWeeks) + `)
+    <span class="green">|</span> Target by today (` + onPacePct + `% of goal window elapsed)
     &mdash; <span class="` + diffClass + `" style="font-weight:600;">` + diffLabel + `</span>
   </div>
 </div>`
@@ -388,6 +392,13 @@ func buildRecentWorkouts(workouts []models.Workout, count int) string {
 }
 
 func buildProjection(goal stats.GoalProgress, projection stats.GoalProjection, workouts []models.Workout) string {
+	if goal.RemainingWeeks == 0 {
+		outcome := "Goal achieved"
+		if goal.RemainingMeters > 0 {
+			outcome = display.FormatMeters(goal.RemainingMeters) + "m short of goal"
+		}
+		return `<div class="section"><h2>Goal window ended</h2><p>` + outcome + `</p></div>`
+	}
 	avgSessionDist := 5000
 	if len(workouts) > 0 {
 		sum := 0
@@ -435,7 +446,7 @@ func buildProjection(goal stats.GoalProgress, projection stats.GoalProjection, w
       <h3 class="green">To Hit ` + display.FormatMeters(goal.Target) + `m</h3>
       <div class="big-num green">` + display.FormatMeters(goal.RequiredPace) + ` <span style="font-size:16px; font-weight:400;">m/wk</span></div>
       <div class="detail">
-        ` + display.FormatMeters(goal.RemainingMeters) + `m remaining over ` + strconv.Itoa(goal.RemainingWeeks) + ` weeks<br>
+        ` + display.FormatMeters(goal.RemainingMeters) + `m remaining over ` + formatNumber(projection.RemainingWeeks) + ` weeks<br>
         ~` + sessionsPerWeek + ` sessions of ` + display.FormatMeters(avgSessionDist) + `m per week<br>
         <span class="green" style="font-weight:600;">` + increaseLabel + `</span>
       </div>

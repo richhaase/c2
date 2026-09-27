@@ -99,7 +99,11 @@ func newStatusCmd() *cobra.Command {
 				display.FormatMeters(goal.Target),
 				display.FormatPercent(goal.Progress))
 			fmt.Fprintf(out, "Weeks elapsed: %d / %d\n", goal.WeeksElapsed, goal.TotalWeeks)
-			fmt.Fprintf(out, "Required pace: %s\n", display.FormatMetersPerWeek(goal.RequiredPace))
+			if goal.RemainingWeeks == 0 {
+				fmt.Fprintln(out, "Required pace: goal window ended")
+			} else {
+				fmt.Fprintf(out, "Required pace: %s\n", display.FormatMetersPerWeek(goal.RequiredPace))
+			}
 			fmt.Fprintf(out, "This week so far: %s (%d sessions)\n",
 				display.FormatMeters(thisWeek.Meters), thisWeek.Sessions)
 			fmt.Fprintln(out)

@@ -74,6 +74,22 @@ Dated volume details and forecast eligibility use the same inclusive calendar
 dates as goal evidence. A skipped or repeated midnight cannot shorten the goal
 window or start its forecast on the previous calendar date.
 
+Required weekly volume and projections use the same fractional calendar time
+remaining through the end of the inclusive deadline, including the rest of
+today. Required volume rounds up to whole meters per week; projected volume
+rounds down to whole meters. The on-pace flag tests whether the recent completed
+weeks' average can cover the meters still needed in that time. It accounts for
+progress already accumulated rather than comparing with a full-period average.
+Completed goals remain on pace. After the deadline, an unmet goal is off pace
+and has no future required pace; its numeric required pace and remaining weeks
+are zero, and the legacy text/HTML labels the goal window ended.
+
+The existing integer `remainingWeeks` field is the ceiling of the actual
+remaining weeks, retained for compatibility. It is not the divisor for required
+pace. The projection's `remaining_weeks` display rounds the actual horizon to
+one decimal; calculations use the unrounded value. Whole-week elapsed/total
+fields remain coarse counters. The HTML timeline uses elapsed calendar time.
+
 ## Reports and compatibility
 
 `c2 report` writes a self-contained HTML overview; it works without goals

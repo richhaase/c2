@@ -10,6 +10,11 @@ import (
 )
 
 func Build(cfg config.Config, p paths.DataPaths, workouts []models.Workout, now time.Time, weeks int) (Result, error) {
+	loc := cfg.Location
+	if loc == nil {
+		loc = time.Local
+	}
+	now = now.In(loc)
 	goal, err := stats.ComputeGoalProgress(workouts, cfg, now)
 	if err != nil {
 		return Result{}, err
@@ -18,7 +23,8 @@ func Build(cfg config.Config, p paths.DataPaths, workouts []models.Workout, now 
 	if err != nil {
 		return Result{}, err
 	}
-	projection := stats.ProjectGoal(goal, end.AddDate(0, 0, 1), now)
+	start, _ := time.Parse("2006-01-02", cfg.Goal.StartDate)
+	projection := stats.ProjectGoal(goal, start, end.AddDate(0, 0, 1), now)
 	summaries := stats.BuildWeekSummaries(workouts, now, weeks)
 	cutoff := stats.MondayOf(now).AddDate(0, 0, -(weeks-1)*7)
 	windowed := stats.WorkoutsInRange(workouts, cutoff, now)

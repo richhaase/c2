@@ -198,3 +198,48 @@ func TestBuildWithoutCoachingContentUsesEmptyCollections(t *testing.T) {
 		t.Fatalf("unexpected optional content: %#v", result.Payload)
 	}
 }
+
+func TestGoalCardsAndProjectionShareCalendarHorizon(t *testing.T) {
+	cfg, p, _, _ := reportFixture(t)
+	loc, err := time.LoadLocation("America/Denver")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.Location = loc
+	now := time.Date(2026, time.September, 27, 12, 0, 0, 0, loc)
+	workouts := []models.Workout{
+		{ID: 1, Date: "2026-08-01", Distance: 562375},
+		{ID: 2, Date: "2026-08-24", Distance: 22750},
+		{ID: 3, Date: "2026-08-31", Distance: 22750},
+		{ID: 4, Date: "2026-09-07", Distance: 22750},
+		{ID: 5, Date: "2026-09-14", Distance: 22750},
+	}
+	result, err := Build(cfg, p, workouts, now.UTC(), 8)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Payload.Goal.RequiredPace != 25408 || result.Payload.Goal.OnPace || result.Payload.Projection.ProjectedTotalMeters != 963750 {
+		t.Fatalf("inconsistent pace or timezone: %+v, %+v", result.Payload.Goal, result.Payload.Projection)
+	}
+	for _, want := range []string{"25,408", "346,625m remaining over 13.6 weeks", "Target by today (73.8%", "+12% increase needed"} {
+		if !strings.Contains(result.HTML, want) {
+			t.Errorf("HTML missing %q", want)
+		}
+	}
+	for _, stale := range []string{"23,108", "over 15 weeks", "week 38 of 53"} {
+		if strings.Contains(result.HTML, stale) {
+			t.Errorf("HTML retains stale calculation %q", stale)
+		}
+	}
+}
+
+func TestExpiredReportDoesNotPrescribeZeroWeeklyMeters(t *testing.T) {
+	cfg, p, workouts, _ := reportFixture(t)
+	result, err := Build(cfg, p, workouts, time.Date(2027, time.January, 1, 0, 0, 0, 0, time.Local), 8)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(result.HTML, "Goal window ended") || strings.Contains(result.HTML, "Pace is sufficient") {
+		t.Fatal("expired goal must not suggest zero meters will meet the deadline")
+	}
+}

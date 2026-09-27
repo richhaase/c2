@@ -184,7 +184,8 @@ func evaluateOrdered(g Goal, ordered []models.Workout, now time.Time) Progress {
 			end, _ := time.Parse("2006-01-02", g.To)
 			today := now.Format("2006-01-02")
 			if today >= g.From && today <= g.To {
-				projection := stats.ProjectGoal(v, end.AddDate(0, 0, 1), now)
+				start, _ := time.Parse("2006-01-02", g.From)
+				projection := stats.ProjectGoal(v, start, end.AddDate(0, 0, 1), now)
 				p.Projection = &projection
 			}
 		}

@@ -190,6 +190,93 @@ func TestComputeGoalProgressMidSeason(t *testing.T) {
 	}
 }
 
+func TestGoalPaceUsesRemainingCalendarTime(t *testing.T) {
+	cfg := makeGoalConfig(t)
+	cfg.Location = time.UTC
+	workouts := []models.Workout{
+		makeWorkout(1, "2026-08-01 10:00:00", 562375),
+		makeWorkout(2, "2026-08-31 10:00:00", 22750),
+		makeWorkout(3, "2026-09-07 10:00:00", 22750),
+		makeWorkout(4, "2026-09-14 10:00:00", 22750),
+		makeWorkout(5, "2026-09-21 10:00:00", 22750),
+	}
+	now := time.Date(2026, time.September, 28, 0, 0, 0, 0, time.UTC)
+	goal := goalProgressAt(t, workouts, cfg, now)
+	if goal.RequiredPace != 25541 || goal.RemainingWeeks != 14 {
+		t.Fatalf("required pace = %d, remaining week buckets = %d", goal.RequiredPace, goal.RemainingWeeks)
+	}
+	if goal.OnPace {
+		t.Fatal("annual average must not mark an insufficient recent pace on track")
+	}
+	end := time.Date(2027, time.January, 1, 0, 0, 0, 0, time.UTC)
+	start := time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC)
+	projection := ProjectGoal(goal, start, end, now)
+	if projection.RemainingWeeks != 13.6 || projection.ProjectedTotalMeters != 962125 {
+		t.Fatalf("projection = %+v", projection)
+	}
+	goal.CurrentAvgPace = goal.RequiredPace
+	if got := ProjectGoal(goal, start, end, now); got.ShortfallMeters != 0 {
+		t.Fatalf("required pace does not reach the target: %+v", got)
+	}
+}
+
+func TestGoalPaceBoundaries(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		at         string
+		meters     int
+		weeks      int
+		required   int
+		onPace     bool
+		projection float64
+	}{
+		{"before start", "2026-12-01 00:00:00", 0, 1, 21000, false, 0.3},
+		{"first day", "2026-12-30 00:00:00", 0, 1, 21000, false, 0.3},
+		{"partial last day", "2026-12-31 12:00:00", 1000, 1, 70000, false, 0.1},
+		{"expired", "2027-01-01 00:00:00", 1000, 0, 0, false, 0},
+		{"achieved", "2026-12-31 12:00:00", 6000, 1, 0, true, 0.1},
+		{"achieved and ended", "2027-01-01 00:00:00", 6000, 0, 0, true, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := makeGoalConfig(t)
+			cfg.Location = time.UTC
+			cfg.Goal.StartDate = "2026-12-30"
+			cfg.Goal.EndDate = "2026-12-31"
+			cfg.Goal.TargetMeters = 6000
+			now, err := time.Parse("2006-01-02 15:04:05", tc.at)
+			if err != nil {
+				t.Fatal(err)
+			}
+			goal := goalProgressAt(t, []models.Workout{makeWorkout(1, "2026-12-30 10:00:00", tc.meters)}, cfg, now)
+			if goal.RequiredPace != tc.required || goal.RemainingWeeks != tc.weeks || goal.OnPace != tc.onPace {
+				t.Fatalf("goal = %+v; want required=%d weeks=%d onPace=%t", goal, tc.required, tc.weeks, tc.onPace)
+			}
+			start := time.Date(2026, time.December, 30, 0, 0, 0, 0, time.UTC)
+			end := time.Date(2027, time.January, 1, 0, 0, 0, 0, time.UTC)
+			projection := ProjectGoal(goal, start, end, now)
+			if projection.RemainingWeeks != tc.projection || (projection.ShortfallMeters == 0) != goal.OnPace {
+				t.Fatalf("projection and pace disagree: %+v, %+v", projection, goal)
+			}
+		})
+	}
+}
+
+func TestGoalOnPaceRecognizesAccumulatedProgress(t *testing.T) {
+	cfg := makeGoalConfig(t)
+	cfg.Location = time.UTC
+	workouts := []models.Workout{
+		makeWorkout(1, "2026-08-01 10:00:00", 940000),
+		makeWorkout(2, "2026-08-31 10:00:00", 5000),
+		makeWorkout(3, "2026-09-07 10:00:00", 5000),
+		makeWorkout(4, "2026-09-14 10:00:00", 5000),
+		makeWorkout(5, "2026-09-21 10:00:00", 5000),
+	}
+	goal := goalProgressAt(t, workouts, cfg, time.Date(2026, time.September, 28, 0, 0, 0, 0, time.UTC))
+	if !goal.OnPace || goal.RequiredPace != 2948 {
+		t.Fatalf("banked progress should permit a lower recent pace: %+v", goal)
+	}
+}
+
 func TestComputeGoalProgressClampsRemainingMetersWhenGoalExceeded(t *testing.T) {
 	cfg := makeGoalConfig(t)
 	cfg.Goal.TargetMeters = 100_000
@@ -344,7 +431,7 @@ func TestGoalCalendarMathIgnoresDSTHourChanges(t *testing.T) {
 	}
 
 	end := time.Date(2026, time.March, 16, 0, 0, 0, 0, location)
-	projection := ProjectGoal(goalFixture(), end, now)
+	projection := ProjectGoal(goalFixture(), now, end, now)
 	if projection.RemainingWeeks != 1 {
 		t.Fatalf("RemainingWeeks = %v, want 1", projection.RemainingWeeks)
 	}
