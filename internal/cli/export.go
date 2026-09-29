@@ -139,9 +139,6 @@ func newExportCmd() *cobra.Command {
 			case "csv":
 				return writeCSV(csv.NewWriter(out), workouts)
 			case "json":
-				if workouts == nil {
-					workouts = []models.Workout{}
-				}
 				return envelope.Print(out, "c2.export.v1", exportPayload{
 					Count:    len(workouts),
 					Workouts: workouts,

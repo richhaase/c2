@@ -2,6 +2,7 @@ package report
 
 import (
 	"math"
+	"slices"
 	"sort"
 
 	"github.com/richhaase/c2/internal/analysis"
@@ -14,8 +15,7 @@ import (
 const reportRecentWorkouts = 10
 
 func sortedByDateDesc(workouts []models.Workout) []models.Workout {
-	sorted := make([]models.Workout, len(workouts))
-	copy(sorted, workouts)
+	sorted := slices.Clone(workouts)
 	sort.SliceStable(sorted, func(i, j int) bool {
 		return sorted[j].Date < sorted[i].Date
 	})
@@ -146,18 +146,13 @@ func buildActivityData(workouts, windowed []models.Workout, summaries []stats.We
 		summary.AvgHR = &hr
 	}
 
-	weekly := make([]stats.WeekSummaryData, 0, len(summaries))
-	for _, ws := range summaries {
-		weekly = append(weekly, stats.WeekSummaryDataOf(ws))
-	}
-
 	limit := min(reportRecentWorkouts, len(sorted))
 	recent := make([]display.WorkoutOutput, 0, limit)
 	for _, w := range sorted[:limit] {
 		recent = append(recent, display.WorkoutOutputOf(w))
 	}
 
-	return activityData{summary: summary, weekly: weekly, recentWorkouts: recent, latestSplits: latestSplits, latestDate: latestDate}
+	return activityData{summary: summary, weekly: stats.WeekSummariesDataOf(summaries), recentWorkouts: recent, latestSplits: latestSplits, latestDate: latestDate}
 }
 
 func buildReportPayload(

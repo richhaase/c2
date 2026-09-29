@@ -61,41 +61,6 @@ func ReadWorkouts(p paths.DataPaths) ([]models.Workout, error) {
 	return workouts, nil
 }
 
-func AppendWorkouts(p paths.DataPaths, incoming []models.Workout) (int, error) {
-	existing, err := ReadWorkouts(p)
-	if err != nil {
-		return 0, err
-	}
-	seen := make(map[int64]bool, len(existing))
-	for _, w := range existing {
-		seen[w.ID] = true
-	}
-
-	var buf bytes.Buffer
-	written := 0
-	for _, w := range incoming {
-		if seen[w.ID] {
-			continue
-		}
-		seen[w.ID] = true
-		line, err := jsonx.Compact(w)
-		if err != nil {
-			return 0, err
-		}
-		buf.Write(line)
-		buf.WriteByte('\n')
-		written++
-	}
-	if written == 0 {
-		return 0, nil
-	}
-
-	if err := appendWorkoutData(p, buf.Bytes()); err != nil {
-		return 0, err
-	}
-	return written, nil
-}
-
 func appendWorkoutData(p paths.DataPaths, data []byte) error {
 	file, err := os.OpenFile(p.Workouts, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {

@@ -60,7 +60,7 @@ func TestRunUsesUpdateWatermarkUpsertsAndRetriesStrokes(t *testing.T) {
 		Distance:   1000,
 		StrokeData: true,
 	}
-	if _, err := storage.AppendWorkouts(p, []models.Workout{existing}); err != nil {
+	if _, err := storage.UpsertWorkouts(p, []models.Workout{existing}); err != nil {
 		t.Fatal(err)
 	}
 	pace := 1750.0
@@ -76,7 +76,7 @@ func TestRunUsesUpdateWatermarkUpsertsAndRetriesStrokes(t *testing.T) {
 			1: errors.New("temporary"),
 		},
 	}
-	result, err := Run(context.Background(), p, client, startedAt, nil)
+	result, err := RunForAccount(context.Background(), p, client, startedAt, nil, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,7 +105,7 @@ func TestRunUsesUpdateWatermarkUpsertsAndRetriesStrokes(t *testing.T) {
 	client.strokeErrs = nil
 	client.strokes[1] = []models.StrokeData{{P: &pace}}
 	client.strokeCalls = nil
-	second, err := Run(context.Background(), p, client, startedAt.Add(time.Hour), nil)
+	second, err := RunForAccount(context.Background(), p, client, startedAt.Add(time.Hour), nil, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -123,9 +123,9 @@ func TestRunFallsBackToFullSyncForInvalidWatermark(t *testing.T) {
 	}
 	client := &fakeClient{}
 	var warnings []string
-	if _, err := Run(context.Background(), p, client, startedAt, func(s string) {
+	if _, err := RunForAccount(context.Background(), p, client, startedAt, func(s string) {
 		warnings = append(warnings, s)
-	}); err != nil {
+	}, 0); err != nil {
 		t.Fatal(err)
 	}
 	if client.filter.UpdatedAfter != "" {
@@ -139,7 +139,7 @@ func TestRunFallsBackToFullSyncForInvalidWatermark(t *testing.T) {
 func TestRunDoesNotAdvanceWatermarkWhenResultsFail(t *testing.T) {
 	p, startedAt := syncFixture(t)
 	client := &fakeClient{resultsErr: errors.New("offline")}
-	if _, err := Run(context.Background(), p, client, startedAt, nil); err == nil {
+	if _, err := RunForAccount(context.Background(), p, client, startedAt, nil, 0); err == nil {
 		t.Fatal("Run succeeded")
 	}
 	meta := storage.ReadMeta(p, nil)
@@ -152,54 +152,69 @@ func TestRunDoesNotAdvanceWatermarkWhenResultsFail(t *testing.T) {
 }
 
 func TestSyncStrokesStopsAfterRepeatedFailures(t *testing.T) {
-	p := paths.For(t.TempDir())
-	if err := os.MkdirAll(p.StrokesDir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	workouts := make([]models.Workout, maxStrokeFailuresPerSync+2)
-	client := &fakeClient{strokeErrs: map[int64]error{}}
-	for i := range workouts {
-		id := int64(i + 1)
-		workouts[i] = models.Workout{ID: id, StrokeData: true}
-		client.strokeErrs[id] = errors.New("offline")
-	}
+	for _, mode := range []string{"API errors", "empty responses", "mixed failures"} {
+		t.Run(mode, func(t *testing.T) {
+			p := paths.For(t.TempDir())
+			if err := os.MkdirAll(p.StrokesDir, 0o755); err != nil {
+				t.Fatal(err)
+			}
+			workouts := make([]models.Workout, maxStrokeFailuresPerSync+2)
+			client := &fakeClient{strokeErrs: map[int64]error{}}
+			for i := range workouts {
+				id := int64(i + 1)
+				workouts[i] = models.Workout{ID: id, StrokeData: true}
+				if mode == "API errors" || mode == "mixed failures" && i%2 == 0 {
+					client.strokeErrs[id] = errors.New("offline")
+				}
+			}
 
-	count, failures, cursor, err := syncStrokes(context.Background(), client, p, workouts, 0)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if count != 0 || len(failures) != maxStrokeFailuresPerSync {
-		t.Fatalf("count = %d, failures = %d", count, len(failures))
-	}
-	if len(client.strokeCalls) != maxStrokeFailuresPerSync {
-		t.Fatalf("stroke calls = %v", client.strokeCalls)
-	}
-	if cursor != int64(maxStrokeFailuresPerSync) {
-		t.Fatalf("cursor = %d", cursor)
-	}
+			count, failures, cursor, err := syncStrokes(context.Background(), client, p, workouts, 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if count != 0 || len(failures) != maxStrokeFailuresPerSync {
+				t.Fatalf("count = %d, failures = %d", count, len(failures))
+			}
+			if len(client.strokeCalls) != maxStrokeFailuresPerSync {
+				t.Fatalf("stroke calls = %v", client.strokeCalls)
+			}
+			for _, failure := range failures {
+				want := "API returned no stroke samples"
+				if client.strokeErrs[failure.WorkoutID] != nil {
+					want = "offline"
+				}
+				if failure.Err.Error() != want {
+					t.Fatalf("failure = %v, want %q", failure.Err, want)
+				}
+			}
+			if cursor != int64(maxStrokeFailuresPerSync) {
+				t.Fatalf("cursor = %d", cursor)
+			}
 
-	pace := 1750.0
-	client.strokeCalls = nil
-	client.strokes = map[int64][]models.StrokeData{
-		4: {{P: &pace}},
-		5: {{P: &pace}},
-	}
-	delete(client.strokeErrs, 4)
-	delete(client.strokeErrs, 5)
-	count, failures, cursor, err = syncStrokes(context.Background(), client, p, workouts, cursor)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if count != 2 || len(failures) != maxStrokeFailuresPerSync {
-		t.Fatalf("count = %d, failures = %d", count, len(failures))
-	}
-	if len(client.strokeCalls) != len(workouts) {
-		t.Fatalf("stroke calls = %v", client.strokeCalls)
-	}
-	if client.strokeCalls[0] != 4 || client.strokeCalls[1] != 5 {
-		t.Fatalf("stroke calls = %v", client.strokeCalls)
-	}
-	if cursor != 3 {
-		t.Fatalf("cursor = %d", cursor)
+			pace := 1750.0
+			client.strokeCalls = nil
+			client.strokes = map[int64][]models.StrokeData{
+				4: {{P: &pace}},
+				5: {{P: &pace}},
+			}
+			delete(client.strokeErrs, 4)
+			delete(client.strokeErrs, 5)
+			count, failures, cursor, err = syncStrokes(context.Background(), client, p, workouts, cursor)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if count != 2 || len(failures) != maxStrokeFailuresPerSync {
+				t.Fatalf("count = %d, failures = %d", count, len(failures))
+			}
+			if len(client.strokeCalls) != len(workouts) {
+				t.Fatalf("stroke calls = %v", client.strokeCalls)
+			}
+			if client.strokeCalls[0] != 4 || client.strokeCalls[1] != 5 {
+				t.Fatalf("stroke calls = %v", client.strokeCalls)
+			}
+			if cursor != 3 {
+				t.Fatalf("cursor = %d", cursor)
+			}
+		})
 	}
 }

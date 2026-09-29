@@ -524,14 +524,14 @@ func goalFixture() GoalProgress {
 	}
 }
 
-var projectNow = time.Date(2026, time.July, 6, 12, 0, 0, 0, time.Local)
+var projectNow = time.Date(2026, time.July, 6, 12, 0, 0, 0, time.UTC)
 
 func daysAfterNow(n float64) time.Time {
 	return projectNow.Add(time.Duration(n * 24 * float64(time.Hour)))
 }
 
-func TestProjectGoalProjectsOverActualRemainingTime(t *testing.T) {
-	active := ProjectGoalByElapsedTime(goalFixture(), daysAfterNow(26*7), projectNow)
+func TestProjectGoalProjectsOverRemainingCalendarDays(t *testing.T) {
+	active := ProjectGoal(goalFixture(), daysAfterNow(-26*7), daysAfterNow(26*7), projectNow)
 	if want := 900_000 + 26*20_000; active.ProjectedTotalMeters != want {
 		t.Errorf("ProjectedTotalMeters = %d, want %d", active.ProjectedTotalMeters, want)
 	}
@@ -544,7 +544,7 @@ func TestProjectGoalAddsNothingAfterGoalWindowEnds(t *testing.T) {
 	goal := goalFixture()
 	goal.WeeksElapsed = 60
 	goal.RemainingWeeks = 1
-	expired := ProjectGoalByElapsedTime(goal, daysAfterNow(-2), projectNow)
+	expired := ProjectGoal(goal, daysAfterNow(-26*7), daysAfterNow(-2), projectNow)
 	if expired.ProjectedTotalMeters != 900_000 {
 		t.Errorf("ProjectedTotalMeters = %d, want 900000", expired.ProjectedTotalMeters)
 	}
@@ -557,7 +557,7 @@ func TestProjectGoalAddsNothingAfterGoalWindowEnds(t *testing.T) {
 }
 
 func TestProjectGoalHandlesFractionalFinalWeeks(t *testing.T) {
-	halfWeek := ProjectGoalByElapsedTime(goalFixture(), daysAfterNow(3.5), projectNow)
+	halfWeek := ProjectGoal(goalFixture(), daysAfterNow(-26*7), daysAfterNow(3.5), projectNow)
 	if want := 900_000 + 10_000; halfWeek.ProjectedTotalMeters != want {
 		t.Errorf("ProjectedTotalMeters = %d, want %d", halfWeek.ProjectedTotalMeters, want)
 	}
@@ -617,7 +617,7 @@ func TestGoalProgressJSONUsesCamelCaseKeys(t *testing.T) {
 }
 
 func TestGoalProjectionJSONKeys(t *testing.T) {
-	out, err := json.Marshal(ProjectGoalByElapsedTime(goalFixture(), daysAfterNow(26*7), projectNow))
+	out, err := json.Marshal(ProjectGoal(goalFixture(), daysAfterNow(-26*7), daysAfterNow(26*7), projectNow))
 	if err != nil {
 		t.Fatalf("Marshal: %v", err)
 	}

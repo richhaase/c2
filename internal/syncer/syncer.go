@@ -35,16 +35,6 @@ type Result struct {
 	TotalWorkouts  int
 }
 
-func Run(
-	ctx context.Context,
-	p paths.DataPaths,
-	client Client,
-	startedAt time.Time,
-	warn func(string),
-) (Result, error) {
-	return RunForAccount(ctx, p, client, startedAt, warn, 0)
-}
-
 func RunForAccount(ctx context.Context, p paths.DataPaths, client Client, startedAt time.Time, warn func(string), accountID int64) (Result, error) {
 	if accountID > 0 {
 		c, err := goals.Read(p)
@@ -62,15 +52,13 @@ func RunForAccount(ctx context.Context, p paths.DataPaths, client Client, starte
 	meta := storage.ReadMeta(p, warn)
 	result := Result{}
 	filter := api.ResultsFilter{}
-	if meta != nil {
-		if meta.LastSync != "" {
-			updatedAfter, ok := updatedAfter(meta.LastSync)
-			if ok {
-				result.Since = meta.LastSync
-				filter.UpdatedAfter = updatedAfter
-			} else if warn != nil {
-				warn(fmt.Sprintf("Warning: meta.json has invalid last_sync %q; performing a full sync.", meta.LastSync))
-			}
+	if meta != nil && meta.LastSync != "" {
+		updatedAfter, ok := updatedAfter(meta.LastSync)
+		if ok {
+			result.Since = meta.LastSync
+			filter.UpdatedAfter = updatedAfter
+		} else if warn != nil {
+			warn(fmt.Sprintf("Warning: meta.json has invalid last_sync %q; performing a full sync.", meta.LastSync))
 		}
 	}
 
@@ -111,7 +99,7 @@ func RunForAccount(ctx context.Context, p paths.DataPaths, client Client, starte
 	newMeta := storage.StoreMeta{
 		SchemaVersion: new(storage.SchemaVersion),
 		Created:       startedAt.UTC().Format("2006-01-02T15:04:05.000Z07:00"),
-		LastSync:      syncTimestamp(startedAt),
+		LastSync:      startedAt.UTC().Format(time.RFC3339),
 		StrokeCursor:  strokeCursor,
 	}
 	if meta != nil {
@@ -167,18 +155,11 @@ func syncStrokes(
 		}
 		cursor = workout.ID
 		strokes, err := client.GetStrokes(ctx, workout.ID)
+		if err == nil && len(strokes) == 0 {
+			err = fmt.Errorf("API returned no stroke samples")
+		}
 		if err != nil {
 			failures = append(failures, StrokeFailure{WorkoutID: workout.ID, Err: err})
-			if len(failures) >= maxStrokeFailuresPerSync {
-				break
-			}
-			continue
-		}
-		if len(strokes) == 0 {
-			failures = append(failures, StrokeFailure{
-				WorkoutID: workout.ID,
-				Err:       fmt.Errorf("API returned no stroke samples"),
-			})
 			if len(failures) >= maxStrokeFailuresPerSync {
 				break
 			}
@@ -190,10 +171,6 @@ func syncStrokes(
 		count++
 	}
 	return count, failures, cursor, nil
-}
-
-func syncTimestamp(t time.Time) string {
-	return t.UTC().Format(time.RFC3339)
 }
 
 func updatedAfter(stored string) (string, bool) {

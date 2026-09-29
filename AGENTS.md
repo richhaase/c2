@@ -49,7 +49,6 @@ internal/
 ├── documents/            # plan / playbook / narrative reads from the store
 ├── doctor/               # store validation checks
 ├── display/              # formatting helpers
-├── terminal/             # TTY detection
 └── api/                  # Concept2 API client
 ```
 

@@ -14,8 +14,6 @@ import (
 	"github.com/richhaase/c2/internal/syncer"
 )
 
-const strokeFailureLimit = 3
-
 func newSyncCmd(b build) *cobra.Command {
 	return &cobra.Command{
 		Use:   "sync",
@@ -91,15 +89,9 @@ func newSyncCmd(b build) *cobra.Command {
 				fmt.Fprintf(out, "Fetched stroke data for %d workouts.\n", result.Strokes)
 			}
 			errOut := cmd.ErrOrStderr()
-			for i, failure := range result.StrokeFailures {
-				if i >= strokeFailureLimit {
-					break
-				}
+			for _, failure := range result.StrokeFailures {
 				fmt.Fprintf(errOut, "Warning: failed to fetch strokes for workout %d: %v\n",
 					failure.WorkoutID, failure.Err)
-			}
-			if extra := len(result.StrokeFailures) - strokeFailureLimit; extra > 0 {
-				fmt.Fprintf(errOut, "Warning: %d additional stroke fetch failure%s suppressed.\n", extra, plural(extra))
 			}
 			if len(result.StrokeFailures) > 0 {
 				fmt.Fprintln(errOut, "Missing stroke data will be retried on the next sync.")

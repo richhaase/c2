@@ -48,10 +48,7 @@ func newLogCmd() *cobra.Command {
 			sort.SliceStable(workouts, func(i, j int) bool {
 				return workouts[i].Date > workouts[j].Date
 			})
-			if n > len(workouts) {
-				n = len(workouts)
-			}
-			shown := workouts[:n]
+			shown := workouts[:min(n, len(workouts))]
 
 			out := cmd.OutOrStdout()
 			if asJSON {

@@ -25,8 +25,8 @@ func makeWorkout(mutate func(*Workout)) Workout {
 	return w
 }
 
-func TestParsedDate(t *testing.T) {
-	d := ParsedDate(makeWorkout(nil))
+func TestParseLocalWorkoutDate(t *testing.T) {
+	d := ParseLocal(makeWorkout(nil).Date)
 	if d.Year() != 2026 || d.Month() != 3 || d.Day() != 7 || d.Hour() != 9 || d.Minute() != 21 {
 		t.Fatalf("got %v", d)
 	}

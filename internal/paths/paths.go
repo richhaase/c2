@@ -65,31 +65,22 @@ func For(root string) DataPaths {
 
 func CanonicalRoot(p string) string {
 	expanded := ExpandTilde(p)
-	base, err := filepath.Abs(expanded)
+	abs, err := filepath.Abs(expanded)
 	if err != nil {
 		return expanded
 	}
+	base := abs
 	var rest []string
 	for {
 		real, err := filepath.EvalSymlinks(base)
 		if err == nil {
-			if len(rest) == 0 {
-				return real
-			}
 			return filepath.Join(append([]string{real}, rest...)...)
 		}
 		if !os.IsNotExist(err) {
-			if len(rest) == 0 {
-				return base
-			}
 			return filepath.Join(append([]string{base}, rest...)...)
 		}
 		parent := filepath.Dir(base)
 		if parent == base {
-			abs, absErr := filepath.Abs(expanded)
-			if absErr != nil {
-				return expanded
-			}
 			return abs
 		}
 		rest = append([]string{filepath.Base(base)}, rest...)

@@ -61,7 +61,6 @@ type GoalProjection struct {
 const (
 	recentPaceWeeks = 4
 	daysPerWeek     = 7
-	hoursPerWeek    = 24 * daysPerWeek
 	secondsPerDay   = 24 * 60 * 60
 )
 
@@ -124,6 +123,7 @@ func BuildWeekSummaries(workouts []models.Workout, now time.Time, weeks int) []W
 			daysByWeek[idx] = days
 		}
 		days[models.CalendarDay(w)] = struct{}{}
+		ws.Sessions = len(days)
 
 		if pace := models.Pace500mSeconds(w); pace > 0 {
 			ws.PaceSum += pace
@@ -137,10 +137,6 @@ func BuildWeekSummaries(workouts []models.Workout, now time.Time, weeks int) []W
 			ws.HRSum += *w.HeartRate.Average
 			ws.HRCount++
 		}
-	}
-
-	for idx, days := range daysByWeek {
-		summaries[idx].Sessions = len(days)
 	}
 
 	return summaries
@@ -194,25 +190,17 @@ func WeekSummaryDataOf(ws WeekSummary) WeekSummaryData {
 	return out
 }
 
+func WeekSummariesDataOf(summaries []WeekSummary) []WeekSummaryData {
+	out := make([]WeekSummaryData, 0, len(summaries))
+	for _, ws := range summaries {
+		out = append(out, WeekSummaryDataOf(ws))
+	}
+	return out
+}
+
 func ProjectGoal(goal GoalProgress, start, end, now time.Time) GoalProjection {
 	weeksLeft := remainingGoalWeeks(start, end, now)
-	return projectGoal(goal, weeksLeft)
-}
-
-func ProjectGoalByElapsedTime(goal GoalProgress, end, now time.Time) GoalProjection {
-	weeksLeft := end.Sub(now).Hours() / hoursPerWeek
-	return projectGoal(goal, weeksLeft)
-}
-
-func projectGoal(goal GoalProgress, weeksLeft float64) GoalProjection {
-	if weeksLeft < 0 {
-		weeksLeft = 0
-	}
 	projected := goal.TotalMeters + int(math.Floor(float64(goal.CurrentAvgPace)*weeksLeft))
-	shortfall := goal.Target - projected
-	if shortfall < 0 {
-		shortfall = 0
-	}
 	projectedPct := 0.0
 	if goal.Target > 0 {
 		projectedPct = math.Round(float64(projected)/float64(goal.Target)*1000) / 10
@@ -221,7 +209,7 @@ func projectGoal(goal GoalProgress, weeksLeft float64) GoalProjection {
 		RemainingWeeks:       math.Round(weeksLeft*10) / 10,
 		ProjectedTotalMeters: projected,
 		ProjectedPct:         projectedPct,
-		ShortfallMeters:      shortfall,
+		ShortfallMeters:      max(0, goal.Target-projected),
 	}
 }
 
@@ -272,10 +260,7 @@ func ComputeGoalProgress(workouts []models.Workout, cfg config.Config, now time.
 		weeksElapsed = floorDiv(dayNumber(today)-dayNumber(start), daysPerWeek)
 	}
 
-	remainingMeters := target - totalMeters
-	if remainingMeters < 0 {
-		remainingMeters = 0
-	}
+	remainingMeters := max(0, target-totalMeters)
 	weeksLeft := remainingGoalWeeks(start, endExclusive, today)
 	remainingWeeks := int(math.Ceil(weeksLeft))
 	requiredPace := 0
@@ -290,10 +275,7 @@ func ComputeGoalProgress(workouts []models.Workout, cfg config.Config, now time.
 		if windowStart.Before(start) {
 			windowStart = start
 		}
-		weeksInWindow := math.Round(float64(dayNumber(thisMonday)-dayNumber(windowStart)) / daysPerWeek)
-		if weeksInWindow < 1 {
-			weeksInWindow = 1
-		}
+		weeksInWindow := max(1, math.Round(float64(dayNumber(thisMonday)-dayNumber(windowStart))/daysPerWeek))
 		recentMeters := 0
 		for _, w := range workouts {
 			t := models.ParseInLocation(w.Date, time.UTC)
@@ -343,7 +325,6 @@ func remainingGoalWeeks(start, end, now time.Time) float64 {
 }
 
 func dayFraction(t time.Time) float64 {
-	local := t
-	seconds := local.Hour()*60*60 + local.Minute()*60 + local.Second()
-	return (float64(seconds) + float64(local.Nanosecond())/float64(time.Second)) / secondsPerDay
+	seconds := t.Hour()*60*60 + t.Minute()*60 + t.Second()
+	return (float64(seconds) + float64(t.Nanosecond())/float64(time.Second)) / secondsPerDay
 }
