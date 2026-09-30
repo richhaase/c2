@@ -147,10 +147,6 @@ type StrokeDataResponse struct {
 	Data []StrokeData `json:"data"`
 }
 
-func ParsedDate(w Workout) time.Time {
-	return ParseLocal(w.Date)
-}
-
 func ParseLocal(s string) time.Time {
 	return ParseInLocation(s, time.Local)
 }

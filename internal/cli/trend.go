@@ -9,6 +9,7 @@ import (
 
 	"github.com/richhaase/c2/internal/display"
 	"github.com/richhaase/c2/internal/envelope"
+	"github.com/richhaase/c2/internal/models"
 	"github.com/richhaase/c2/internal/stats"
 )
 
@@ -52,7 +53,7 @@ func printPaceTrend(out io.Writer, summaries []stats.WeekSummary) {
 		mins := int(avg / 60)
 		secs := avg - float64(mins)*60
 		fmt.Fprintf(out, "  %s  %s %d:%s\n",
-			shortWeek(ws.WeekStart), arrow, mins, padStart(display.ToFixed(secs, 1), 4, "0"))
+			shortWeek(ws.WeekStart), arrow, mins, padStart(models.ToFixed(secs, 1), 4, "0"))
 		prev = avg
 	}
 }
@@ -67,7 +68,7 @@ func printSPMTrend(out io.Writer, summaries []stats.WeekSummary) {
 		}
 		avg := float64(ws.SPMSum) / float64(ws.SPMCount)
 		fmt.Fprintf(out, "  %s  %s %4s\n",
-			shortWeek(ws.WeekStart), display.TrendArrow(prev, avg), display.ToFixed(avg, 1))
+			shortWeek(ws.WeekStart), display.TrendArrow(prev, avg), models.ToFixed(avg, 1))
 		prev = avg
 	}
 }
@@ -84,7 +85,7 @@ func printHRTrend(out io.Writer, summaries []stats.WeekSummary) {
 		hasAny = true
 		avg := float64(ws.HRSum) / float64(ws.HRCount)
 		fmt.Fprintf(out, "  %s  %s %5s\n",
-			shortWeek(ws.WeekStart), display.TrendArrow(prev, avg), display.ToFixed(avg, 1))
+			shortWeek(ws.WeekStart), display.TrendArrow(prev, avg), models.ToFixed(avg, 1))
 		prev = avg
 	}
 	if !hasAny {
@@ -126,11 +127,7 @@ func newTrendCmd() *cobra.Command {
 
 			out := cmd.OutOrStdout()
 			if asJSON {
-				payload := make([]stats.WeekSummaryData, 0, len(summaries))
-				for _, ws := range summaries {
-					payload = append(payload, stats.WeekSummaryDataOf(ws))
-				}
-				return envelope.Print(out, "c2.trend.v1", weeksPayload{Weeks: payload})
+				return envelope.Print(out, "c2.trend.v1", weeksPayload{Weeks: stats.WeekSummariesDataOf(summaries)})
 			}
 
 			if len(workouts) == 0 {

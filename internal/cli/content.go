@@ -2,11 +2,12 @@ package cli
 
 import (
 	"fmt"
+	"io"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
-
-	"github.com/richhaase/c2/internal/terminal"
+	"golang.org/x/term"
 )
 
 type contentInput struct {
@@ -47,10 +48,28 @@ func (c contentInput) read(cmd *cobra.Command, args []string, positionalFile boo
 	if positionalFile {
 		return readContent(cmd, arg)
 	}
-	return readBody(cmd, arg)
+	if arg != "" && arg != "-" {
+		return strings.TrimSpace(arg), nil
+	}
+	content, err := readContent(cmd, "-")
+	return strings.TrimSpace(content), err
+}
+
+func readContent(cmd *cobra.Command, source string) (string, error) {
+	var data []byte
+	var err error
+	if source != "" && source != "-" {
+		data, err = os.ReadFile(source)
+	} else {
+		data, err = io.ReadAll(cmd.InOrStdin())
+	}
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
 }
 
 func interactiveInput(cmd *cobra.Command) bool {
 	file, ok := cmd.InOrStdin().(*os.File)
-	return ok && terminal.IsTerminal(int(file.Fd()))
+	return ok && term.IsTerminal(int(file.Fd()))
 }

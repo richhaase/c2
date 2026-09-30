@@ -2,7 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"io"
 	"regexp"
 	"slices"
 	"strconv"
@@ -57,17 +56,6 @@ func parseNoteDate(raw string) (string, bool) {
 		return "", false
 	}
 	return notes.LocalISO(t), true
-}
-
-func readBody(cmd *cobra.Command, arg string) (string, error) {
-	if arg != "" && arg != "-" {
-		return strings.TrimSpace(arg), nil
-	}
-	data, err := io.ReadAll(cmd.InOrStdin())
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(string(data)), nil
 }
 
 func noteLine(n notes.Record) string {
@@ -214,8 +202,8 @@ func newNoteListCmd() *cobra.Command {
 		Example: "  c2 note list -n 5\n  c2 note list --type lesson --since 2026-01-01 --json\n  c2 note show <id> --json",
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if since != "" && !models.IsValidYMD(since) {
-				return reportf(cmd, "Error: invalid --since date %q (expected YYYY-MM-DD).", since)
+			if err := validateDateFlag(cmd, "--since", since); err != nil {
+				return err
 			}
 			if noteType != "" && !slices.Contains(notes.Types, noteType) {
 				return reportf(cmd, "Error: --type must be one of %s.", strings.Join(notes.Types, ", "))
@@ -254,9 +242,6 @@ func newNoteListCmd() *cobra.Command {
 
 			out := cmd.OutOrStdout()
 			if asJSON {
-				if matched == nil {
-					matched = []notes.Record{}
-				}
 				return envelope.Print(out, "c2.notes.v1", notesPayload{Count: len(matched), Notes: matched})
 			}
 			if len(matched) == 0 {

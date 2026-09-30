@@ -2,8 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"io"
-	"os"
 	"strings"
 	"time"
 
@@ -33,21 +31,6 @@ func documentText(content string) string {
 		return content + "\n"
 	}
 	return content
-}
-
-func readContent(cmd *cobra.Command, source string) (string, error) {
-	if source != "" && source != "-" {
-		data, err := os.ReadFile(source)
-		if err != nil {
-			return "", err
-		}
-		return string(data), nil
-	}
-	data, err := io.ReadAll(cmd.InOrStdin())
-	if err != nil {
-		return "", err
-	}
-	return string(data), nil
 }
 
 func writeDocument(path, content string) error {

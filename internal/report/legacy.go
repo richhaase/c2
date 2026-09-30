@@ -2,6 +2,7 @@ package report
 
 import (
 	"math"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -79,7 +80,7 @@ func fmtShortNum(n float64) string {
 		return formatNumber(n/1_000_000) + "M"
 	}
 	if n >= 1_000_000 {
-		return display.ToFixed(n/1_000_000, 1) + "M"
+		return models.ToFixed(n/1_000_000, 1) + "M"
 	}
 	if n >= 1000 {
 		return formatNumber(roundHalfUp(n/1000)) + "K"
@@ -88,16 +89,16 @@ func fmtShortNum(n float64) string {
 }
 
 func buildGoalProgress(goal stats.GoalProgress) string {
-	pct := display.ToFixed(goal.Progress*100, 1)
-	onPacePct := display.ToFixed(goal.ElapsedFraction*100, 1)
+	pct := models.ToFixed(goal.Progress*100, 1)
+	onPacePct := models.ToFixed(goal.ElapsedFraction*100, 1)
 	onPaceVal, _ := strconv.ParseFloat(onPacePct, 64)
-	diff := display.ToFixed(goal.Progress*100-onPaceVal, 1)
+	diff := models.ToFixed(goal.Progress*100-onPaceVal, 1)
 	diffVal, _ := strconv.ParseFloat(diff, 64)
 
 	diffLabel := diff + "% ahead of pace"
 	diffClass := "green"
 	if diffVal < 0 {
-		diffLabel = display.ToFixed(math.Abs(diffVal), 1) + "% behind pace"
+		diffLabel = models.ToFixed(math.Abs(diffVal), 1) + "% behind pace"
 		diffClass = "red"
 	}
 
@@ -141,12 +142,12 @@ func buildWeeklyVolume(summaries []stats.WeekSummary, requiredPace int) string {
 	if maxM <= 0 {
 		scale = 1
 	}
-	targetPct := display.ToFixed(float64(requiredPace)/scale*100, 1)
+	targetPct := models.ToFixed(float64(requiredPace)/scale*100, 1)
 	lastIdx := len(summaries) - 1
 
 	rows := make([]string, 0, len(summaries))
 	for i, ws := range summaries {
-		pct := display.ToFixed(float64(ws.Meters)/scale*100, 1)
+		pct := models.ToFixed(float64(ws.Meters)/scale*100, 1)
 		barClass := "behind"
 		if ws.Meters >= requiredPace {
 			barClass = "on-pace"
@@ -201,7 +202,7 @@ func buildWeeklyTrends(summaries []stats.WeekSummary) string {
 		}
 		avgSPM := "-"
 		if ws.SPMCount > 0 {
-			avgSPM = display.ToFixed(float64(ws.SPMSum)/float64(ws.SPMCount), 1)
+			avgSPM = models.ToFixed(float64(ws.SPMSum)/float64(ws.SPMCount), 1)
 		}
 		avgHR := "-"
 		if ws.HRCount > 0 {
@@ -281,30 +282,21 @@ func buildWeeklyTrends(summaries []stats.WeekSummary) string {
 
 func buildRecentWorkouts(workouts []models.Workout, count int) string {
 	sorted := sortedByDateDesc(workouts)
-	n := count
-	if n > len(sorted) {
-		n = len(sorted)
-	}
-	recent := make([]models.Workout, n)
-	for i := 0; i < n; i++ {
-		recent[i] = sorted[n-1-i]
-	}
+	n := min(count, len(sorted))
+	recent := sorted[:n]
+	slices.Reverse(recent)
 
 	dayCounts := make(map[string]int, n)
 	for _, w := range recent {
 		dayCounts[models.CalendarDay(w)]++
 	}
-	dayIndex := make([]int, n)
 	seen := make(map[string]int, n)
-	for i, w := range recent {
-		day := models.CalendarDay(w)
-		dayIndex[i] = seen[day]
-		seen[day]++
-	}
 
 	rows := make([]string, 0, n)
-	for i, w := range recent {
+	for _, w := range recent {
 		day := models.CalendarDay(w)
+		dayIndex := seen[day]
+		seen[day]++
 		d := models.ParseLocal(w.Date)
 		dateLabel := reportShortDate(d)
 		pace := models.Pace500m(w)
@@ -340,7 +332,7 @@ func buildRecentWorkouts(workouts []models.Workout, count int) string {
 
 		switch {
 		case isShort && !isHard:
-			if dayIndex[i] == dayCounts[day]-1 && dayIndex[i] != 0 {
+			if dayIndex == dayCounts[day]-1 && dayIndex != 0 {
 				annotation = "cooldown"
 			} else {
 				annotation = "warmup"
@@ -409,11 +401,11 @@ func buildProjection(goal stats.GoalProgress, projection stats.GoalProjection, w
 	}
 	sessionsPerWeek := "-"
 	if avgSessionDist > 0 {
-		sessionsPerWeek = display.ToFixed(float64(goal.RequiredPace)/float64(avgSessionDist), 1)
+		sessionsPerWeek = models.ToFixed(float64(goal.RequiredPace)/float64(avgSessionDist), 1)
 	}
 	increaseNeeded := "-"
 	if goal.CurrentAvgPace > 0 {
-		increaseNeeded = display.ToFixed(float64(goal.RequiredPace-goal.CurrentAvgPace)/float64(goal.CurrentAvgPace)*100, 0)
+		increaseNeeded = models.ToFixed(float64(goal.RequiredPace-goal.CurrentAvgPace)/float64(goal.CurrentAvgPace)*100, 0)
 	}
 	increaseVal, increaseErr := strconv.ParseFloat(increaseNeeded, 64)
 	increaseLabel := "Pace is sufficient"

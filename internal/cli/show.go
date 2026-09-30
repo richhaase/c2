@@ -79,16 +79,10 @@ func newShowCmd() *cobra.Command {
 			if asJSON {
 				raw := w.Raw
 				if len(raw) == 0 {
-					raw, err = jsonRaw(*w)
+					raw, err = jsonx.Compact(*w)
 					if err != nil {
 						return err
 					}
-				}
-				if splits == nil {
-					splits = []analysis.SplitRow{}
-				}
-				if linked == nil {
-					linked = []notes.Record{}
 				}
 				return envelope.Print(out, "c2.show.v1", showPayload{
 					Workout:               display.WorkoutOutputOf(*w),
@@ -197,12 +191,4 @@ func newShowCmd() *cobra.Command {
 
 	cmd.Flags().BoolVar(&asJSON, "json", false, "output as JSON")
 	return cmd
-}
-
-func jsonRaw(w models.Workout) (json.RawMessage, error) {
-	data, err := jsonx.Compact(w)
-	if err != nil {
-		return nil, err
-	}
-	return json.RawMessage(data), nil
 }

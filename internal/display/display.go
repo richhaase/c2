@@ -35,11 +35,7 @@ func FormatMeters(m int) string {
 }
 
 func FormatPercent(ratio float64) string {
-	return ToFixed(ratio*100, 1) + "%"
-}
-
-func ToFixed(v float64, digits int) string {
-	return models.ToFixed(v, digits)
+	return models.ToFixed(ratio*100, 1) + "%"
 }
 
 func FormatMetersPerWeek(m int) string {
@@ -65,7 +61,7 @@ func FormatIntervalTag(w models.Workout) string {
 }
 
 func FormatWorkoutLine(w models.Workout, dateFormat string) string {
-	dateStr := FormatDate(models.ParsedDate(w), dateFormat)
+	dateStr := FormatDate(models.ParseLocal(w.Date), dateFormat)
 	distance := FormatMeters(w.Distance) + "m"
 	pace := models.Pace500m(w)
 
@@ -152,17 +148,11 @@ func WorkoutOutputOf(w models.Workout) WorkoutOutput {
 	return out
 }
 
-func SparkBar(value, max float64) string {
-	if max <= 0 {
+func SparkBar(value, peak float64) string {
+	if peak <= 0 {
 		return ""
 	}
-	filled := int(math.Round(value / max * barWidth))
-	if filled < 0 {
-		filled = 0
-	}
-	if filled > barWidth {
-		filled = barWidth
-	}
+	filled := min(barWidth, max(0, int(math.Round(value/peak*barWidth))))
 	return strings.Repeat("█", filled) + strings.Repeat("░", barWidth-filled)
 }
 

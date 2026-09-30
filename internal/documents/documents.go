@@ -4,7 +4,6 @@ import (
 	"errors"
 	"io/fs"
 	"os"
-	"sort"
 	"strings"
 
 	"github.com/richhaase/c2/internal/models"
@@ -41,6 +40,5 @@ func ListNarratives(p paths.DataPaths) ([]string, error) {
 			dates = append(dates, date)
 		}
 	}
-	sort.Strings(dates)
 	return dates, nil
 }

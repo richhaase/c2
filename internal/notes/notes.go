@@ -6,11 +6,11 @@ import (
 	"encoding/base32"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"regexp"
 	"slices"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -74,7 +74,6 @@ var dateShapePattern = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}T.*(?:Z|[+-]\d{2}:\
 
 var noteTimeLayouts = []string{
 	time.RFC3339Nano,
-	time.RFC3339,
 	"2006-01-02T15:04Z07:00",
 }
 
@@ -301,7 +300,7 @@ func Compact(p paths.DataPaths, now time.Time) (CompactResult, error) {
 		deduped[e.note.ID] = e.note
 	}
 
-	var eligible []Record
+	byYear := map[int][]Record{}
 	for _, n := range deduped {
 		if divergent[n.ID] {
 			continue
@@ -310,19 +309,14 @@ func Compact(p paths.DataPaths, now time.Time) (CompactResult, error) {
 		if !ok || !t.Before(cutoff) {
 			continue
 		}
-		eligible = append(eligible, n)
-	}
-	if len(eligible) == 0 {
-		return CompactResult{}, nil
-	}
-
-	byYear := map[int][]Record{}
-	for _, n := range eligible {
 		year, err := strconv.Atoi(n.Date[:4])
 		if err != nil {
 			continue
 		}
 		byYear[year] = append(byYear[year], n)
+	}
+	if len(byYear) == 0 {
+		return CompactResult{}, nil
 	}
 
 	if err := os.MkdirAll(p.ArchiveDir, 0o755); err != nil {
@@ -330,13 +324,7 @@ func Compact(p paths.DataPaths, now time.Time) (CompactResult, error) {
 	}
 
 	result := CompactResult{}
-	years := make([]int, 0, len(byYear))
-	for year := range byYear {
-		years = append(years, year)
-	}
-	sort.Ints(years)
-
-	for _, year := range years {
+	for _, year := range slices.Sorted(maps.Keys(byYear)) {
 		batch := byYear[year]
 		existing := readArchiveYear(p, year)
 		if !existing.safeToRewrite {

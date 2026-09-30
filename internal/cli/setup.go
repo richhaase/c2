@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 
 	"github.com/richhaase/c2/internal/api"
 	"github.com/richhaase/c2/internal/config"
@@ -17,7 +18,6 @@ import (
 	"github.com/richhaase/c2/internal/goals"
 	"github.com/richhaase/c2/internal/paths"
 	"github.com/richhaase/c2/internal/store"
-	"github.com/richhaase/c2/internal/terminal"
 )
 
 type prompter struct {
@@ -38,13 +38,13 @@ func newPrompter(cmd *cobra.Command) *prompter {
 func (p *prompter) line(label string, hidden bool) (string, bool) {
 	fmt.Fprintf(p.out, "%s ", label)
 	if hidden {
-		if file, ok := p.reader.(*os.File); ok && terminal.IsTerminal(int(file.Fd())) {
-			value, err := terminal.ReadPassword(int(file.Fd()))
+		if file, ok := p.reader.(*os.File); ok && term.IsTerminal(int(file.Fd())) {
+			value, err := term.ReadPassword(int(file.Fd()))
 			fmt.Fprintln(p.out)
 			if err != nil {
 				return "", false
 			}
-			return strings.TrimSpace(value), true
+			return strings.TrimSpace(string(value)), true
 		}
 	}
 	if !p.in.Scan() {

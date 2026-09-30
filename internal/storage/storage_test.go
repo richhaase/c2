@@ -24,7 +24,7 @@ func tempPaths(t *testing.T) paths.DataPaths {
 
 func TestUpsertCountsRepeatedIDsOnceAndKeepsLastValue(t *testing.T) {
 	p := tempPaths(t)
-	if _, err := AppendWorkouts(p, []models.Workout{{ID: 1, Distance: 1000}}); err != nil {
+	if _, err := UpsertWorkouts(p, []models.Workout{{ID: 1, Distance: 1000}}); err != nil {
 		t.Fatal(err)
 	}
 	batch := []models.Workout{
@@ -62,27 +62,27 @@ func TestReadWorkoutsMissingFile(t *testing.T) {
 	}
 }
 
-func TestAppendWorkoutsDedupesByID(t *testing.T) {
+func TestUpsertWorkoutsDedupesByID(t *testing.T) {
 	p := tempPaths(t)
 	var w models.Workout
 	if err := json.Unmarshal([]byte(workoutLine), &w); err != nil {
 		t.Fatal(err)
 	}
 
-	n, err := AppendWorkouts(p, []models.Workout{w})
+	result, err := UpsertWorkouts(p, []models.Workout{w})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if n != 1 {
-		t.Fatalf("first append wrote %d", n)
+	if result != (UpsertResult{Added: 1}) {
+		t.Fatalf("first upsert = %+v", result)
 	}
 
-	n, err = AppendWorkouts(p, []models.Workout{w})
+	result, err = UpsertWorkouts(p, []models.Workout{w})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if n != 0 {
-		t.Fatalf("duplicate append wrote %d", n)
+	if result != (UpsertResult{}) {
+		t.Fatalf("duplicate upsert = %+v", result)
 	}
 
 	count, err := WorkoutCount(p)
@@ -94,29 +94,29 @@ func TestAppendWorkoutsDedupesByID(t *testing.T) {
 	}
 }
 
-func TestAppendWorkoutsDedupesWithinBatch(t *testing.T) {
+func TestUpsertWorkoutsDedupesWithinBatch(t *testing.T) {
 	p := tempPaths(t)
 	var w models.Workout
 	if err := json.Unmarshal([]byte(workoutLine), &w); err != nil {
 		t.Fatal(err)
 	}
-	n, err := AppendWorkouts(p, []models.Workout{w, w})
+	result, err := UpsertWorkouts(p, []models.Workout{w, w})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if n != 1 {
-		t.Fatalf("wrote %d, want 1", n)
+	if result != (UpsertResult{Added: 1}) {
+		t.Fatalf("upsert = %+v, want one addition", result)
 	}
 }
 
-func TestAppendWorkoutsPreservesUnknownFields(t *testing.T) {
+func TestUpsertWorkoutsPreservesUnknownFields(t *testing.T) {
 	p := tempPaths(t)
 	line := `{"id":9,"user_id":1,"date":"2026-07-01 08:00:00","distance":8000,"type":"rower","time":12000,"time_formatted":"20:00.0","nickname":"keep me"}`
 	var w models.Workout
 	if err := json.Unmarshal([]byte(line), &w); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := AppendWorkouts(p, []models.Workout{w}); err != nil {
+	if _, err := UpsertWorkouts(p, []models.Workout{w}); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(p.Workouts)
@@ -134,7 +134,7 @@ func TestUpsertWorkoutsAddsAndUpdatesByID(t *testing.T) {
 		{ID: 1, Date: "2026-01-01", Distance: 1000},
 		{ID: 2, Date: "2026-01-02", Distance: 2000},
 	}
-	if _, err := AppendWorkouts(p, initial); err != nil {
+	if _, err := UpsertWorkouts(p, initial); err != nil {
 		t.Fatal(err)
 	}
 	result, err := UpsertWorkouts(p, []models.Workout{
@@ -163,7 +163,7 @@ func TestUpsertWorkoutsPreservesUnchangedRawRecords(t *testing.T) {
 	if err := json.Unmarshal([]byte(raw), &workout); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := AppendWorkouts(p, []models.Workout{workout}); err != nil {
+	if _, err := UpsertWorkouts(p, []models.Workout{workout}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := UpsertWorkouts(p, []models.Workout{{ID: 2, Date: "2026-01-02", Distance: 2000}}); err != nil {

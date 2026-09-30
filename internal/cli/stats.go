@@ -76,10 +76,7 @@ func newStatsWeeklyCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			summaries := make([]stats.WeekSummaryData, 0, weeks)
-			for _, ws := range stats.BuildWeekSummaries(workouts, cfg.Now(), weeks) {
-				summaries = append(summaries, stats.WeekSummaryDataOf(ws))
-			}
+			summaries := stats.WeekSummariesDataOf(stats.BuildWeekSummaries(workouts, cfg.Now(), weeks))
 
 			out := cmd.OutOrStdout()
 			if asJSON {
@@ -112,9 +109,6 @@ func printLegacyStatsGoal(cmd *cobra.Command, asJSON bool) error {
 	if err != nil {
 		return err
 	}
-	if cfg.Goal.StartDate == "" || cfg.Goal.EndDate == "" {
-		return reportf(cmd, "Goal dates not configured. Run `c2 setup` to set start and end dates.")
-	}
 	now := cfg.Now()
 	goal, err := stats.ComputeGoalProgress(workouts, cfg, now)
 	if err != nil {
@@ -141,7 +135,7 @@ func printLegacyStatsGoal(cmd *cobra.Command, asJSON bool) error {
 	fmt.Fprintf(out, "Progress: %s / %s (%s%%)\n",
 		display.FormatMeters(goal.TotalMeters),
 		display.FormatMeters(goal.Target),
-		display.ToFixed(goal.Progress*100, 1))
+		models.ToFixed(goal.Progress*100, 1))
 	if goal.RemainingWeeks == 0 {
 		fmt.Fprintln(out, "Required pace: goal window ended")
 	} else {
@@ -239,9 +233,6 @@ func newStatsHRPaceCmd() *cobra.Command {
 
 			out := cmd.OutOrStdout()
 			if asJSON {
-				if bands == nil {
-					bands = []analysis.HRPaceBand{}
-				}
 				return envelope.Print(out, "c2.stats.hr-pace.v1", hrPacePayload{Weeks: weeks, Bands: bands})
 			}
 			if len(bands) == 0 {

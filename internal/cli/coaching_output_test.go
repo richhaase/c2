@@ -8,6 +8,42 @@ import (
 	"testing"
 )
 
+func TestNoteInputsPreserveExistingWhitespaceRules(t *testing.T) {
+	testHome(t)
+	text := "  note < & >\n\n"
+	file := filepath.Join(t.TempDir(), "note.md")
+	if err := os.WriteFile(file, []byte(text), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name string
+		args []string
+		want string
+	}{
+		{"positional text", []string{text}, strings.TrimSpace(text)},
+		{"positional stdin", []string{"-"}, strings.TrimSpace(text)},
+		{"implicit stdin", nil, strings.TrimSpace(text)},
+		{"body flag", []string{"--body", text}, text},
+		{"file flag", []string{"--file", file}, text},
+		{"stdin flag", []string{"--file", "-"}, text},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			args := append([]string{"note", "add", "--json"}, tc.args...)
+			got := runWithStdin(t, text, args...)
+			if got.failed {
+				t.Fatalf("%v = %+v", args, got)
+			}
+			note := savedNote(t, got.stdout)
+			if note.Body != tc.want {
+				t.Fatalf("body = %q, want %q", note.Body, tc.want)
+			}
+			if shown := savedNote(t, mustRun(t, "note", "show", note.ID, "--json").stdout); shown.Body != tc.want {
+				t.Fatalf("stored body = %q, want %q", shown.Body, tc.want)
+			}
+		})
+	}
+}
+
 func TestCoachingDocumentInputsAndReceipts(t *testing.T) {
 	testHome(t)
 	text := "  # Plan < & >\n\n"

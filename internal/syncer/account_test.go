@@ -12,7 +12,7 @@ import (
 
 func TestAccountMismatchStopsBeforeChangingRecords(t *testing.T) {
 	p, now := syncFixture(t)
-	if _, err := storage.AppendWorkouts(p, []models.Workout{{ID: 1, UserID: 1, Date: "2026-07-01", Distance: 5000, Time: 9000}}); err != nil {
+	if _, err := storage.UpsertWorkouts(p, []models.Workout{{ID: 1, UserID: 1, Date: "2026-07-01", Distance: 5000, Time: 9000}}); err != nil {
 		t.Fatal(err)
 	}
 	if err := goals.Write(p, goals.Collection{Version: 1, Timezone: "UTC", AccountID: 1, Goals: []goals.Goal{}}); err != nil {

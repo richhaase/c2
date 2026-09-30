@@ -88,14 +88,6 @@ func isStrokeShaped(raw []byte) bool {
 	return true
 }
 
-func nonEmptyLines(data []byte) [][]byte {
-	var out [][]byte
-	for line := range bytes.SplitSeq(data, []byte("\n")) {
-		out = append(out, line)
-	}
-	return out
-}
-
 func Run(p paths.DataPaths) Report {
 	return run(p, true)
 }
@@ -158,7 +150,7 @@ func (c *checker) checkWorkouts(p paths.DataPaths) {
 	}
 	c.report.CheckedFiles++
 	seen := map[int64]bool{}
-	for i, line := range nonEmptyLines(data) {
+	for i, line := range bytes.Split(data, []byte("\n")) {
 		lineNo := i + 1
 		if len(bytes.TrimSpace(line)) == 0 {
 			continue
@@ -198,7 +190,7 @@ func (c *checker) checkStrokes(p paths.DataPaths) {
 			continue
 		}
 		c.report.CheckedFiles++
-		for i, line := range nonEmptyLines(data) {
+		for i, line := range bytes.Split(data, []byte("\n")) {
 			lineNo := i + 1
 			if len(bytes.TrimSpace(line)) == 0 {
 				continue
@@ -274,7 +266,7 @@ func (c *checker) checkArchives(p paths.DataPaths) {
 		hasPrev := false
 		var prevMs int64
 		prevID := ""
-		for i, line := range nonEmptyLines(data) {
+		for i, line := range bytes.Split(data, []byte("\n")) {
 			lineNo := i + 1
 			if len(bytes.TrimSpace(line)) == 0 {
 				continue

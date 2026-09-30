@@ -63,9 +63,6 @@ func newStatusCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if cfg.Goal.StartDate == "" || cfg.Goal.EndDate == "" {
-				return reportf(cmd, "Goal dates not configured. Run `c2 setup` to set start and end dates.")
-			}
 			now := cfg.Now()
 			goal, err := stats.ComputeGoalProgress(workouts, cfg, now)
 			if err != nil {
